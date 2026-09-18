@@ -46,5 +46,8 @@
     "build:web": "npx expo export --platform web",
     "typecheck": "tsc --noEmit"
   },
+  "engines": {
+    "node": "22.x"
+  },
   "private": true
 }
