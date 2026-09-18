@@ -1,0 +1,84 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isPostOwner() {
+      return signedIn() && request.auth.uid == resource.data.userId;
+    }
+
+    function isCreatingOwnPost() {
+      return signedIn() && request.resource.data.userId == request.auth.uid;
+    }
+
+    /** Mirrored from RevenueCat via trusted webhook / Admin SDK — never set by clients. */
+    function callerIsProYearly() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isProYearly', false) == true;
+    }
+
+    function hasNonEmptyLinkUrl() {
+      return request.resource.data.keys().hasAll(['linkUrl'])
+        && request.resource.data.linkUrl is string
+        && request.resource.data.linkUrl.size() > 0;
+    }
+
+    function linkUrlAllowedOnWrite() {
+      return !hasNonEmptyLinkUrl() || callerIsProYearly();
+    }
+
+    match /users/{userId} {
+      allow read: if true;
+
+      allow create: if signedIn()
+        && request.auth.uid == userId
+        && request.resource.data.clerkId == userId
+        && request.resource.data.get('isProYearly', false) == false
+        && request.resource.data.get('subscriptionTier', 'standard') == 'standard';
+
+      // Clients may update profile + blockedUsers, but never flip Pro flags themselves.
+      allow update: if signedIn()
+        && request.auth.uid == userId
+        && request.resource.data.isProYearly == resource.data.get('isProYearly', false)
+        && request.resource.data.subscriptionTier == resource.data.get('subscriptionTier', 'standard');
+
+      allow delete: if false;
+    }
+
+    match /posts/{postId} {
+      allow read: if true;
+
+      allow create: if isCreatingOwnPost()
+        && request.resource.data.mediaType in ['video', 'image']
+        && request.resource.data.keys().hasAll([
+          'userId', 'mediaUrl', 'mediaType', 'title', 'description', 'createdAt'
+        ])
+        && linkUrlAllowedOnWrite();
+
+      allow update: if isPostOwner()
+        && request.resource.data.userId == resource.data.userId
+        && linkUrlAllowedOnWrite();
+
+      allow delete: if isPostOwner();
+    }
+
+    /** UGC reports — create-only for signed-in reporters. */
+    match /reports/{reportId} {
+      allow read: if false;
+      allow create: if signedIn()
+        && request.resource.data.reporterId == request.auth.uid
+        && request.resource.data.keys().hasAll([
+          'postId', 'reportedUserId', 'reporterId', 'createdAt'
+        ])
+        && request.resource.data.postId is string
+        && request.resource.data.reportedUserId is string
+        && request.resource.data.postId.size() > 0
+        && request.resource.data.reportedUserId.size() > 0;
+      allow update, delete: if false;
+    }
+  }
+}
