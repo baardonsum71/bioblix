@@ -1,16 +1,19 @@
+import { Link } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Platform, StyleSheet, View } from 'react-native';
 
+import {
+  BioBlixLogo,
+  BioBlixScreenShell,
+} from '@/components/bioblix/BioBlixLogo';
 import { BioBlixText } from '@/components/bioblix/BioBlixText';
 import { BioBlixBrand, BioBlixPalette } from '@/constants/bioblixTheme';
 
 /** About sheet — unique BioBlix positioning (helps App Store differentiation). */
 export default function BioBlixAboutModal() {
   return (
-    <View style={styles.container}>
-      <BioBlixText variant="display" color={BioBlixPalette.aurora}>
-        {BioBlixBrand.name}
-      </BioBlixText>
+    <BioBlixScreenShell style={styles.container}>
+      <BioBlixLogo variant="wordmark" size={120} />
       <BioBlixText variant="title" style={styles.tagline}>
         {BioBlixBrand.tagline}
       </BioBlixText>
@@ -18,7 +21,7 @@ export default function BioBlixAboutModal() {
         {BioBlixBrand.shortDescription}
       </BioBlixText>
       <View style={styles.card}>
-        <BioBlixText variant="label" color={BioBlixPalette.aurora}>
+        <BioBlixText variant="label" color={BioBlixPalette.cyan}>
           Hva gjør BioBlix annerledes
         </BioBlixText>
         <BioBlixText variant="body" color={BioBlixPalette.fog} style={styles.bullet}>
@@ -30,15 +33,18 @@ export default function BioBlixAboutModal() {
           RevenueCat → Firestore.
         </BioBlixText>
       </View>
+      <Link href="/privacy" style={styles.privacyLink}>
+        <BioBlixText variant="label" color={BioBlixPalette.magenta}>
+          Les personvernerklæringen
+        </BioBlixText>
+      </Link>
       <StatusBar style={Platform.OS === 'ios' ? 'light' : 'auto'} />
-    </View>
+    </BioBlixScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: BioBlixPalette.night,
     padding: 28,
     gap: 14,
     justifyContent: 'center',
@@ -60,5 +66,10 @@ const styles = StyleSheet.create({
   },
   bullet: {
     lineHeight: 22,
+  },
+  privacyLink: {
+    marginTop: 8,
+    alignSelf: 'flex-start',
+    paddingVertical: 8,
   },
 });

@@ -1,6 +1,6 @@
 /**
- * BioBlix design system — "Night Aurora"
- * Intentionally unlike Expo defaults (blue tint), purple AI themes, or cream/serif stacks.
+ * BioBlix design system — "Neon Blix"
+ * Cyan → magenta → orange, matching the official B / BioBlix marks.
  */
 export const BioBlixBrand = {
   name: 'BioBlix',
@@ -10,29 +10,44 @@ export const BioBlixBrand = {
   scheme: 'bioblix',
   bundleId: 'com.bioblix.app',
   supportUrl: 'https://bioblix.app/support',
-  privacyUrl: 'https://bioblix.app/privacy',
+  privacyUrl: '/privacy',
+  privacyEmail: 'privacy@bioblix.app',
 } as const;
+
+/** Brand gradient stops (left → right / top-left → bottom-right). */
+export const BioBlixGradient = {
+  colors: ['#2EE6FF', '#7B5CFF', '#E93BFF', '#FF8C2E'] as const,
+  soft: ['#2EE6FF55', '#E93BFF44', '#FF8C2E33'] as const,
+  locations: [0, 0.35, 0.65, 1] as const,
+  start: { x: 0, y: 0 } as const,
+  end: { x: 1, y: 1 } as const,
+};
 
 /** Core palette tokens (use these everywhere instead of hex literals). */
 export const BioBlixPalette = {
-  night: '#050B12',
-  nightElevated: '#0A1420',
-  panel: '#0E1A24',
-  raised: '#162636',
-  hairline: '#243648',
-  aurora: '#3DDC97',
-  auroraDeep: '#2BB87C',
-  ember: '#F07167',
-  saffron: '#F4C95D',
-  ice: '#E6F1F5',
-  fog: '#A8BCCB',
-  muted: '#7A93A7',
+  night: '#050508',
+  nightElevated: '#0C0B12',
+  panel: '#12101A',
+  raised: '#1C1830',
+  hairline: '#2E2748',
+  /** Primary accent — electric cyan from the B mark */
+  aurora: '#2EE6FF',
+  auroraDeep: '#E93BFF',
+  cyan: '#2EE6FF',
+  violet: '#7B5CFF',
+  magenta: '#E93BFF',
+  blaze: '#FF8C2E',
+  ember: '#FF6B5C',
+  saffron: '#FFB347',
+  ice: '#F2F4FF',
+  fog: '#B8B4D0',
+  muted: '#8A84A8',
   danger: '#FF5A5F',
-  success: '#3DDC97',
+  success: '#2EE6FF',
   black: '#000000',
   white: '#FFFFFF',
-  overlay: 'rgba(5,11,18,0.78)',
-  scrim: 'rgba(5,11,18,0.62)',
+  overlay: 'rgba(5,5,8,0.82)',
+  scrim: 'rgba(5,5,8,0.66)',
 } as const;
 
 export const BioBlixSpacing = {
@@ -88,6 +103,7 @@ export const BioBlixType = {
 export const BioBlixTheme = {
   brand: BioBlixBrand,
   colors: BioBlixPalette,
+  gradient: BioBlixGradient,
   space: BioBlixSpacing,
   radii: BioBlixRadii,
   type: BioBlixType,
@@ -95,12 +111,12 @@ export const BioBlixTheme = {
     tabBar: {
       background: BioBlixPalette.night,
       border: BioBlixPalette.hairline,
-      active: BioBlixPalette.aurora,
+      active: BioBlixPalette.cyan,
       inactive: BioBlixPalette.muted,
     },
     cta: {
-      background: BioBlixPalette.aurora,
-      backgroundPressed: BioBlixPalette.auroraDeep,
+      background: BioBlixPalette.cyan,
+      backgroundPressed: BioBlixPalette.magenta,
       text: BioBlixPalette.night,
     },
     dangerCta: {
@@ -139,15 +155,15 @@ export default {
   light: {
     text: BioBlixPalette.night,
     background: BioBlixPalette.ice,
-    tint: BioBlixPalette.auroraDeep,
+    tint: BioBlixPalette.magenta,
     tabIconDefault: BioBlixPalette.muted,
-    tabIconSelected: BioBlixPalette.auroraDeep,
+    tabIconSelected: BioBlixPalette.cyan,
   },
   dark: {
     text: BioBlixPalette.ice,
     background: BioBlixPalette.night,
-    tint: BioBlixPalette.aurora,
+    tint: BioBlixPalette.cyan,
     tabIconDefault: BioBlixPalette.muted,
-    tabIconSelected: BioBlixPalette.aurora,
+    tabIconSelected: BioBlixPalette.cyan,
   },
 };

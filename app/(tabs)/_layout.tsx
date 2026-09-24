@@ -1,28 +1,15 @@
 import { Tabs } from 'expo-router';
-import { Text } from 'react-native';
+import { View } from 'react-native';
 
-import { BioBlixPalette, BioBlixTheme } from '@/constants/bioblixTheme';
+import { BioBlixLogo } from '@/components/bioblix/BioBlixLogo';
+import { BioBlixText } from '@/components/bioblix/BioBlixText';
+import { BioBlixTheme } from '@/constants/bioblixTheme';
 
-function BioBlixTabGlyph({
-  label,
-  color,
-  focused,
-}: {
-  label: string;
-  color: string;
-  focused: boolean;
-}) {
+function TabIcon({ focused }: { focused: boolean }) {
   return (
-    <Text
-      style={{
-        color,
-        fontFamily: focused ? 'Syne_700Bold' : 'DMSans_700Bold',
-        fontSize: focused ? 13 : 12,
-        letterSpacing: 0.4,
-      }}
-    >
-      {label}
-    </Text>
+    <View style={{ opacity: focused ? 1 : 0.55 }}>
+      <BioBlixLogo variant="mark" size={26} />
+    </View>
   );
 }
 
@@ -54,9 +41,7 @@ export default function BioBlixTabLayout() {
         name="index"
         options={{
           title: 'Blix',
-          tabBarIcon: ({ color, focused }) => (
-            <BioBlixTabGlyph label="◆" color={String(color)} focused={focused} />
-          ),
+          tabBarIcon: ({ focused }) => <TabIcon focused={focused} />,
         }}
       />
       <Tabs.Screen
@@ -64,7 +49,13 @@ export default function BioBlixTabLayout() {
         options={{
           title: 'Publiser',
           tabBarIcon: ({ color, focused }) => (
-            <BioBlixTabGlyph label="＋" color={String(color)} focused={focused} />
+            <BioBlixText
+              variant="label"
+              color={String(color)}
+              style={{ fontSize: focused ? 18 : 16 }}
+            >
+              ＋
+            </BioBlixText>
           ),
         }}
       />
@@ -73,11 +64,13 @@ export default function BioBlixTabLayout() {
         options={{
           title: 'Konto',
           tabBarIcon: ({ color, focused }) => (
-            <BioBlixTabGlyph
-              label="◎"
-              color={String(color) || BioBlixPalette.muted}
-              focused={focused}
-            />
+            <BioBlixText
+              variant="label"
+              color={String(color)}
+              style={{ fontSize: focused ? 14 : 12 }}
+            >
+              ◎
+            </BioBlixText>
           ),
         }}
       />

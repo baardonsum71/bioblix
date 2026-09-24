@@ -57,6 +57,13 @@ export default function BioBlixRootLayout() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen
+          name="privacy"
+          options={{
+            title: 'Personvern',
+            headerBackTitle: 'Tilbake',
+          }}
+        />
+        <Stack.Screen
           name="modal"
           options={{
             presentation: 'modal',

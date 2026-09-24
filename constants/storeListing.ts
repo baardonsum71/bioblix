@@ -20,5 +20,7 @@ FUNKSJONER
 • Lenker åpnes trygt i appen
 • Fungerer på iOS, Android og web
 
+Personvern: Se /privacy i appen eller på web.
+
 BioBlix er ikke en kopi av andre feeds — produktet er spisset mot makers og produktvisning, med egen visuell identitet og abonnementsmodell.`,
 } as const;

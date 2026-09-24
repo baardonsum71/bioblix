@@ -8,6 +8,11 @@ export { BioBlixText, bioBlixShadows } from './BioBlixText';
 export { BioBlixProviders } from './BioBlixProviders';
 export { default as BioBlixAccount } from './BioBlixAccount';
 export {
+  BioBlixLogo,
+  BioBlixScreenShell,
+  BioBlixGradientButton,
+} from './BioBlixLogo';
+export {
   openBioBlixLink,
   confirmAndOpenBioBlixLink,
   bioBlixLinkCtaLabel,

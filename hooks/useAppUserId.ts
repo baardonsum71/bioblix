@@ -1,7 +1,9 @@
 /**
- * Temporary user id until Clerk is wired.
- * Prefer EXPO_PUBLIC_DEV_USER_ID in .env for local testing.
+ * Active BioBlix user id: Clerk user id when signed in,
+ * otherwise optional EXPO_PUBLIC_DEV_USER_ID for local tooling.
  */
+import { useAppUserIdContext } from '@/components/bioblix/BioBlixProviders';
+
 export function useAppUserId(): string | null {
-  return process.env.EXPO_PUBLIC_DEV_USER_ID ?? null;
+  return useAppUserIdContext();
 }

@@ -4,10 +4,10 @@
     "slug": "bioblix",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/logo-mark.jpg",
     "scheme": "bioblix",
     "userInterfaceStyle": "dark",
-    "primaryColor": "#3DDC97",
+    "primaryColor": "#2EE6FF",
     "description": "BioBlix helps makers showcase apps and products in short vertical blix — with optional Pro outbound links to your store or landing page.",
     "ios": {
       "supportsTablet": false,
@@ -24,8 +24,8 @@
       "package": "com.bioblix.app",
       "versionCode": 1,
       "adaptiveIcon": {
-        "backgroundColor": "#050B12",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundColor": "#050508",
+        "foregroundImage": "./assets/images/logo-mark.jpg",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
@@ -42,8 +42,8 @@
       "name": "BioBlix",
       "shortName": "BioBlix",
       "description": "Korte produkt-blix for apper og varer — med Pro-lenker når du er klar til å selge.",
-      "themeColor": "#050B12",
-      "backgroundColor": "#050B12"
+      "themeColor": "#050508",
+      "backgroundColor": "#050508"
     },
     "plugins": [
       "expo-router",
@@ -52,7 +52,7 @@
         {
           "image": "./assets/images/splash-icon.png",
           "resizeMode": "contain",
-          "backgroundColor": "#050B12"
+          "backgroundColor": "#050508"
         }
       ],
       "expo-image",
@@ -63,7 +63,9 @@
           "photosPermission": "BioBlix trenger tilgang til bilder og videoer for at du skal kunne publisere produkt-blix."
         }
       ],
-      "expo-font"
+      "expo-font",
+      "expo-secure-store",
+      "@clerk/expo"
     ],
     "experiments": {
       "typedRoutes": true
