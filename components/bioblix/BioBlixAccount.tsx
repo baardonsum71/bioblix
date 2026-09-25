@@ -16,6 +16,7 @@ import {
 } from '@/constants/bioblixTheme';
 import { Brand, Colors } from '@/constants/Colors';
 import { useCurrentUserProfile } from '@/hooks/useCurrentUserProfile';
+import { useProYearlyEntitlement } from '@/hooks/useProYearlyEntitlement';
 import { SUBSCRIPTION_PLANS } from '@/lib/subscription';
 
 export default function BioBlixAccount() {
@@ -40,6 +41,8 @@ function BioBlixAccountSigned() {
   const { signOut } = useClerk();
   const { user: profile, loading: profileLoading, error: profileError } =
     useCurrentUserProfile(isSignedIn ? userId : null);
+  const { isProYearly, isOwner, loading: entitlementLoading } =
+    useProYearlyEntitlement(isSignedIn ? userId : null);
 
   if (!isLoaded) {
     return (
@@ -95,7 +98,7 @@ function BioBlixAccountSigned() {
           : ''}
       </BioBlixText>
 
-      {profileLoading ? (
+      {profileLoading || entitlementLoading ? (
         <ActivityIndicator color={Colors.lime} style={{ alignSelf: 'flex-start' }} />
       ) : null}
       {profileError ? (
@@ -103,10 +106,15 @@ function BioBlixAccountSigned() {
           Profil: {profileError.message}
         </BioBlixText>
       ) : null}
-      {profile ? (
+      {profile || isProYearly ? (
         <BioBlixText variant="caption" color={Colors.mistDim}>
-          Plan: {profile.isProYearly ? 'Pro Årlig' : 'Standard'} · id{' '}
-          {profile.id.slice(0, 8)}…
+          Plan:{' '}
+          {isOwner
+            ? 'Eier · Pro (gratis)'
+            : isProYearly || profile?.isProYearly
+              ? 'Pro Årlig'
+              : 'Standard'}
+          {profile ? ` · id ${profile.id.slice(0, 8)}…` : ''}
         </BioBlixText>
       ) : null}
 

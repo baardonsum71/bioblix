@@ -1,4 +1,5 @@
 import { useAuth, useSignIn, useSignUp } from '@clerk/expo';
+import { useSSO } from '@clerk/expo/experimental';
 import { Link, Redirect, type Href, useRouter } from 'expo-router';
 import { useCallback, useRef, useState, type ReactNode } from 'react';
 import {
@@ -26,9 +27,9 @@ import {
 } from '@/constants/bioblixTheme';
 
 /** Bump when auth flow changes — visible on screen to confirm Vercel build. */
-const AUTH_BUILD = 'auth-v3';
+const AUTH_BUILD = 'auth-v12-apple';
 
-type Step = 'form' | 'verify';
+type Step = 'form' | 'verify' | 'apple-continue';
 type Mode = 'sign-up' | 'sign-in';
 type VerifyKind = 'sign-up' | 'sign-in';
 
@@ -41,11 +42,21 @@ function clerkErrMessage(
   if (err && typeof err === 'object') {
     const e = err as {
       message?: string;
-      errors?: { longMessage?: string; message?: string; code?: string }[];
+      errors?: {
+        longMessage?: string;
+        message?: string;
+        code?: string;
+        meta?: { paramName?: string };
+      }[];
     };
     const first = e.errors?.[0];
-    if (first?.longMessage) return first.longMessage;
-    if (first?.message) return first.message;
+    const param = first?.meta?.paramName;
+    if (first?.longMessage) {
+      return param ? `${first.longMessage} (${param})` : first.longMessage;
+    }
+    if (first?.message) {
+      return param ? `${first.message} (${param})` : first.message;
+    }
     if (e.message) return e.message;
   }
   return fallback;
@@ -89,6 +100,7 @@ function BioBlixSignInForm() {
   const { isLoaded: authLoaded, isSignedIn } = useAuth();
   const { signIn, errors: signInErrors, fetchStatus: signInStatus } = useSignIn();
   const { signUp, errors: signUpErrors, fetchStatus: signUpStatus } = useSignUp();
+  const { startSSOFlow } = useSSO();
 
   const [mode, setMode] = useState<Mode>('sign-up');
   const [nick, setNick] = useState('');
@@ -102,9 +114,16 @@ function BioBlixSignInForm() {
   const [step, setStep] = useState<Step>('form');
   const [verifyKind, setVerifyKind] = useState<VerifyKind>('sign-up');
   const [formError, setFormError] = useState<string | null>(null);
+  const [appleBusy, setAppleBusy] = useState(false);
+  const [appleMissingFields, setAppleMissingFields] = useState<string[]>([]);
   const codeSentRef = useRef(false);
+  /** SSO returns its own signUp instance — keep it for the continue step. */
+  const appleSignUpRef = useRef<typeof signUp | null>(null);
 
-  const busy = signInStatus === 'fetching' || signUpStatus === 'fetching';
+  const busy =
+    appleBusy ||
+    signInStatus === 'fetching' ||
+    signUpStatus === 'fetching';
   const canSubmit = acceptedLegal && !busy;
 
   /** Prefer live Clerk status over React state (avoids stale sign-up verify). */
@@ -153,6 +172,252 @@ function BioBlixSignInForm() {
     }
     return true;
   }, [acceptedLegal]);
+
+  const finishAppleSignUp = useCallback(
+    async (
+      active: NonNullable<typeof appleSignUpRef.current>,
+      opts?: { first?: string; last?: string; nickname?: string }
+    ): Promise<string | null> => {
+      const missingList = () =>
+        (active.missingFields ?? []).map((f) => String(f));
+      const missing = () => new Set(missingList());
+
+      // If Clerk reports no missing fields, only finalize — do not PATCH
+      // (legalAccepted/firstName on disabled attrs → "expected pattern").
+      if (
+        String(active.status) === 'missing_requirements' &&
+        missingList().length === 0
+      ) {
+        const { error: finError } = await active.finalize({
+          navigate: navigateAfterAuth,
+        });
+        if (!finError) {
+          appleSignUpRef.current = null;
+          return null;
+        }
+        // No session yet — do not clear ref; ask user to restart Apple (web uses redirect flow).
+        return (
+          clerkErrMessage(finError, null) +
+          ' Start på nytt og prøv Apple igjen (eller logg inn med e-post).'
+        );
+      }
+
+      const patch: {
+        firstName?: string;
+        lastName?: string;
+        legalAccepted?: boolean;
+      } = {};
+      const m0 = missing();
+      if (m0.has('first_name') && opts?.first) patch.firstName = opts.first;
+      if (m0.has('last_name') && opts?.last) patch.lastName = opts.last;
+      if (m0.has('legal_accepted')) patch.legalAccepted = true;
+
+      if (Object.keys(patch).length > 0) {
+        const { error } = await active.update(patch);
+        if (error) {
+          return clerkErrMessage(error, null, 'Kunne ikke oppdatere Apple-profil.');
+        }
+      }
+
+      if (missing().has('username')) {
+        const fromEmail = (active.emailAddress ?? '')
+          .split('@')[0]
+          ?.toLowerCase()
+          .replace(/[^a-z0-9]/g, '')
+          .slice(0, 20);
+        const nickSafe = (opts?.nickname ?? '')
+          .toLowerCase()
+          .replace(/[^a-z0-9_]/g, '')
+          .slice(0, 20);
+        const candidate = (
+          nickSafe ||
+          fromEmail ||
+          `user${Date.now().toString(36)}`
+        ).slice(0, 20);
+        const { error: userError } = await active.update({
+          username: candidate.length >= 4 ? candidate : `${candidate}11`,
+        });
+        if (userError) {
+          return clerkErrMessage(
+            userError,
+            null,
+            'Brukernavn avvist. Hold Username av i Clerk.'
+          );
+        }
+      }
+
+      if (missing().has('password')) {
+        return 'Clerk krever passord etter Apple. Slå av Passord som påkrevd, eller bruk e-post.';
+      }
+
+      setAppleMissingFields(missingList());
+
+      if (
+        String(active.status) === 'complete' ||
+        missingList().length === 0
+      ) {
+        appleSignUpRef.current = null;
+        const { error: finError } = await active.finalize({
+          navigate: navigateAfterAuth,
+        });
+        if (finError) {
+          return clerkErrMessage(finError, null, 'Kunne ikke fullføre sesjon.');
+        }
+        if (opts?.nickname) {
+          // Metadata after session exists is best-effort via profile sync.
+        }
+        return null;
+      }
+
+      return (
+        `Mangler fortsatt: ${missingList().join(', ') || String(active.status)}.`
+      );
+    },
+    [navigateAfterAuth]
+  );
+
+  const onAppleSignIn = useCallback(async () => {
+    setFormError(null);
+    if (!requireLegal()) return;
+
+    setAppleBusy(true);
+    appleSignUpRef.current = null;
+    setAppleMissingFields([]);
+    try {
+      // Web: full-page OAuth via future API (reliable session + callback).
+      if (Platform.OS === 'web') {
+        const origin =
+          typeof window !== 'undefined' ? window.location.origin : '';
+        const { error } = await signIn.sso({
+          strategy: 'oauth_apple',
+          redirectUrl: origin ? `${origin}/profile` : '/profile',
+          redirectCallbackUrl: origin
+            ? `${origin}/sso-callback`
+            : '/sso-callback',
+        });
+        if (error) {
+          setFormError(
+            clerkErrMessage(
+              error,
+              signInErrors.fields,
+              'Apple-innlogging feilet.'
+            )
+          );
+        }
+        // On success the browser navigates away to Apple / sso-callback.
+        return;
+      }
+
+      // Native: AuthSession browser flow.
+      const { createdSessionId, signUp: ssoSignUp } = await startSSOFlow({
+        strategy: 'oauth_apple',
+        unsafeMetadata: {
+          acceptedPrivacyAt: new Date().toISOString(),
+        },
+      });
+
+      if (createdSessionId) {
+        navigateAfterAuth({
+          session: null,
+          decorateUrl: (url) => url,
+        });
+        return;
+      }
+
+      const activeSignUp = ssoSignUp ?? signUp;
+      if (activeSignUp?.status === 'missing_requirements') {
+        appleSignUpRef.current = activeSignUp;
+        const missing = (activeSignUp.missingFields ?? []).map((f) => String(f));
+        setAppleMissingFields(missing);
+
+        const needsName =
+          missing.includes('first_name') || missing.includes('last_name');
+
+        if (!needsName) {
+          const err = await finishAppleSignUp(activeSignUp, {
+            nickname: nick.trim().toLowerCase().replace(/\s+/g, '') || undefined,
+          });
+          if (err) {
+            setFormError(err);
+            setStep('apple-continue');
+          }
+          return;
+        }
+
+        setStep('apple-continue');
+        setFormError(null);
+        return;
+      }
+    } catch (err) {
+      setFormError(
+        clerkErrMessage(err, null, 'Apple-innlogging feilet. Sjekk at Apple er på i Clerk.')
+      );
+    } finally {
+      setAppleBusy(false);
+    }
+  }, [
+    requireLegal,
+    startSSOFlow,
+    navigateAfterAuth,
+    signUp,
+    signIn,
+    signInErrors.fields,
+    finishAppleSignUp,
+    nick,
+  ]);
+
+  const onCompleteAppleProfile = useCallback(async () => {
+    setFormError(null);
+    const first = firstName.trim();
+    const last = lastName.trim();
+    const nickname = nick.trim().toLowerCase().replace(/\s+/g, '');
+    const active = appleSignUpRef.current;
+    const missing = new Set(
+      (active?.missingFields ?? appleMissingFields).map((f) => String(f))
+    );
+    const needsName =
+      missing.has('first_name') || missing.has('last_name');
+
+    if (needsName && (!first || !last)) {
+      setFormError('Fyll inn fornavn og etternavn for å fullføre Apple-innlogging.');
+      return;
+    }
+
+    if (!active) {
+      setFormError(
+        'Apple-sesjonen mangler. Trykk «Start på nytt» og prøv igjen.'
+      );
+      return;
+    }
+
+    const statusBefore = String(active.status);
+    if (statusBefore !== 'missing_requirements' && statusBefore !== 'complete') {
+      setFormError(
+        `Apple-sesjonen er ugyldig (${statusBefore}). Trykk «Start på nytt» og prøv igjen.`
+      );
+      return;
+    }
+
+    setAppleBusy(true);
+    try {
+      const err = await finishAppleSignUp(active, {
+        first: needsName ? first : undefined,
+        last: needsName ? last : undefined,
+        nickname: nickname || undefined,
+      });
+      if (err) setFormError(err);
+    } catch (err) {
+      setFormError(clerkErrMessage(err, null));
+    } finally {
+      setAppleBusy(false);
+    }
+  }, [
+    firstName,
+    lastName,
+    nick,
+    appleMissingFields,
+    finishAppleSignUp,
+  ]);
 
   const onCreateAccount = useCallback(async () => {
     setFormError(null);
@@ -402,16 +667,24 @@ function BioBlixSignInForm() {
           <BioBlixText variant="display">
             {step === 'verify'
               ? 'Bekreft e-post'
-              : mode === 'sign-up'
-                ? 'Opprett konto'
-                : 'Logg inn'}
+              : step === 'apple-continue'
+                ? 'Fullfør Apple-konto'
+                : mode === 'sign-up'
+                  ? 'Opprett konto'
+                  : 'Logg inn'}
           </BioBlixText>
           <BioBlixText variant="body" color={BioBlixPalette.muted} style={styles.copy}>
             {step === 'verify'
               ? 'Vi sendte en kode til e-posten din.'
-              : mode === 'sign-up'
-                ? 'Velg kallenavn og fyll inn navn for å komme i gang.'
-                : 'Logg inn med e-post og passord.'}
+              : step === 'apple-continue'
+                ? appleMissingFields.some((f) =>
+                      f === 'first_name' || f === 'last_name'
+                    )
+                  ? 'Apple delte ikke navn. Fyll inn fornavn og etternavn for å fortsette.'
+                  : 'Ett steg igjen for å aktivere Apple-kontoen. Trykk Fullfør.'
+                : mode === 'sign-up'
+                  ? 'Velg kallenavn og fyll inn navn for å komme i gang.'
+                  : 'Logg inn med e-post og passord.'}
           </BioBlixText>
 
           <View nativeID="clerk-captcha" />
@@ -585,10 +858,37 @@ function BioBlixSignInForm() {
                 </View>
               </Pressable>
 
+              <Pressable
+                disabled={!canSubmit}
+                onPress={() => void onAppleSignIn()}
+                style={[
+                  styles.appleBtn,
+                  !canSubmit && styles.appleBtnDisabled,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Fortsett med Apple"
+              >
+                {appleBusy ? (
+                  <ActivityIndicator color={BioBlixPalette.fog} />
+                ) : (
+                  <BioBlixText variant="label" color={BioBlixPalette.fog}>
+                    Fortsett med Apple
+                  </BioBlixText>
+                )}
+              </Pressable>
+
+              <View style={styles.orRow}>
+                <View style={styles.orLine} />
+                <BioBlixText variant="caption" color={BioBlixPalette.muted}>
+                  eller e-post
+                </BioBlixText>
+                <View style={styles.orLine} />
+              </View>
+
               <BioBlixGradientButton
                 label={mode === 'sign-up' ? 'Opprett konto' : 'Logg inn'}
                 disabled={!canSubmit}
-                loading={busy}
+                loading={busy && !appleBusy}
                 onPress={() =>
                   void (mode === 'sign-up' ? onCreateAccount() : onSignIn())
                 }
@@ -602,6 +902,73 @@ function BioBlixSignInForm() {
               >
                 Ved å fortsette bekrefter du at du har lest vår personvernpolicy.
               </BioBlixText>
+            </>
+          ) : step === 'apple-continue' ? (
+            <>
+              {(appleMissingFields.length > 0 ? (
+                <BioBlixText variant="caption" color={BioBlixPalette.muted}>
+                  Clerk mangler: {appleMissingFields.join(', ')}
+                </BioBlixText>
+              ) : (
+                <BioBlixText variant="caption" color={BioBlixPalette.muted}>
+                  Status: {String(appleSignUpRef.current?.status ?? 'ukjent')}
+                </BioBlixText>
+              ))}
+              <Field label="Kallenavn / nick (valgfritt)">
+                <TextInput
+                  autoCapitalize="none"
+                  autoComplete="off"
+                  placeholder="f.eks. blekkulf"
+                  placeholderTextColor={BioBlixPalette.muted}
+                  style={styles.input}
+                  value={nick}
+                  onChangeText={setNick}
+                />
+              </Field>
+              <Field label="Fornavn">
+                <TextInput
+                  autoComplete="given-name"
+                  autoCapitalize="words"
+                  placeholder="Fornavn"
+                  placeholderTextColor={BioBlixPalette.muted}
+                  style={styles.input}
+                  value={firstName}
+                  onChangeText={setFirstName}
+                />
+              </Field>
+              <Field label="Etternavn">
+                <TextInput
+                  autoComplete="family-name"
+                  autoCapitalize="words"
+                  placeholder="Etternavn"
+                  placeholderTextColor={BioBlixPalette.muted}
+                  style={styles.input}
+                  value={lastName}
+                  onChangeText={setLastName}
+                />
+              </Field>
+              <BioBlixGradientButton
+                label="Fullfør og fortsett"
+                disabled={busy}
+                loading={appleBusy}
+                onPress={() => void onCompleteAppleProfile()}
+                style={styles.cta}
+              />
+              <Pressable
+                onPress={() => {
+                  signIn.reset();
+                  signUp.reset();
+                  appleSignUpRef.current = null;
+                  setAppleMissingFields([]);
+                  setStep('form');
+                  setFormError(null);
+                }}
+                style={styles.linkBtn}
+              >
+                <BioBlixText variant="caption" color={BioBlixPalette.cyan}>
+                  Start på nytt
+                </BioBlixText>
+              </Pressable>
             </>
           ) : (
             <>
@@ -768,6 +1135,31 @@ const styles = StyleSheet.create({
   },
   cta: {
     marginTop: BioBlixSpacing.sm,
+  },
+  appleBtn: {
+    marginTop: BioBlixSpacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+    borderRadius: BioBlixRadii.md,
+    borderWidth: 1,
+    borderColor: BioBlixPalette.hairline,
+    backgroundColor: '#000000',
+    paddingHorizontal: 16,
+  },
+  appleBtnDisabled: {
+    opacity: 0.45,
+  },
+  orRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 4,
+  },
+  orLine: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: BioBlixPalette.hairline,
   },
   legalFoot: {
     textAlign: 'center',

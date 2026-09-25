@@ -1,6 +1,7 @@
 import { useAuth, useUser } from '@clerk/expo';
 import { useEffect, useRef, useState } from 'react';
 
+import { ensureOwnerProAccess } from '@/lib/clerk/ensureOwnerPro';
 import {
   clearFirebaseAuth,
   syncFirebaseAuthFromClerk,
@@ -9,6 +10,7 @@ import { upsertUser } from '@/services/users';
 
 /**
  * After Clerk sign-in: mint Firebase Auth, then upsert Firestore `users/{id}`.
+ * Owner emails also get Pro mirrored via Admin API.
  */
 export function useEnsureUserProfile() {
   const { isSignedIn, isLoaded, getToken, userId } = useAuth();
@@ -57,6 +59,21 @@ export function useEnsureUserProfile() {
           displayName,
           imageUrl: user.imageUrl ?? null,
         });
+
+        // Best-effort owner Pro grant (requires FIREBASE_SERVICE_ACCOUNT_JSON).
+        // Check all Clerk emails (Apple can attach more than one).
+        try {
+          const emails = [
+            user.primaryEmailAddress?.emailAddress,
+            ...user.emailAddresses.map((e) => e.emailAddress),
+          ].filter(Boolean) as string[];
+          for (const candidate of emails) {
+            const result = await ensureOwnerProAccess(() => getToken(), candidate);
+            if (result.owner) break;
+          }
+        } catch (ownerErr) {
+          console.warn('[owner-pro]', ownerErr);
+        }
 
         if (!cancelled) setReady(true);
       } catch (err) {
