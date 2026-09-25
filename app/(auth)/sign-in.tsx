@@ -27,7 +27,7 @@ import {
 } from '@/constants/bioblixTheme';
 
 /** Bump when auth flow changes — visible on screen to confirm Vercel build. */
-const AUTH_BUILD = 'auth-v6-apple';
+const AUTH_BUILD = 'auth-v7-apple';
 
 type Step = 'form' | 'verify' | 'apple-continue';
 type Mode = 'sign-up' | 'sign-in';
@@ -204,63 +204,98 @@ function BioBlixSignInForm() {
     setFormError(null);
     const first = firstName.trim();
     const last = lastName.trim();
-    // Clerk username is usually [a-z0-9_-] only — never send free-form nick as username.
     const nickname = nick.trim().toLowerCase().replace(/\s+/g, '');
-    const usernameSafe = nickname.replace(/[^a-z0-9_-]/g, '');
 
     if (!first || !last) {
       setFormError('Fyll inn fornavn og etternavn for å fullføre Apple-innlogging.');
       return;
     }
 
+    if (
+      signUp.status !== 'missing_requirements' &&
+      signUp.status !== 'complete'
+    ) {
+      setFormError(
+        `Apple-sesjonen er ugyldig (${String(signUp.status)}). Trykk «Start på nytt» og prøv igjen.`
+      );
+      return;
+    }
+
     setAppleBusy(true);
     try {
-      const missing = new Set(
+      // Minimal patch first — avoid username/metadata format rejections.
+      const { error: nameError } = await signUp.update({
+        firstName: first,
+        lastName: last,
+      });
+      if (nameError) {
+        setFormError(
+          clerkErrMessage(
+            nameError,
+            signUpErrors.fields,
+            'Navn ble avvist av Clerk.'
+          )
+        );
+        return;
+      }
+
+      const missingAfterName = new Set(
         (signUp.missingFields ?? []).map((f) => String(f))
       );
 
-      const patch: {
-        firstName: string;
-        lastName: string;
-        username?: string;
-        legalAccepted?: boolean;
-        unsafeMetadata?: Record<string, string>;
-      } = {
-        firstName: first,
-        lastName: last,
-        legalAccepted: true,
-        unsafeMetadata: {
-          acceptedPrivacyAt: new Date().toISOString(),
-          ...(nickname ? { nickname } : {}),
-        },
-      };
-
-      // Only set username when Clerk actually requires it (avoids format errors).
-      if (
-        (missing.has('username') || missing.has('Username')) &&
-        usernameSafe.length >= 3
-      ) {
-        patch.username = usernameSafe;
-      }
-
-      const { error } = await signUp.update(patch);
-      if (error) {
-        // Retry with only name + legal — drop username/metadata that Clerk may reject.
-        const { error: retryError } = await signUp.update({
-          firstName: first,
-          lastName: last,
+      if (missingAfterName.has('legal_accepted')) {
+        const { error: legalError } = await signUp.update({
           legalAccepted: true,
         });
-        if (retryError) {
+        if (legalError) {
+          setFormError(clerkErrMessage(legalError, signUpErrors.fields));
+          return;
+        }
+      }
+
+      if (
+        (signUp.missingFields ?? []).map(String).includes('username')
+      ) {
+        const fromEmail = (signUp.emailAddress ?? '')
+          .split('@')[0]
+          ?.toLowerCase()
+          .replace(/[^a-z0-9]/g, '')
+          .slice(0, 20);
+        const candidate =
+          (nickname.replace(/[^a-z0-9_]/g, '').slice(0, 20) ||
+            fromEmail ||
+            `user${Date.now().toString(36)}`).slice(0, 20);
+        const { error: userError } = await signUp.update({
+          username: candidate.length >= 4 ? candidate : `${candidate}1`,
+        });
+        if (userError) {
           setFormError(
             clerkErrMessage(
-              retryError,
+              userError,
               signUpErrors.fields,
-              `Kunne ikke fullføre (${(signUp.missingFields ?? []).join(', ') || 'ukjent felt'}).`
+              'Brukernavn avvist. Slå av Username i Clerk → User & authentication, eller bruk e-post-innlogging.'
             )
           );
           return;
         }
+      }
+
+      if ((signUp.missingFields ?? []).map(String).includes('password')) {
+        setFormError(
+          'Clerk krever passord også etter Apple. Slå av Passord som påkrevd for SSO i Clerk Dashboard, eller bruk e-post-innlogging.'
+        );
+        return;
+      }
+
+      if (nickname) {
+        // Best-effort nick in metadata — ignore failures.
+        await signUp.update({
+          unsafeMetadata: {
+            ...(signUp.unsafeMetadata as Record<string, unknown>),
+            nickname,
+            acceptedPrivacyAt: new Date().toISOString(),
+          },
+        });
       }
 
       if (signUp.status === 'complete') {
@@ -269,7 +304,8 @@ function BioBlixSignInForm() {
       }
 
       setFormError(
-        `Mangler fortsatt felt (${(signUp.missingFields ?? []).join(', ') || String(signUp.status)}).`
+        `Mangler fortsatt: ${(signUp.missingFields ?? []).join(', ') || String(signUp.status)}. ` +
+          'I Clerk kan du slå av påkrevd Username / First name under User & authentication.'
       );
     } catch (err) {
       setFormError(clerkErrMessage(err, signUpErrors.fields));
@@ -767,10 +803,15 @@ function BioBlixSignInForm() {
             </>
           ) : step === 'apple-continue' ? (
             <>
+              {(signUp.missingFields?.length ?? 0) > 0 ? (
+                <BioBlixText variant="caption" color={BioBlixPalette.muted}>
+                  Clerk mangler: {signUp.missingFields!.join(', ')}
+                </BioBlixText>
+              ) : null}
               <Field label="Kallenavn / nick (valgfritt)">
                 <TextInput
                   autoCapitalize="none"
-                  autoComplete="username"
+                  autoComplete="off"
                   placeholder="f.eks. blekkulf"
                   placeholderTextColor={BioBlixPalette.muted}
                   style={styles.input}
@@ -781,6 +822,7 @@ function BioBlixSignInForm() {
               <Field label="Fornavn">
                 <TextInput
                   autoComplete="given-name"
+                  autoCapitalize="words"
                   placeholder="Fornavn"
                   placeholderTextColor={BioBlixPalette.muted}
                   style={styles.input}
@@ -791,6 +833,7 @@ function BioBlixSignInForm() {
               <Field label="Etternavn">
                 <TextInput
                   autoComplete="family-name"
+                  autoCapitalize="words"
                   placeholder="Etternavn"
                   placeholderTextColor={BioBlixPalette.muted}
                   style={styles.input}
