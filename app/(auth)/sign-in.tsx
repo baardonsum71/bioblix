@@ -178,11 +178,41 @@ function BioBlixSignInForm() {
       active: NonNullable<typeof appleSignUpRef.current>,
       opts?: { first?: string; last?: string; nickname?: string }
     ): Promise<string | null> => {
-      const missing = () =>
-        new Set((active.missingFields ?? []).map((f) => String(f)));
+      const missingList = () =>
+        (active.missingFields ?? []).map((f) => String(f));
+      const missing = () => new Set(missingList());
 
-      // Only send fields Clerk still lists as missing (sending disabled
-      // firstName/lastName after User model change → "expected pattern").
+      // If Clerk reports no missing fields, only finalize — do not PATCH
+      // (legalAccepted/firstName on disabled attrs → "expected pattern").
+      if (
+        String(active.status) === 'missing_requirements' &&
+        missingList().length === 0
+      ) {
+        appleSignUpRef.current = null;
+        const { error: finError } = await active.finalize({
+          navigate: navigateAfterAuth,
+        });
+        if (finError) {
+          // One more try: accept legal only if finalize hinted at it.
+          const { error: legalError } = await active.update({
+            legalAccepted: true,
+          });
+          if (!legalError) {
+            const { error: fin2 } = await active.finalize({
+              navigate: navigateAfterAuth,
+            });
+            if (!fin2) return null;
+            return clerkErrMessage(fin2, null, 'Kunne ikke fullføre sesjon.');
+          }
+          return clerkErrMessage(
+            finError,
+            null,
+            'Kunne ikke fullføre Apple-sesjon. Prøv «Start på nytt» eller e-post-innlogging.'
+          );
+        }
+        return null;
+      }
+
       const patch: {
         firstName?: string;
         lastName?: string;
@@ -191,9 +221,7 @@ function BioBlixSignInForm() {
       const m0 = missing();
       if (m0.has('first_name') && opts?.first) patch.firstName = opts.first;
       if (m0.has('last_name') && opts?.last) patch.lastName = opts.last;
-      if (m0.has('legal_accepted') || String(active.status) === 'missing_requirements') {
-        patch.legalAccepted = true;
-      }
+      if (m0.has('legal_accepted')) patch.legalAccepted = true;
 
       if (Object.keys(patch).length > 0) {
         const { error } = await active.update(patch);
@@ -233,20 +261,11 @@ function BioBlixSignInForm() {
         return 'Clerk krever passord etter Apple. Slå av Passord som påkrevd, eller bruk e-post.';
       }
 
-      if (opts?.nickname) {
-        await active.update({
-          unsafeMetadata: {
-            nickname: opts.nickname,
-            acceptedPrivacyAt: new Date().toISOString(),
-          },
-        });
-      }
-
-      setAppleMissingFields((active.missingFields ?? []).map((f) => String(f)));
+      setAppleMissingFields(missingList());
 
       if (
         String(active.status) === 'complete' ||
-        (active.missingFields ?? []).length === 0
+        missingList().length === 0
       ) {
         appleSignUpRef.current = null;
         const { error: finError } = await active.finalize({
@@ -255,11 +274,14 @@ function BioBlixSignInForm() {
         if (finError) {
           return clerkErrMessage(finError, null, 'Kunne ikke fullføre sesjon.');
         }
+        if (opts?.nickname) {
+          // Metadata after session exists is best-effort via profile sync.
+        }
         return null;
       }
 
       return (
-        `Mangler fortsatt: ${(active.missingFields ?? []).join(', ') || String(active.status)}.`
+        `Mangler fortsatt: ${missingList().join(', ') || String(active.status)}.`
       );
     },
     [navigateAfterAuth]
