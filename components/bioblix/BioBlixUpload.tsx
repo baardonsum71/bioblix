@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -19,6 +18,8 @@ import { BioBlixText } from '@/components/bioblix/BioBlixText';
 import { Brand, Colors } from '@/constants/Colors';
 import { useAppUserId } from '@/hooks/useAppUserId';
 import { useProYearlyEntitlement } from '@/hooks/useProYearlyEntitlement';
+import { waitForFirebaseUser } from '@/lib/clerk/firebaseSession';
+import { notify } from '@/lib/platform';
 import { presentProYearlyPaywall } from '@/lib/revenuecat/paywall';
 import { validateProLinkUrl } from '@/lib/validation/proLink';
 import {
@@ -115,7 +116,7 @@ export default function BioBlixUpload() {
   const pickMedia = useCallback(async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert(
+      notify(
         'Tilgang i BioBlix',
         'Gi tilgang til bildebiblioteket for å legge til et produkt-blix.'
       );
@@ -149,7 +150,7 @@ export default function BioBlixUpload() {
     const entitled = await presentProYearlyPaywall();
     await refresh();
     if (entitled) {
-      Alert.alert(
+      notify(
         'Pro Årlig aktiv',
         'Du kan nå legge klikkbare butikklenker på BioBlix-innleggene dine.'
       );
@@ -158,7 +159,7 @@ export default function BioBlixUpload() {
 
   const onPublish = useCallback(async () => {
     if (!userId || !media) {
-      Alert.alert(
+      notify(
         'Mangler bruker',
         'Sett EXPO_PUBLIC_DEV_USER_ID i .env (eller koble Clerk) før du publiserer.'
       );
@@ -166,13 +167,13 @@ export default function BioBlixUpload() {
     }
 
     if (!title.trim()) {
-      Alert.alert('Tittel mangler', 'Gi blixet en tydelig produkttittel.');
+      notify('Tittel mangler', 'Gi blixet en tydelig produkttittel.');
       return;
     }
 
     const trimmedLink = linkUrl.trim();
     if (trimmedLink && !isProYearly) {
-      Alert.alert(
+      notify(
         'Pro kreves',
         'Klikkbare lenker krever Pro Årlig i BioBlix.'
       );
@@ -184,7 +185,7 @@ export default function BioBlixUpload() {
       const validation = validateProLinkUrl(trimmedLink);
       if (!validation.ok) {
         setLinkError(validation.message);
-        Alert.alert('Ugyldig lenke', validation.message);
+        notify('Ugyldig lenke', validation.message);
         return;
       }
       safeLink = validation.url;
@@ -196,6 +197,13 @@ export default function BioBlixUpload() {
 
     setPublishing(true);
     try {
+      const firebaseUser = await waitForFirebaseUser(10_000);
+      if (!firebaseUser) {
+        throw new Error(
+          'Ikke klar for opplasting ennå. Vent et par sekunder og prøv igjen (eller logg inn på nytt).'
+        );
+      }
+
       const mediaUrl = await uploadPostMedia({
         userId,
         uri: media.uri,
@@ -221,11 +229,11 @@ export default function BioBlixUpload() {
       setTags([]);
       setMedia(null);
       void listPopularTags(12).then(setPopular).catch(() => undefined);
-      Alert.alert('Live i BioBlix', 'Blixet ditt er synlig i strømmen.');
+      notify('Live i BioBlix', 'Blixet ditt er synlig i strømmen.');
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Kunne ikke publisere.';
-      Alert.alert('Feil', message);
+      notify('Feil', message);
     } finally {
       setPublishing(false);
     }
