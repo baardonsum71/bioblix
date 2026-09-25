@@ -27,7 +27,7 @@ import {
 } from '@/constants/bioblixTheme';
 
 /** Bump when auth flow changes — visible on screen to confirm Vercel build. */
-const AUTH_BUILD = 'auth-v11-apple';
+const AUTH_BUILD = 'auth-v12-apple';
 
 type Step = 'form' | 'verify' | 'apple-continue';
 type Mode = 'sign-up' | 'sign-in';
@@ -188,29 +188,18 @@ function BioBlixSignInForm() {
         String(active.status) === 'missing_requirements' &&
         missingList().length === 0
       ) {
-        appleSignUpRef.current = null;
         const { error: finError } = await active.finalize({
           navigate: navigateAfterAuth,
         });
-        if (finError) {
-          // One more try: accept legal only if finalize hinted at it.
-          const { error: legalError } = await active.update({
-            legalAccepted: true,
-          });
-          if (!legalError) {
-            const { error: fin2 } = await active.finalize({
-              navigate: navigateAfterAuth,
-            });
-            if (!fin2) return null;
-            return clerkErrMessage(fin2, null, 'Kunne ikke fullføre sesjon.');
-          }
-          return clerkErrMessage(
-            finError,
-            null,
-            'Kunne ikke fullføre Apple-sesjon. Prøv «Start på nytt» eller e-post-innlogging.'
-          );
+        if (!finError) {
+          appleSignUpRef.current = null;
+          return null;
         }
-        return null;
+        // No session yet — do not clear ref; ask user to restart Apple (web uses redirect flow).
+        return (
+          clerkErrMessage(finError, null) +
+          ' Start på nytt og prøv Apple igjen (eller logg inn med e-post).'
+        );
       }
 
       const patch: {
@@ -295,6 +284,31 @@ function BioBlixSignInForm() {
     appleSignUpRef.current = null;
     setAppleMissingFields([]);
     try {
+      // Web: full-page OAuth via future API (reliable session + callback).
+      if (Platform.OS === 'web') {
+        const origin =
+          typeof window !== 'undefined' ? window.location.origin : '';
+        const { error } = await signIn.sso({
+          strategy: 'oauth_apple',
+          redirectUrl: origin ? `${origin}/profile` : '/profile',
+          redirectCallbackUrl: origin
+            ? `${origin}/sso-callback`
+            : '/sso-callback',
+        });
+        if (error) {
+          setFormError(
+            clerkErrMessage(
+              error,
+              signInErrors.fields,
+              'Apple-innlogging feilet.'
+            )
+          );
+        }
+        // On success the browser navigates away to Apple / sso-callback.
+        return;
+      }
+
+      // Native: AuthSession browser flow.
       const { createdSessionId, signUp: ssoSignUp } = await startSSOFlow({
         strategy: 'oauth_apple',
         unsafeMetadata: {
@@ -319,7 +333,6 @@ function BioBlixSignInForm() {
         const needsName =
           missing.includes('first_name') || missing.includes('last_name');
 
-        // Names disabled in Clerk → finish without the name form.
         if (!needsName) {
           const err = await finishAppleSignUp(activeSignUp, {
             nickname: nick.trim().toLowerCase().replace(/\s+/g, '') || undefined,
@@ -335,7 +348,6 @@ function BioBlixSignInForm() {
         setFormError(null);
         return;
       }
-      // User cancelled or closed the sheet — silent.
     } catch (err) {
       setFormError(
         clerkErrMessage(err, null, 'Apple-innlogging feilet. Sjekk at Apple er på i Clerk.')
@@ -348,6 +360,8 @@ function BioBlixSignInForm() {
     startSSOFlow,
     navigateAfterAuth,
     signUp,
+    signIn,
+    signInErrors.fields,
     finishAppleSignUp,
     nick,
   ]);
