@@ -27,7 +27,7 @@ import {
 } from '@/constants/bioblixTheme';
 
 /** Bump when auth flow changes — visible on screen to confirm Vercel build. */
-const AUTH_BUILD = 'auth-v9-apple';
+const AUTH_BUILD = 'auth-v10-apple';
 
 type Step = 'form' | 'verify' | 'apple-continue';
 type Mode = 'sign-up' | 'sign-in';
@@ -173,6 +173,98 @@ function BioBlixSignInForm() {
     return true;
   }, [acceptedLegal]);
 
+  const finishAppleSignUp = useCallback(
+    async (
+      active: NonNullable<typeof appleSignUpRef.current>,
+      opts?: { first?: string; last?: string; nickname?: string }
+    ): Promise<string | null> => {
+      const missing = () =>
+        new Set((active.missingFields ?? []).map((f) => String(f)));
+
+      // Only send fields Clerk still lists as missing (sending disabled
+      // firstName/lastName after User model change → "expected pattern").
+      const patch: {
+        firstName?: string;
+        lastName?: string;
+        legalAccepted?: boolean;
+      } = {};
+      const m0 = missing();
+      if (m0.has('first_name') && opts?.first) patch.firstName = opts.first;
+      if (m0.has('last_name') && opts?.last) patch.lastName = opts.last;
+      if (m0.has('legal_accepted') || String(active.status) === 'missing_requirements') {
+        patch.legalAccepted = true;
+      }
+
+      if (Object.keys(patch).length > 0) {
+        const { error } = await active.update(patch);
+        if (error) {
+          return clerkErrMessage(error, null, 'Kunne ikke oppdatere Apple-profil.');
+        }
+      }
+
+      if (missing().has('username')) {
+        const fromEmail = (active.emailAddress ?? '')
+          .split('@')[0]
+          ?.toLowerCase()
+          .replace(/[^a-z0-9]/g, '')
+          .slice(0, 20);
+        const nickSafe = (opts?.nickname ?? '')
+          .toLowerCase()
+          .replace(/[^a-z0-9_]/g, '')
+          .slice(0, 20);
+        const candidate = (
+          nickSafe ||
+          fromEmail ||
+          `user${Date.now().toString(36)}`
+        ).slice(0, 20);
+        const { error: userError } = await active.update({
+          username: candidate.length >= 4 ? candidate : `${candidate}11`,
+        });
+        if (userError) {
+          return clerkErrMessage(
+            userError,
+            null,
+            'Brukernavn avvist. Hold Username av i Clerk.'
+          );
+        }
+      }
+
+      if (missing().has('password')) {
+        return 'Clerk krever passord etter Apple. Slå av Passord som påkrevd, eller bruk e-post.';
+      }
+
+      if (opts?.nickname) {
+        await active.update({
+          unsafeMetadata: {
+            nickname: opts.nickname,
+            acceptedPrivacyAt: new Date().toISOString(),
+          },
+        });
+      }
+
+      setAppleMissingFields((active.missingFields ?? []).map((f) => String(f)));
+
+      if (
+        String(active.status) === 'complete' ||
+        (active.missingFields ?? []).length === 0
+      ) {
+        appleSignUpRef.current = null;
+        const { error: finError } = await active.finalize({
+          navigate: navigateAfterAuth,
+        });
+        if (finError) {
+          return clerkErrMessage(finError, null, 'Kunne ikke fullføre sesjon.');
+        }
+        return null;
+      }
+
+      return (
+        `Mangler fortsatt: ${(active.missingFields ?? []).join(', ') || String(active.status)}.`
+      );
+    },
+    [navigateAfterAuth]
+  );
+
   const onAppleSignIn = useCallback(async () => {
     setFormError(null);
     if (!requireLegal()) return;
@@ -197,12 +289,26 @@ function BioBlixSignInForm() {
       }
 
       const activeSignUp = ssoSignUp ?? signUp;
-      // Apple often omits name — collect missing required fields, then finalize.
       if (activeSignUp?.status === 'missing_requirements') {
         appleSignUpRef.current = activeSignUp;
-        setAppleMissingFields(
-          (activeSignUp.missingFields ?? []).map((f) => String(f))
-        );
+        const missing = (activeSignUp.missingFields ?? []).map((f) => String(f));
+        setAppleMissingFields(missing);
+
+        const needsName =
+          missing.includes('first_name') || missing.includes('last_name');
+
+        // Names disabled in Clerk → finish without the name form.
+        if (!needsName) {
+          const err = await finishAppleSignUp(activeSignUp, {
+            nickname: nick.trim().toLowerCase().replace(/\s+/g, '') || undefined,
+          });
+          if (err) {
+            setFormError(err);
+            setStep('apple-continue');
+          }
+          return;
+        }
+
         setStep('apple-continue');
         setFormError(null);
         return;
@@ -215,7 +321,14 @@ function BioBlixSignInForm() {
     } finally {
       setAppleBusy(false);
     }
-  }, [requireLegal, startSSOFlow, navigateAfterAuth, signUp]);
+  }, [
+    requireLegal,
+    startSSOFlow,
+    navigateAfterAuth,
+    signUp,
+    finishAppleSignUp,
+    nick,
+  ]);
 
   const onCompleteAppleProfile = useCallback(async () => {
     setFormError(null);
@@ -223,8 +336,13 @@ function BioBlixSignInForm() {
     const last = lastName.trim();
     const nickname = nick.trim().toLowerCase().replace(/\s+/g, '');
     const active = appleSignUpRef.current;
+    const missing = new Set(
+      (active?.missingFields ?? appleMissingFields).map((f) => String(f))
+    );
+    const needsName =
+      missing.has('first_name') || missing.has('last_name');
 
-    if (!first || !last) {
+    if (needsName && (!first || !last)) {
       setFormError('Fyll inn fornavn og etternavn for å fullføre Apple-innlogging.');
       return;
     }
@@ -246,104 +364,24 @@ function BioBlixSignInForm() {
 
     setAppleBusy(true);
     try {
-      const { error: nameError } = await active.update({
-        firstName: first,
-        lastName: last,
-        legalAccepted: true,
+      const err = await finishAppleSignUp(active, {
+        first: needsName ? first : undefined,
+        last: needsName ? last : undefined,
+        nickname: nickname || undefined,
       });
-      if (nameError) {
-        const detail = [
-          ...(active.missingFields ?? []).map(String),
-          ...(active.unverifiedFields ?? []).map(String),
-        ].join(', ');
-        setFormError(
-          clerkErrMessage(
-            nameError,
-            null,
-            `Navn ble avvist av Clerk${detail ? ` [${detail}]` : ''}.`
-          )
-        );
-        setAppleMissingFields(
-          (active.missingFields ?? []).map((f) => String(f))
-        );
-        return;
-      }
-
-      setAppleMissingFields(
-        (active.missingFields ?? []).map((f) => String(f))
-      );
-
-      if ((active.missingFields ?? []).map(String).includes('username')) {
-        const fromEmail = (active.emailAddress ?? '')
-          .split('@')[0]
-          ?.toLowerCase()
-          .replace(/[^a-z0-9]/g, '')
-          .slice(0, 20);
-        const candidate = (
-          nickname.replace(/[^a-z0-9_]/g, '').slice(0, 20) ||
-          fromEmail ||
-          `user${Date.now().toString(36)}`
-        ).slice(0, 20);
-        const { error: userError } = await active.update({
-          username: candidate.length >= 4 ? candidate : `${candidate}11`,
-        });
-        if (userError) {
-          setFormError(
-            clerkErrMessage(
-              userError,
-              null,
-              'Brukernavn avvist. Username skal være av i Clerk.'
-            )
-          );
-          return;
-        }
-      }
-
-      if ((active.missingFields ?? []).map(String).includes('password')) {
-        setFormError(
-          'Clerk krever passord etter Apple. Slå av Passord som påkrevd, eller bruk e-post-innlogging.'
-        );
-        return;
-      }
-
-      if (nickname) {
-        await active.update({
-          unsafeMetadata: {
-            nickname,
-            acceptedPrivacyAt: new Date().toISOString(),
-          },
-        });
-      }
-
-      // Status may stay missing_requirements with empty missingFields — try finalize.
-      if (
-        String(active.status) === 'complete' ||
-        (active.missingFields ?? []).length === 0
-      ) {
-        appleSignUpRef.current = null;
-        const { error: finError } = await active.finalize({
-          navigate: navigateAfterAuth,
-        });
-        if (finError) {
-          setFormError(clerkErrMessage(finError, null, 'Kunne ikke fullføre sesjon.'));
-          return;
-        }
-        return;
-      }
-
-      setAppleMissingFields(
-        (active.missingFields ?? []).map((f) => String(f))
-      );
-      setFormError(
-        `Mangler fortsatt: ${(active.missingFields ?? []).join(', ') || String(active.status)}. ` +
-          'Clerk → User model: slå av påkrevd fornavn/etternavn.'
-      );
+      if (err) setFormError(err);
     } catch (err) {
       setFormError(clerkErrMessage(err, null));
     } finally {
       setAppleBusy(false);
     }
-  }, [firstName, lastName, nick, navigateAfterAuth]);
+  }, [
+    firstName,
+    lastName,
+    nick,
+    appleMissingFields,
+    finishAppleSignUp,
+  ]);
 
   const onCreateAccount = useCallback(async () => {
     setFormError(null);
@@ -603,7 +641,11 @@ function BioBlixSignInForm() {
             {step === 'verify'
               ? 'Vi sendte en kode til e-posten din.'
               : step === 'apple-continue'
-                ? 'Apple delte ikke navn. Fyll inn fornavn og etternavn for å fortsette.'
+                ? appleMissingFields.some((f) =>
+                      f === 'first_name' || f === 'last_name'
+                    )
+                  ? 'Apple delte ikke navn. Fyll inn fornavn og etternavn for å fortsette.'
+                  : 'Ett steg igjen for å aktivere Apple-kontoen. Trykk Fullfør.'
                 : mode === 'sign-up'
                   ? 'Velg kallenavn og fyll inn navn for å komme i gang.'
                   : 'Logg inn med e-post og passord.'}
