@@ -27,7 +27,7 @@ import {
 } from '@/constants/bioblixTheme';
 
 /** Bump when auth flow changes — visible on screen to confirm Vercel build. */
-const AUTH_BUILD = 'auth-v7-apple';
+const AUTH_BUILD = 'auth-v8-apple';
 
 type Step = 'form' | 'verify' | 'apple-continue';
 type Mode = 'sign-up' | 'sign-in';
@@ -42,11 +42,21 @@ function clerkErrMessage(
   if (err && typeof err === 'object') {
     const e = err as {
       message?: string;
-      errors?: { longMessage?: string; message?: string; code?: string }[];
+      errors?: {
+        longMessage?: string;
+        message?: string;
+        code?: string;
+        meta?: { paramName?: string };
+      }[];
     };
     const first = e.errors?.[0];
-    if (first?.longMessage) return first.longMessage;
-    if (first?.message) return first.message;
+    const param = first?.meta?.paramName;
+    if (first?.longMessage) {
+      return param ? `${first.longMessage} (${param})` : first.longMessage;
+    }
+    if (first?.message) {
+      return param ? `${first.message} (${param})` : first.message;
+    }
     if (e.message) return e.message;
   }
   return fallback;
@@ -105,7 +115,10 @@ function BioBlixSignInForm() {
   const [verifyKind, setVerifyKind] = useState<VerifyKind>('sign-up');
   const [formError, setFormError] = useState<string | null>(null);
   const [appleBusy, setAppleBusy] = useState(false);
+  const [appleMissingFields, setAppleMissingFields] = useState<string[]>([]);
   const codeSentRef = useRef(false);
+  /** SSO returns its own signUp instance — keep it for the continue step. */
+  const appleSignUpRef = useRef<typeof signUp | null>(null);
 
   const busy =
     appleBusy ||
@@ -165,6 +178,8 @@ function BioBlixSignInForm() {
     if (!requireLegal()) return;
 
     setAppleBusy(true);
+    appleSignUpRef.current = null;
+    setAppleMissingFields([]);
     try {
       const { createdSessionId, signUp: ssoSignUp } = await startSSOFlow({
         strategy: 'oauth_apple',
@@ -181,11 +196,13 @@ function BioBlixSignInForm() {
         return;
       }
 
+      const activeSignUp = ssoSignUp ?? signUp;
       // Apple often omits name — collect missing required fields, then finalize.
-      if (
-        ssoSignUp?.status === 'missing_requirements' ||
-        signUp.status === 'missing_requirements'
-      ) {
+      if (activeSignUp?.status === 'missing_requirements') {
+        appleSignUpRef.current = activeSignUp;
+        setAppleMissingFields(
+          (activeSignUp.missingFields ?? []).map((f) => String(f))
+        );
         setStep('apple-continue');
         setFormError(null);
         return;
@@ -198,128 +215,119 @@ function BioBlixSignInForm() {
     } finally {
       setAppleBusy(false);
     }
-  }, [requireLegal, startSSOFlow, navigateAfterAuth, signUp.status]);
+  }, [requireLegal, startSSOFlow, navigateAfterAuth, signUp]);
 
   const onCompleteAppleProfile = useCallback(async () => {
     setFormError(null);
     const first = firstName.trim();
     const last = lastName.trim();
     const nickname = nick.trim().toLowerCase().replace(/\s+/g, '');
+    const active = appleSignUpRef.current;
 
     if (!first || !last) {
       setFormError('Fyll inn fornavn og etternavn for å fullføre Apple-innlogging.');
       return;
     }
 
-    if (
-      signUp.status !== 'missing_requirements' &&
-      signUp.status !== 'complete'
-    ) {
+    if (!active || active.status !== 'missing_requirements') {
       setFormError(
-        `Apple-sesjonen er ugyldig (${String(signUp.status)}). Trykk «Start på nytt» og prøv igjen.`
+        `Apple-sesjonen er ugyldig (${String(active?.status ?? 'mangler')}). Trykk «Start på nytt» og prøv igjen.`
       );
       return;
     }
 
     setAppleBusy(true);
     try {
-      // Minimal patch first — avoid username/metadata format rejections.
-      const { error: nameError } = await signUp.update({
+      const { error: nameError } = await active.update({
         firstName: first,
         lastName: last,
       });
       if (nameError) {
         setFormError(
-          clerkErrMessage(
-            nameError,
-            signUpErrors.fields,
-            'Navn ble avvist av Clerk.'
-          )
+          clerkErrMessage(nameError, null, 'Navn ble avvist av Clerk.')
+        );
+        setAppleMissingFields(
+          (active.missingFields ?? []).map((f) => String(f))
         );
         return;
       }
 
-      const missingAfterName = new Set(
-        (signUp.missingFields ?? []).map((f) => String(f))
+      setAppleMissingFields(
+        (active.missingFields ?? []).map((f) => String(f))
       );
 
-      if (missingAfterName.has('legal_accepted')) {
-        const { error: legalError } = await signUp.update({
+      if ((active.missingFields ?? []).map(String).includes('legal_accepted')) {
+        const { error: legalError } = await active.update({
           legalAccepted: true,
         });
         if (legalError) {
-          setFormError(clerkErrMessage(legalError, signUpErrors.fields));
+          setFormError(clerkErrMessage(legalError, null));
           return;
         }
       }
 
-      if (
-        (signUp.missingFields ?? []).map(String).includes('username')
-      ) {
-        const fromEmail = (signUp.emailAddress ?? '')
+      if ((active.missingFields ?? []).map(String).includes('username')) {
+        const fromEmail = (active.emailAddress ?? '')
           .split('@')[0]
           ?.toLowerCase()
           .replace(/[^a-z0-9]/g, '')
           .slice(0, 20);
-        const candidate =
-          (nickname.replace(/[^a-z0-9_]/g, '').slice(0, 20) ||
-            fromEmail ||
-            `user${Date.now().toString(36)}`).slice(0, 20);
-        const { error: userError } = await signUp.update({
-          username: candidate.length >= 4 ? candidate : `${candidate}1`,
+        const candidate = (
+          nickname.replace(/[^a-z0-9_]/g, '').slice(0, 20) ||
+          fromEmail ||
+          `user${Date.now().toString(36)}`
+        ).slice(0, 20);
+        const { error: userError } = await active.update({
+          username: candidate.length >= 4 ? candidate : `${candidate}11`,
         });
         if (userError) {
           setFormError(
             clerkErrMessage(
               userError,
-              signUpErrors.fields,
-              'Brukernavn avvist. Slå av Username i Clerk → User & authentication, eller bruk e-post-innlogging.'
+              null,
+              'Brukernavn avvist. Username skal være av i Clerk.'
             )
           );
           return;
         }
       }
 
-      if ((signUp.missingFields ?? []).map(String).includes('password')) {
+      if ((active.missingFields ?? []).map(String).includes('password')) {
         setFormError(
-          'Clerk krever passord også etter Apple. Slå av Passord som påkrevd for SSO i Clerk Dashboard, eller bruk e-post-innlogging.'
+          'Clerk krever passord etter Apple. Slå av Passord som påkrevd, eller bruk e-post-innlogging.'
         );
         return;
       }
 
       if (nickname) {
-        // Best-effort nick in metadata — ignore failures.
-        await signUp.update({
+        await active.update({
           unsafeMetadata: {
-            ...(signUp.unsafeMetadata as Record<string, unknown>),
+            ...(active.unsafeMetadata as Record<string, unknown>),
             nickname,
             acceptedPrivacyAt: new Date().toISOString(),
           },
         });
       }
 
-      if (signUp.status === 'complete') {
-        await signUp.finalize({ navigate: navigateAfterAuth });
+      if (active.status === 'complete') {
+        appleSignUpRef.current = null;
+        await active.finalize({ navigate: navigateAfterAuth });
         return;
       }
 
+      setAppleMissingFields(
+        (active.missingFields ?? []).map((f) => String(f))
+      );
       setFormError(
-        `Mangler fortsatt: ${(signUp.missingFields ?? []).join(', ') || String(signUp.status)}. ` +
-          'I Clerk kan du slå av påkrevd Username / First name under User & authentication.'
+        `Mangler fortsatt: ${(active.missingFields ?? []).join(', ') || String(active.status)}. ` +
+          'Clerk → User & authentication → User model: slå av påkrevd fornavn/etternavn.'
       );
     } catch (err) {
-      setFormError(clerkErrMessage(err, signUpErrors.fields));
+      setFormError(clerkErrMessage(err, null));
     } finally {
       setAppleBusy(false);
     }
-  }, [
-    firstName,
-    lastName,
-    nick,
-    signUp,
-    signUpErrors.fields,
-    navigateAfterAuth,
-  ]);
+  }, [firstName, lastName, nick, navigateAfterAuth]);
 
   const onCreateAccount = useCallback(async () => {
     setFormError(null);
@@ -803,11 +811,15 @@ function BioBlixSignInForm() {
             </>
           ) : step === 'apple-continue' ? (
             <>
-              {(signUp.missingFields?.length ?? 0) > 0 ? (
+              {(appleMissingFields.length > 0 ? (
                 <BioBlixText variant="caption" color={BioBlixPalette.muted}>
-                  Clerk mangler: {signUp.missingFields!.join(', ')}
+                  Clerk mangler: {appleMissingFields.join(', ')}
                 </BioBlixText>
-              ) : null}
+              ) : (
+                <BioBlixText variant="caption" color={BioBlixPalette.muted}>
+                  Status: {String(appleSignUpRef.current?.status ?? 'ukjent')}
+                </BioBlixText>
+              ))}
               <Field label="Kallenavn / nick (valgfritt)">
                 <TextInput
                   autoCapitalize="none"
@@ -852,6 +864,8 @@ function BioBlixSignInForm() {
                 onPress={() => {
                   signIn.reset();
                   signUp.reset();
+                  appleSignUpRef.current = null;
+                  setAppleMissingFields([]);
                   setStep('form');
                   setFormError(null);
                 }}
