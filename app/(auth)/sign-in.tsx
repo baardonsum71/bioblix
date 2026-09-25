@@ -1,4 +1,5 @@
 import { useAuth, useSignIn, useSignUp } from '@clerk/expo';
+import { useSSO } from '@clerk/expo/experimental';
 import { Link, Redirect, type Href, useRouter } from 'expo-router';
 import { useCallback, useRef, useState, type ReactNode } from 'react';
 import {
@@ -26,7 +27,7 @@ import {
 } from '@/constants/bioblixTheme';
 
 /** Bump when auth flow changes — visible on screen to confirm Vercel build. */
-const AUTH_BUILD = 'auth-v3';
+const AUTH_BUILD = 'auth-v4-apple';
 
 type Step = 'form' | 'verify';
 type Mode = 'sign-up' | 'sign-in';
@@ -89,6 +90,7 @@ function BioBlixSignInForm() {
   const { isLoaded: authLoaded, isSignedIn } = useAuth();
   const { signIn, errors: signInErrors, fetchStatus: signInStatus } = useSignIn();
   const { signUp, errors: signUpErrors, fetchStatus: signUpStatus } = useSignUp();
+  const { startSSOFlow } = useSSO();
 
   const [mode, setMode] = useState<Mode>('sign-up');
   const [nick, setNick] = useState('');
@@ -102,9 +104,13 @@ function BioBlixSignInForm() {
   const [step, setStep] = useState<Step>('form');
   const [verifyKind, setVerifyKind] = useState<VerifyKind>('sign-up');
   const [formError, setFormError] = useState<string | null>(null);
+  const [appleBusy, setAppleBusy] = useState(false);
   const codeSentRef = useRef(false);
 
-  const busy = signInStatus === 'fetching' || signUpStatus === 'fetching';
+  const busy =
+    appleBusy ||
+    signInStatus === 'fetching' ||
+    signUpStatus === 'fetching';
   const canSubmit = acceptedLegal && !busy;
 
   /** Prefer live Clerk status over React state (avoids stale sign-up verify). */
@@ -153,6 +159,43 @@ function BioBlixSignInForm() {
     }
     return true;
   }, [acceptedLegal]);
+
+  const onAppleSignIn = useCallback(async () => {
+    setFormError(null);
+    if (!requireLegal()) return;
+
+    setAppleBusy(true);
+    try {
+      const { createdSessionId, signUp: ssoSignUp } = await startSSOFlow({
+        strategy: 'oauth_apple',
+        unsafeMetadata: {
+          acceptedPrivacyAt: new Date().toISOString(),
+        },
+      });
+
+      if (createdSessionId) {
+        navigateAfterAuth({
+          session: null,
+          decorateUrl: (url) => url,
+        });
+        return;
+      }
+
+      if (ssoSignUp?.status === 'missing_requirements') {
+        setFormError(
+          'Apple-kontoen mangler noen felt (f.eks. navn). Fullfør i Clerk, eller bruk e-post.'
+        );
+        return;
+      }
+      // User cancelled or closed the sheet — silent.
+    } catch (err) {
+      setFormError(
+        clerkErrMessage(err, null, 'Apple-innlogging feilet. Sjekk at Apple er på i Clerk.')
+      );
+    } finally {
+      setAppleBusy(false);
+    }
+  }, [requireLegal, startSSOFlow, navigateAfterAuth]);
 
   const onCreateAccount = useCallback(async () => {
     setFormError(null);
@@ -585,10 +628,37 @@ function BioBlixSignInForm() {
                 </View>
               </Pressable>
 
+              <Pressable
+                disabled={!canSubmit}
+                onPress={() => void onAppleSignIn()}
+                style={[
+                  styles.appleBtn,
+                  !canSubmit && styles.appleBtnDisabled,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Fortsett med Apple"
+              >
+                {appleBusy ? (
+                  <ActivityIndicator color={BioBlixPalette.fog} />
+                ) : (
+                  <BioBlixText variant="label" color={BioBlixPalette.fog}>
+                    Fortsett med Apple
+                  </BioBlixText>
+                )}
+              </Pressable>
+
+              <View style={styles.orRow}>
+                <View style={styles.orLine} />
+                <BioBlixText variant="caption" color={BioBlixPalette.muted}>
+                  eller e-post
+                </BioBlixText>
+                <View style={styles.orLine} />
+              </View>
+
               <BioBlixGradientButton
                 label={mode === 'sign-up' ? 'Opprett konto' : 'Logg inn'}
                 disabled={!canSubmit}
-                loading={busy}
+                loading={busy && !appleBusy}
                 onPress={() =>
                   void (mode === 'sign-up' ? onCreateAccount() : onSignIn())
                 }
@@ -768,6 +838,31 @@ const styles = StyleSheet.create({
   },
   cta: {
     marginTop: BioBlixSpacing.sm,
+  },
+  appleBtn: {
+    marginTop: BioBlixSpacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+    borderRadius: BioBlixRadii.md,
+    borderWidth: 1,
+    borderColor: BioBlixPalette.hairline,
+    backgroundColor: '#000000',
+    paddingHorizontal: 16,
+  },
+  appleBtnDisabled: {
+    opacity: 0.45,
+  },
+  orRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 4,
+  },
+  orLine: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: BioBlixPalette.hairline,
   },
   legalFoot: {
     textAlign: 'center',
