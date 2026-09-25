@@ -47,7 +47,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "build:web": "npx expo export --platform web",
+    "build:web": "node scripts/check-firebase-env.js && npx expo export --platform web",
     "typecheck": "tsc --noEmit"
   },
   "engines": {
