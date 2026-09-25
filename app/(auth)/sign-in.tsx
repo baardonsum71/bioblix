@@ -27,9 +27,9 @@ import {
 } from '@/constants/bioblixTheme';
 
 /** Bump when auth flow changes — visible on screen to confirm Vercel build. */
-const AUTH_BUILD = 'auth-v4-apple';
+const AUTH_BUILD = 'auth-v5-apple';
 
-type Step = 'form' | 'verify';
+type Step = 'form' | 'verify' | 'apple-continue';
 type Mode = 'sign-up' | 'sign-in';
 type VerifyKind = 'sign-up' | 'sign-in';
 
@@ -181,10 +181,13 @@ function BioBlixSignInForm() {
         return;
       }
 
-      if (ssoSignUp?.status === 'missing_requirements') {
-        setFormError(
-          'Apple-kontoen mangler noen felt (f.eks. navn). Fullfør i Clerk, eller bruk e-post.'
-        );
+      // Apple often omits name — collect missing required fields, then finalize.
+      if (
+        ssoSignUp?.status === 'missing_requirements' ||
+        signUp.status === 'missing_requirements'
+      ) {
+        setStep('apple-continue');
+        setFormError(null);
         return;
       }
       // User cancelled or closed the sheet — silent.
@@ -195,7 +198,73 @@ function BioBlixSignInForm() {
     } finally {
       setAppleBusy(false);
     }
-  }, [requireLegal, startSSOFlow, navigateAfterAuth]);
+  }, [requireLegal, startSSOFlow, navigateAfterAuth, signUp.status]);
+
+  const onCompleteAppleProfile = useCallback(async () => {
+    setFormError(null);
+    const first = firstName.trim();
+    const last = lastName.trim();
+    const username = nick.trim().toLowerCase().replace(/\s+/g, '');
+
+    if (!first || !last) {
+      setFormError('Fyll inn fornavn og etternavn for å fullføre Apple-innlogging.');
+      return;
+    }
+
+    setAppleBusy(true);
+    try {
+      const patch: {
+        firstName: string;
+        lastName: string;
+        username?: string;
+        unsafeMetadata?: Record<string, string>;
+      } = {
+        firstName: first,
+        lastName: last,
+        unsafeMetadata: {
+          acceptedPrivacyAt: new Date().toISOString(),
+          ...(username ? { nickname: username } : {}),
+        },
+      };
+      if (username.length >= 3) {
+        patch.username = username;
+      }
+
+      const { error } = await signUp.update(patch);
+      if (error) {
+        // Username may be disabled — retry without it.
+        const { error: retryError } = await signUp.update({
+          firstName: first,
+          lastName: last,
+          unsafeMetadata: patch.unsafeMetadata,
+        });
+        if (retryError) {
+          setFormError(clerkErrMessage(retryError, signUpErrors.fields));
+          return;
+        }
+      }
+
+      if (signUp.status === 'complete') {
+        await signUp.finalize({ navigate: navigateAfterAuth });
+        return;
+      }
+
+      setFormError(
+        `Mangler fortsatt felt (${(signUp.missingFields ?? []).join(', ') || signUp.status}).`
+      );
+    } catch (err) {
+      setFormError(clerkErrMessage(err, signUpErrors.fields));
+    } finally {
+      setAppleBusy(false);
+    }
+  }, [
+    firstName,
+    lastName,
+    nick,
+    signUp,
+    signUpErrors.fields,
+    navigateAfterAuth,
+  ]);
 
   const onCreateAccount = useCallback(async () => {
     setFormError(null);
@@ -445,16 +514,20 @@ function BioBlixSignInForm() {
           <BioBlixText variant="display">
             {step === 'verify'
               ? 'Bekreft e-post'
-              : mode === 'sign-up'
-                ? 'Opprett konto'
-                : 'Logg inn'}
+              : step === 'apple-continue'
+                ? 'Fullfør Apple-konto'
+                : mode === 'sign-up'
+                  ? 'Opprett konto'
+                  : 'Logg inn'}
           </BioBlixText>
           <BioBlixText variant="body" color={BioBlixPalette.muted} style={styles.copy}>
             {step === 'verify'
               ? 'Vi sendte en kode til e-posten din.'
-              : mode === 'sign-up'
-                ? 'Velg kallenavn og fyll inn navn for å komme i gang.'
-                : 'Logg inn med e-post og passord.'}
+              : step === 'apple-continue'
+                ? 'Apple delte ikke navn. Fyll inn fornavn og etternavn for å fortsette.'
+                : mode === 'sign-up'
+                  ? 'Velg kallenavn og fyll inn navn for å komme i gang.'
+                  : 'Logg inn med e-post og passord.'}
           </BioBlixText>
 
           <View nativeID="clerk-captcha" />
@@ -672,6 +745,60 @@ function BioBlixSignInForm() {
               >
                 Ved å fortsette bekrefter du at du har lest vår personvernpolicy.
               </BioBlixText>
+            </>
+          ) : step === 'apple-continue' ? (
+            <>
+              <Field label="Kallenavn / nick (valgfritt)">
+                <TextInput
+                  autoCapitalize="none"
+                  autoComplete="username"
+                  placeholder="f.eks. blekkulf"
+                  placeholderTextColor={BioBlixPalette.muted}
+                  style={styles.input}
+                  value={nick}
+                  onChangeText={setNick}
+                />
+              </Field>
+              <Field label="Fornavn">
+                <TextInput
+                  autoComplete="given-name"
+                  placeholder="Fornavn"
+                  placeholderTextColor={BioBlixPalette.muted}
+                  style={styles.input}
+                  value={firstName}
+                  onChangeText={setFirstName}
+                />
+              </Field>
+              <Field label="Etternavn">
+                <TextInput
+                  autoComplete="family-name"
+                  placeholder="Etternavn"
+                  placeholderTextColor={BioBlixPalette.muted}
+                  style={styles.input}
+                  value={lastName}
+                  onChangeText={setLastName}
+                />
+              </Field>
+              <BioBlixGradientButton
+                label="Fullfør og fortsett"
+                disabled={busy}
+                loading={appleBusy}
+                onPress={() => void onCompleteAppleProfile()}
+                style={styles.cta}
+              />
+              <Pressable
+                onPress={() => {
+                  signIn.reset();
+                  signUp.reset();
+                  setStep('form');
+                  setFormError(null);
+                }}
+                style={styles.linkBtn}
+              >
+                <BioBlixText variant="caption" color={BioBlixPalette.cyan}>
+                  Start på nytt
+                </BioBlixText>
+              </Pressable>
             </>
           ) : (
             <>
