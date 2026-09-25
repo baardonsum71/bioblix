@@ -125,8 +125,9 @@ export default function BioBlixUpload() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images', 'videos'],
       allowsEditing: false,
-      quality: 0.9,
-      videoMaxDuration: 60,
+      quality: 0.7,
+      videoQuality: ImagePicker.UIImagePickerControllerQualityType.Medium,
+      videoMaxDuration: 30,
     });
 
     if (result.canceled || !result.assets?.[0]) return;
