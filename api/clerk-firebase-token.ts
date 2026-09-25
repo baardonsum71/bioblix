@@ -1,4 +1,8 @@
+import { verifyToken } from '@clerk/backend';
+import { getAuth } from 'firebase-admin/auth';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+
+import { getAdminApp } from '../lib/server/firebaseAdmin';
 
 /**
  * Clerk JWT → Firebase custom token.
@@ -7,8 +11,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
  *
  * Env: CLERK_SECRET_KEY, FIREBASE_SERVICE_ACCOUNT_JSON
  *
- * Heavy deps are loaded inside the handler so import failures become JSON 500s
- * instead of Vercel FUNCTION_INVOCATION_FAILED with an empty body.
+ * Use static imports so Vercel file-tracing bundles `lib/server/*`.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
@@ -37,10 +40,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!jwt) {
       return res.status(401).json({ error: 'Empty Bearer token' });
     }
-
-    const { verifyToken } = await import('@clerk/backend');
-    const { getAuth } = await import('firebase-admin/auth');
-    const { getAdminApp } = await import('../lib/server/firebaseAdmin');
 
     const payload = await verifyToken(jwt, { secretKey });
     const userId = payload.sub;
