@@ -29,8 +29,15 @@ export async function syncFirebaseAuthFromClerk(
   });
 
   if (!res.ok) {
-    const body = (await res.json().catch(() => null)) as { error?: string } | null;
-    throw new Error(body?.error ?? `Firebase-token feilet (${res.status})`);
+    const raw = await res.text();
+    let message = `Firebase-token feilet (${res.status})`;
+    try {
+      const body = JSON.parse(raw) as { error?: string };
+      if (body.error) message = body.error;
+    } catch {
+      if (raw.trim()) message = `${message}: ${raw.slice(0, 180)}`;
+    }
+    throw new Error(message);
   }
 
   const data = (await res.json()) as { token?: string };
