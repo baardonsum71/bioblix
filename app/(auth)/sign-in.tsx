@@ -27,7 +27,7 @@ import {
 } from '@/constants/bioblixTheme';
 
 /** Bump when auth flow changes — visible on screen to confirm Vercel build. */
-const AUTH_BUILD = 'auth-v8-apple';
+const AUTH_BUILD = 'auth-v9-apple';
 
 type Step = 'form' | 'verify' | 'apple-continue';
 type Mode = 'sign-up' | 'sign-in';
@@ -229,9 +229,17 @@ function BioBlixSignInForm() {
       return;
     }
 
-    if (!active || active.status !== 'missing_requirements') {
+    if (!active) {
       setFormError(
-        `Apple-sesjonen er ugyldig (${String(active?.status ?? 'mangler')}). Trykk «Start på nytt» og prøv igjen.`
+        'Apple-sesjonen mangler. Trykk «Start på nytt» og prøv igjen.'
+      );
+      return;
+    }
+
+    const statusBefore = String(active.status);
+    if (statusBefore !== 'missing_requirements' && statusBefore !== 'complete') {
+      setFormError(
+        `Apple-sesjonen er ugyldig (${statusBefore}). Trykk «Start på nytt» og prøv igjen.`
       );
       return;
     }
@@ -241,10 +249,19 @@ function BioBlixSignInForm() {
       const { error: nameError } = await active.update({
         firstName: first,
         lastName: last,
+        legalAccepted: true,
       });
       if (nameError) {
+        const detail = [
+          ...(active.missingFields ?? []).map(String),
+          ...(active.unverifiedFields ?? []).map(String),
+        ].join(', ');
         setFormError(
-          clerkErrMessage(nameError, null, 'Navn ble avvist av Clerk.')
+          clerkErrMessage(
+            nameError,
+            null,
+            `Navn ble avvist av Clerk${detail ? ` [${detail}]` : ''}.`
+          )
         );
         setAppleMissingFields(
           (active.missingFields ?? []).map((f) => String(f))
@@ -255,16 +272,6 @@ function BioBlixSignInForm() {
       setAppleMissingFields(
         (active.missingFields ?? []).map((f) => String(f))
       );
-
-      if ((active.missingFields ?? []).map(String).includes('legal_accepted')) {
-        const { error: legalError } = await active.update({
-          legalAccepted: true,
-        });
-        if (legalError) {
-          setFormError(clerkErrMessage(legalError, null));
-          return;
-        }
-      }
 
       if ((active.missingFields ?? []).map(String).includes('username')) {
         const fromEmail = (active.emailAddress ?? '')
@@ -302,16 +309,25 @@ function BioBlixSignInForm() {
       if (nickname) {
         await active.update({
           unsafeMetadata: {
-            ...(active.unsafeMetadata as Record<string, unknown>),
             nickname,
             acceptedPrivacyAt: new Date().toISOString(),
           },
         });
       }
 
-      if (active.status === 'complete') {
+      // Status may stay missing_requirements with empty missingFields — try finalize.
+      if (
+        String(active.status) === 'complete' ||
+        (active.missingFields ?? []).length === 0
+      ) {
         appleSignUpRef.current = null;
-        await active.finalize({ navigate: navigateAfterAuth });
+        const { error: finError } = await active.finalize({
+          navigate: navigateAfterAuth,
+        });
+        if (finError) {
+          setFormError(clerkErrMessage(finError, null, 'Kunne ikke fullføre sesjon.'));
+          return;
+        }
         return;
       }
 
@@ -320,7 +336,7 @@ function BioBlixSignInForm() {
       );
       setFormError(
         `Mangler fortsatt: ${(active.missingFields ?? []).join(', ') || String(active.status)}. ` +
-          'Clerk → User & authentication → User model: slå av påkrevd fornavn/etternavn.'
+          'Clerk → User model: slå av påkrevd fornavn/etternavn.'
       );
     } catch (err) {
       setFormError(clerkErrMessage(err, null));
