@@ -70,6 +70,20 @@ export default function BioBlixRootLayout() {
             title: 'Om BioBlix',
           }}
         />
+        <Stack.Screen
+          name="tags/index"
+          options={{
+            title: 'Alle tags',
+            headerBackTitle: 'Tilbake',
+          }}
+        />
+        <Stack.Screen
+          name="tags/[tag]"
+          options={{
+            title: 'Tag',
+            headerBackTitle: 'Tags',
+          }}
+        />
       </Stack>
     </BioBlixProviders>
   );

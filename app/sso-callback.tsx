@@ -47,7 +47,7 @@ export default function SsoCallbackScreen() {
 
         if (signUp.isTransferable) {
           await signIn.create({ transfer: true });
-          if (signIn.status === 'complete') {
+          if (String(signIn.status) === 'complete') {
             await signIn.finalize({
               navigate: async ({ session, decorateUrl }) => {
                 if (session?.currentTask) return;

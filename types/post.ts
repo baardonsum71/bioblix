@@ -14,6 +14,8 @@ export interface Post {
   mediaType: MediaType;
   title: string;
   description: string;
+  /** Normalized tag slugs (lowercase, no #). */
+  tags: string[];
   /** Clickable product/app link — Pro tier only */
   linkUrl?: string | null;
   createdAt: Timestamp;
@@ -24,5 +26,8 @@ export type CreatePostInput = Omit<Post, 'id' | 'createdAt'>;
 
 /** Partial update for editable post fields. */
 export type UpdatePostInput = Partial<
-  Pick<Post, 'title' | 'description' | 'linkUrl' | 'mediaUrl' | 'mediaType'>
+  Pick<
+    Post,
+    'title' | 'description' | 'linkUrl' | 'mediaUrl' | 'mediaType' | 'tags'
+  >
 >;

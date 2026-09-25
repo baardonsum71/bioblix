@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -11,17 +11,25 @@ import {
   View,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { Link } from 'expo-router';
 
 import { BioBlixMediaPreview } from '@/components/bioblix/BioBlixMediaPreview';
+import { BioBlixTagChips } from '@/components/bioblix/BioBlixTagChips';
 import { BioBlixText } from '@/components/bioblix/BioBlixText';
 import { Brand, Colors } from '@/constants/Colors';
 import { useAppUserId } from '@/hooks/useAppUserId';
 import { useProYearlyEntitlement } from '@/hooks/useProYearlyEntitlement';
 import { presentProYearlyPaywall } from '@/lib/revenuecat/paywall';
 import { validateProLinkUrl } from '@/lib/validation/proLink';
+import {
+  MAX_TAGS_PER_POST,
+  normalizeTag,
+  parseTagInput,
+} from '@/lib/validation/tags';
 import { createPost } from '@/services/posts';
+import { listPopularTags } from '@/services/tags';
 import { uploadPostMedia } from '@/services/storage';
-import type { MediaType } from '@/types';
+import type { MediaType, Tag } from '@/types';
 
 type PickedMedia = {
   uri: string;
@@ -38,8 +46,23 @@ export default function BioBlixUpload() {
   const [description, setDescription] = useState('');
   const [linkUrl, setLinkUrl] = useState('');
   const [linkError, setLinkError] = useState<string | null>(null);
+  const [tagDraft, setTagDraft] = useState('');
+  const [tags, setTags] = useState<string[]>([]);
+  const [popular, setPopular] = useState<Tag[]>([]);
   const [media, setMedia] = useState<PickedMedia | null>(null);
   const [publishing, setPublishing] = useState(false);
+
+  useEffect(() => {
+    void listPopularTags(12)
+      .then(setPopular)
+      .catch(() => setPopular([]));
+  }, []);
+
+  const popularCounts = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const t of popular) map[t.name] = t.postCount;
+    return map;
+  }, [popular]);
 
   const onLinkChange = useCallback(
     (value: string) => {
@@ -57,6 +80,27 @@ export default function BioBlixUpload() {
     },
     [isProYearly]
   );
+
+  const commitTagDraft = useCallback(() => {
+    if (!tagDraft.trim()) return;
+    setTags((prev) => parseTagInput(tagDraft, prev));
+    setTagDraft('');
+  }, [tagDraft]);
+
+  const addSuggestedTag = useCallback((slug: string) => {
+    const normalized = normalizeTag(slug);
+    if (!normalized) return;
+    setTags((prev) => {
+      if (prev.includes(normalized) || prev.length >= MAX_TAGS_PER_POST) {
+        return prev;
+      }
+      return [...prev, normalized];
+    });
+  }, []);
+
+  const removeTag = useCallback((slug: string) => {
+    setTags((prev) => prev.filter((t) => t !== slug));
+  }, []);
 
   const canPublish = useMemo(() => {
     return Boolean(
@@ -145,6 +189,10 @@ export default function BioBlixUpload() {
       safeLink = validation.url;
     }
 
+    const finalTags = tagDraft.trim()
+      ? parseTagInput(tagDraft, tags)
+      : tags;
+
     setPublishing(true);
     try {
       const mediaUrl = await uploadPostMedia({
@@ -160,6 +208,7 @@ export default function BioBlixUpload() {
         mediaType: media.mediaType,
         title: title.trim(),
         description: description.trim(),
+        tags: finalTags,
         linkUrl: safeLink,
       });
 
@@ -167,7 +216,10 @@ export default function BioBlixUpload() {
       setDescription('');
       setLinkUrl('');
       setLinkError(null);
+      setTagDraft('');
+      setTags([]);
       setMedia(null);
+      void listPopularTags(12).then(setPopular).catch(() => undefined);
       Alert.alert('Live i BioBlix', 'Blixet ditt er synlig i strømmen.');
     } catch (error) {
       const message =
@@ -176,7 +228,7 @@ export default function BioBlixUpload() {
     } finally {
       setPublishing(false);
     }
-  }, [userId, media, title, description, linkUrl, isProYearly]);
+  }, [userId, media, title, description, linkUrl, isProYearly, tags, tagDraft]);
 
   return (
     <KeyboardAvoidingView
@@ -244,6 +296,49 @@ export default function BioBlixUpload() {
           maxLength={500}
         />
 
+        <View style={styles.tagsHeader}>
+          <BioBlixText variant="label" color={Colors.mistDim}>
+            Tags (maks {MAX_TAGS_PER_POST})
+          </BioBlixText>
+          <Link href="/tags">
+            <BioBlixText variant="caption" color={Colors.lime}>
+              Alle tags
+            </BioBlixText>
+          </Link>
+        </View>
+        <TextInput
+          style={styles.input}
+          value={tagDraft}
+          onChangeText={setTagDraft}
+          placeholder="f.eks. app, ios, produktivitet"
+          placeholderTextColor={Colors.mistDim}
+          autoCapitalize="none"
+          autoCorrect={false}
+          onSubmitEditing={commitTagDraft}
+          returnKeyType="done"
+          blurOnSubmit={false}
+        />
+        <Pressable onPress={commitTagDraft} style={styles.addTagBtn}>
+          <BioBlixText variant="caption" color={Colors.lime}>
+            Legg til tag
+          </BioBlixText>
+        </Pressable>
+        <BioBlixTagChips tags={tags} onRemoveTag={removeTag} />
+
+        {popular.length > 0 ? (
+          <>
+            <BioBlixText variant="label" color={Colors.mistDim}>
+              Populære
+            </BioBlixText>
+            <BioBlixTagChips
+              tags={popular.map((t) => t.name).filter((n) => !tags.includes(n))}
+              counts={popularCounts}
+              onPressTag={addSuggestedTag}
+              compact
+            />
+          </>
+        ) : null}
+
         <BioBlixText variant="label" color={Colors.mistDim}>
           Butikklenke · Pro
         </BioBlixText>
@@ -267,7 +362,11 @@ export default function BioBlixUpload() {
           editable={isProYearly && !entitlementLoading}
         />
         {linkError ? (
-          <BioBlixText variant="caption" color={Colors.danger} style={styles.linkError}>
+          <BioBlixText
+            variant="caption"
+            color={Colors.danger}
+            style={styles.linkError}
+          >
             {linkError}
           </BioBlixText>
         ) : null}
@@ -286,11 +385,17 @@ export default function BioBlixUpload() {
         ) : null}
 
         {entitlementLoading ? (
-          <ActivityIndicator style={styles.entitlementSpinner} color={Colors.lime} />
+          <ActivityIndicator
+            style={styles.entitlementSpinner}
+            color={Colors.lime}
+          />
         ) : null}
 
         <Pressable
-          style={[styles.publishButton, !canPublish && styles.publishButtonDisabled]}
+          style={[
+            styles.publishButton,
+            !canPublish && styles.publishButtonDisabled,
+          ]}
           onPress={onPublish}
           disabled={!canPublish}
         >
@@ -339,6 +444,17 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     marginBottom: 12,
     paddingVertical: 4,
+  },
+  tagsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  addTagBtn: {
+    alignSelf: 'flex-start',
+    paddingVertical: 4,
+    marginBottom: 4,
   },
   input: {
     borderWidth: 1,

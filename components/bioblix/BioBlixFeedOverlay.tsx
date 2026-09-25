@@ -1,6 +1,8 @@
+import { useRouter, type Href } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { confirmAndOpenBioBlixLink, bioBlixLinkCtaLabel } from '@/components/bioblix/bioBlixLinks';
+import { BioBlixTagChips } from '@/components/bioblix/BioBlixTagChips';
 import { BioBlixText } from '@/components/bioblix/BioBlixText';
 import { Colors } from '@/constants/Colors';
 
@@ -8,6 +10,7 @@ type BioBlixFeedOverlayProps = {
   title: string;
   description: string;
   username: string;
+  tags?: string[];
   linkUrl?: string | null;
 };
 
@@ -15,8 +18,10 @@ export function BioBlixFeedOverlay({
   title,
   description,
   username,
+  tags = [],
   linkUrl,
 }: BioBlixFeedOverlayProps) {
+  const router = useRouter();
   const hasLink = Boolean(linkUrl?.trim());
 
   return (
@@ -33,6 +38,16 @@ export function BioBlixFeedOverlay({
           <BioBlixText variant="body" color={Colors.mist} numberOfLines={3}>
             {description}
           </BioBlixText>
+        ) : null}
+
+        {tags.length > 0 ? (
+          <BioBlixTagChips
+            tags={tags}
+            compact
+            onPressTag={(tag) =>
+              router.push(`/tags/${encodeURIComponent(tag)}` as Href)
+            }
+          />
         ) : null}
 
         {hasLink ? (
