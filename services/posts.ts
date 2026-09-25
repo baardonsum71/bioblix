@@ -17,7 +17,9 @@ import {
 import type { CreatePostInput, Post, UpdatePostInput } from '@/types';
 import { COLLECTIONS, db } from '@/lib/firebase';
 import { hasProYearlyEntitlement } from '@/lib/revenuecat';
+import { sanitizeTags } from '@/lib/validation/tags';
 import { validateProLinkUrl } from '@/lib/validation/proLink';
+import { incrementTagCounts } from '@/services/tags';
 import { userCanAddLinks } from '@/services/users';
 
 async function canAuthorAddLinks(userId: string): Promise<boolean> {
@@ -43,6 +45,9 @@ function mapPost(id: string, data: DocumentData): Post {
     mediaType: data.mediaType,
     title: data.title,
     description: data.description,
+    tags: Array.isArray(data.tags)
+      ? data.tags.filter((t: unknown): t is string => typeof t === 'string')
+      : [],
     linkUrl: data.linkUrl ?? null,
     createdAt: data.createdAt,
   };
@@ -54,6 +59,7 @@ function mapPost(id: string, data: DocumentData): Post {
 export async function createPost(input: CreatePostInput): Promise<string> {
   const hasLink = Boolean(input.linkUrl?.trim());
   let linkUrl: string | null = null;
+  const tags = sanitizeTags(input.tags);
 
   if (hasLink) {
     const allowed = await canAuthorAddLinks(input.userId);
@@ -75,9 +81,16 @@ export async function createPost(input: CreatePostInput): Promise<string> {
     mediaType: input.mediaType,
     title: input.title,
     description: input.description,
+    tags,
     linkUrl,
     createdAt: serverTimestamp(),
   });
+
+  try {
+    await incrementTagCounts(tags);
+  } catch (err) {
+    console.warn('[tags] count increment failed', err);
+  }
 
   return ref.id;
 }
@@ -91,6 +104,23 @@ export async function getPostById(postId: string): Promise<Post | null> {
 /** Newest-first feed page (vertical video feed). */
 export async function listFeedPosts(max = 20): Promise<Post[]> {
   const q = query(postsRef(), orderBy('createdAt', 'desc'), limit(max));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => mapPost(d.id, d.data()));
+}
+
+/** Posts that include a given tag (newest first). */
+export async function listPostsByTag(
+  tag: string,
+  max = 40
+): Promise<Post[]> {
+  const slug = sanitizeTags([tag])[0];
+  if (!slug) return [];
+  const q = query(
+    postsRef(),
+    where('tags', 'array-contains', slug),
+    orderBy('createdAt', 'desc'),
+    limit(max)
+  );
   const snap = await getDocs(q);
   return snap.docs.map((d) => mapPost(d.id, d.data()));
 }
@@ -114,6 +144,11 @@ export async function updatePost(
   authorUserId: string,
   input: UpdatePostInput
 ): Promise<void> {
+  const patch: Record<string, unknown> = { ...input };
+  if (input.tags !== undefined) {
+    patch.tags = sanitizeTags(input.tags);
+  }
+
   if (input.linkUrl !== undefined && input.linkUrl !== null && input.linkUrl.trim()) {
     const allowed = await canAuthorAddLinks(authorUserId);
     if (!allowed) {
@@ -126,14 +161,14 @@ export async function updatePost(
       throw new Error(validation.message);
     }
     await updateDoc(postDoc(postId), {
-      ...input,
+      ...patch,
       linkUrl: validation.url,
     });
     return;
   }
 
   await updateDoc(postDoc(postId), {
-    ...input,
+    ...patch,
     linkUrl:
       input.linkUrl === undefined
         ? undefined

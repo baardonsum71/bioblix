@@ -1,3 +1,4 @@
+export { BioBlixTagChips } from './BioBlixTagChips';
 export { default as BioBlixFeed } from './BioBlixFeed';
 export { BioBlixFeedItem } from './BioBlixFeedItem';
 export { BioBlixFeedOverlay } from './BioBlixFeedOverlay';

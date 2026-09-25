@@ -5,4 +5,5 @@ export type {
   UpdatePostInput,
   MediaType,
 } from './post';
+export type { Tag } from './tag';
 export type { Report, CreateReportInput } from './report';
