@@ -1,5 +1,10 @@
 import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
-import { getFirestore, type Firestore } from 'firebase/firestore';
+import {
+  getFirestore,
+  initializeFirestore,
+  memoryLocalCache,
+  type Firestore,
+} from 'firebase/firestore';
 import { getStorage, type FirebaseStorage } from 'firebase/storage';
 
 /**
@@ -18,14 +23,15 @@ const firebaseConfig = {
 export const isFirebaseConfigured = Boolean(
   firebaseConfig.apiKey &&
     firebaseConfig.projectId &&
-    firebaseConfig.appId
+    firebaseConfig.appId &&
+    firebaseConfig.apiKey !== 'missing'
 );
 
 function assertFirebaseConfig(): void {
   if (isFirebaseConfigured) return;
   console.warn(
     '[firebase] Missing EXPO_PUBLIC_FIREBASE_* env vars. ' +
-      'Copy .env.example → .env locally, and set the same keys in Vercel → Environment Variables, then redeploy.'
+      'Copy .env.example → .env locally, and set the same keys in Vercel → Environment Variables, then Redeploy (Clear cache).'
   );
 }
 
@@ -52,6 +58,24 @@ function createFirebaseApp(): FirebaseApp {
 
 const app: FirebaseApp = createFirebaseApp();
 
-export const db: Firestore = getFirestore(app);
+/**
+ * Prefer memory cache + long polling on web to avoid sticky "client is offline"
+ * after a failed first connection (common behind previews / proxies).
+ */
+function createDb(): Firestore {
+  if (!isFirebaseConfigured) {
+    return getFirestore(app);
+  }
+  try {
+    return initializeFirestore(app, {
+      localCache: memoryLocalCache(),
+      experimentalForceLongPolling: true,
+    });
+  } catch {
+    return getFirestore(app);
+  }
+}
+
+export const db: Firestore = createDb();
 export const storage: FirebaseStorage = getStorage(app);
-export { app };
+export { app, firebaseConfig };

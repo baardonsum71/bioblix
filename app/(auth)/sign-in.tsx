@@ -27,6 +27,8 @@ import {
 
 type Step = 'form' | 'verify';
 type Mode = 'sign-up' | 'sign-in';
+/** Which Clerk flow owns the e-postkode-steg (must not mix sign-up vs sign-in). */
+type VerifyKind = 'sign-up' | 'sign-in';
 
 export default function BioBlixSignInScreen() {
   if (!isClerkConfigured) {
@@ -77,6 +79,7 @@ function BioBlixSignInForm() {
   const [acceptedLegal, setAcceptedLegal] = useState(false);
   const [code, setCode] = useState('');
   const [step, setStep] = useState<Step>('form');
+  const [verifyKind, setVerifyKind] = useState<VerifyKind>('sign-up');
   const [formError, setFormError] = useState<string | null>(null);
 
   const busy = signInStatus === 'fetching' || signUpStatus === 'fetching';
@@ -189,6 +192,7 @@ function BioBlixSignInForm() {
 
     await signUp.verifications.sendEmailCode();
     if (signUp.unverifiedFields?.includes('email_address')) {
+      setVerifyKind('sign-up');
       setStep('verify');
     } else {
       await signUp.finalize({ navigate: navigateAfterAuth });
@@ -234,6 +238,7 @@ function BioBlixSignInForm() {
       );
       if (emailFactor) {
         await signIn.mfa.sendEmailCode();
+        setVerifyKind('sign-in');
         setStep('verify');
       } else {
         setFormError(
@@ -241,9 +246,18 @@ function BioBlixSignInForm() {
         );
       }
     } else if (signIn.status === 'needs_second_factor') {
-      setFormError(
-        'Tofaktor er påkrevd. Aktiver e-postkode i Clerk Dashboard.'
+      const emailFactor = signIn.supportedSecondFactors?.find(
+        (f) => f.strategy === 'email_code'
       );
+      if (emailFactor) {
+        await signIn.mfa.sendEmailCode();
+        setVerifyKind('sign-in');
+        setStep('verify');
+      } else {
+        setFormError(
+          'Tofaktor er påkrevd. Aktiver e-postkode i Clerk Dashboard.'
+        );
+      }
     }
   }, [
     requireLegal,
@@ -261,7 +275,8 @@ function BioBlixSignInForm() {
       return;
     }
 
-    if (mode === 'sign-up' || signUp.status === 'missing_requirements') {
+    // Must use the same Clerk resource that sent the code (sign-up ≠ sign-in MFA).
+    if (verifyKind === 'sign-up') {
       const { error: verifyError } = await signUp.verifications.verifyEmailCode({
         code: code.trim(),
       });
@@ -275,11 +290,29 @@ function BioBlixSignInForm() {
       return;
     }
 
-    await signIn.mfa.verifyEmailCode({ code: code.trim() });
+    const { error: mfaError } = await signIn.mfa.verifyEmailCode({
+      code: code.trim(),
+    });
+    if (mfaError) {
+      setFormError(
+        signInErrors.fields?.code?.message ?? 'Ugyldig kode. Prøv igjen.'
+      );
+      return;
+    }
     if (signIn.status === 'complete') {
       await signIn.finalize({ navigate: navigateAfterAuth });
+    } else {
+      setFormError('Bekreftelse ikke fullført. Be om ny kode eller start på nytt.');
     }
-  }, [code, mode, signIn, signUp, signUpErrors, navigateAfterAuth]);
+  }, [
+    code,
+    verifyKind,
+    signIn,
+    signUp,
+    signInErrors,
+    signUpErrors,
+    navigateAfterAuth,
+  ]);
 
   if (!authLoaded) {
     return (
@@ -533,6 +566,7 @@ function BioBlixSignInForm() {
                   signIn.reset();
                   signUp.reset();
                   setStep('form');
+                  setVerifyKind('sign-up');
                   setCode('');
                   setFormError(null);
                 }}
