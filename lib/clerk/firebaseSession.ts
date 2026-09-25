@@ -20,13 +20,27 @@ export async function syncFirebaseAuthFromClerk(
     throw new Error('Mangler Clerk-sesjonstoken');
   }
 
-  const res = await fetch(apiUrl('/api/clerk-firebase-token'), {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${clerkJwt}`,
-      'Content-Type': 'application/json',
-    },
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 20_000);
+
+  let res: Response;
+  try {
+    res = await fetch(apiUrl('/api/clerk-firebase-token'), {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${clerkJwt}`,
+        'Content-Type': 'application/json',
+      },
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new Error('Firebase-token tok for lang tid (20s). Prøv igjen.');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
 
   if (!res.ok) {
     const raw = await res.text();

@@ -34,12 +34,31 @@ export async function uploadPostMedia(params: {
   const path = `posts/${userId}/${Date.now()}.${ext}`;
   const storageRef = ref(storage, path);
 
-  const response = await fetch(uri);
-  const blob = await response.blob();
+  let blob: Blob;
+  try {
+    const response = await fetch(uri);
+    if (!response.ok) {
+      throw new Error(`Kunne ikke lese mediafil (${response.status})`);
+    }
+    blob = await response.blob();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Ukjent feil';
+    throw new Error(`Media klarte ikke å lastes: ${msg}`);
+  }
 
-  await uploadBytes(storageRef, blob, {
-    contentType: mimeType ?? (mediaType === 'video' ? 'video/mp4' : 'image/jpeg'),
-  });
+  if (!blob.size) {
+    throw new Error('Mediafilen er tom — velg bilde/video på nytt.');
+  }
+
+  try {
+    await uploadBytes(storageRef, blob, {
+      contentType:
+        mimeType ?? (mediaType === 'video' ? 'video/mp4' : 'image/jpeg'),
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Ukjent feil';
+    throw new Error(`Opplasting til Storage feilet: ${msg}`);
+  }
 
   return getDownloadURL(storageRef);
 }
