@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Link } from 'expo-router';
+import { useAuth } from '@clerk/expo';
 
 import { BioBlixMediaPreview } from '@/components/bioblix/BioBlixMediaPreview';
 import { BioBlixTagChips } from '@/components/bioblix/BioBlixTagChips';
@@ -18,7 +19,8 @@ import { BioBlixText } from '@/components/bioblix/BioBlixText';
 import { Brand, Colors } from '@/constants/Colors';
 import { useAppUserId } from '@/hooks/useAppUserId';
 import { useProYearlyEntitlement } from '@/hooks/useProYearlyEntitlement';
-import { waitForFirebaseUser } from '@/lib/clerk/firebaseSession';
+import { syncFirebaseAuthFromClerk } from '@/lib/clerk/firebaseSession';
+import { firebaseAuth } from '@/lib/firebase/auth';
 import { notify } from '@/lib/platform';
 import { presentProYearlyPaywall } from '@/lib/revenuecat/paywall';
 import { validateProLinkUrl } from '@/lib/validation/proLink';
@@ -40,6 +42,7 @@ type PickedMedia = {
 
 export default function BioBlixUpload() {
   const userId = useAppUserId();
+  const { getToken } = useAuth();
   const { isProYearly, loading: entitlementLoading, refresh } =
     useProYearlyEntitlement(userId);
 
@@ -197,10 +200,12 @@ export default function BioBlixUpload() {
 
     setPublishing(true);
     try {
-      const firebaseUser = await waitForFirebaseUser(10_000);
-      if (!firebaseUser) {
+      if (!firebaseAuth.currentUser) {
+        await syncFirebaseAuthFromClerk(() => getToken());
+      }
+      if (!firebaseAuth.currentUser) {
         throw new Error(
-          'Ikke klar for opplasting ennå. Vent et par sekunder og prøv igjen (eller logg inn på nytt).'
+          'Firebase-innlogging feilet. Logg ut og inn igjen, så prøv på nytt.'
         );
       }
 
@@ -237,7 +242,17 @@ export default function BioBlixUpload() {
     } finally {
       setPublishing(false);
     }
-  }, [userId, media, title, description, linkUrl, isProYearly, tags, tagDraft]);
+  }, [
+    userId,
+    media,
+    title,
+    description,
+    linkUrl,
+    isProYearly,
+    tags,
+    tagDraft,
+    getToken,
+  ]);
 
   return (
     <KeyboardAvoidingView
