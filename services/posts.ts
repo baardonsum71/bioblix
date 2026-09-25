@@ -86,10 +86,11 @@ export async function createPost(input: CreatePostInput): Promise<string> {
     createdAt: serverTimestamp(),
   });
 
-  try {
-    await incrementTagCounts(tags);
-  } catch (err) {
-    console.warn('[tags] count increment failed', err);
+  // Don't block publish on popularity counters.
+  if (tags.length > 0) {
+    void incrementTagCounts(tags).catch((err) => {
+      console.warn('[tags] count increment failed', err);
+    });
   }
 
   return ref.id;

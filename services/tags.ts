@@ -7,8 +7,8 @@ import {
   query,
   limit,
   serverTimestamp,
-  setDoc,
   increment,
+  writeBatch,
   type DocumentData,
 } from 'firebase/firestore';
 
@@ -33,31 +33,24 @@ function mapTag(id: string, data: DocumentData): Tag {
   };
 }
 
-/** Bump popularity for each tag after a post is created. */
+/** Bump popularity for each tag after a post is created (one batched write). */
 export async function incrementTagCounts(rawTags: string[]): Promise<void> {
   const tags = sanitizeTags(rawTags);
-  await Promise.all(
-    tags.map(async (slug) => {
-      const ref = tagDoc(slug);
-      const snap = await getDoc(ref);
-      if (snap.exists()) {
-        await setDoc(
-          ref,
-          {
-            postCount: increment(1),
-            updatedAt: serverTimestamp(),
-          },
-          { merge: true }
-        );
-      } else {
-        await setDoc(ref, {
-          name: slug,
-          postCount: 1,
-          updatedAt: serverTimestamp(),
-        });
-      }
-    })
-  );
+  if (tags.length === 0) return;
+
+  const batch = writeBatch(db);
+  for (const slug of tags) {
+    batch.set(
+      tagDoc(slug),
+      {
+        name: slug,
+        postCount: increment(1),
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+  }
+  await batch.commit();
 }
 
 /** Top tags by postCount (popularity). */
