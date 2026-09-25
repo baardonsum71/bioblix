@@ -1,6 +1,6 @@
 import { useAuth, useSignIn, useSignUp } from '@clerk/expo';
 import { Link, Redirect, type Href, useRouter } from 'expo-router';
-import { useCallback, useState, type ReactNode } from 'react';
+import { useCallback, useRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -25,10 +25,31 @@ import {
   BioBlixSpacing,
 } from '@/constants/bioblixTheme';
 
+/** Bump when auth flow changes — visible on screen to confirm Vercel build. */
+const AUTH_BUILD = 'auth-v3';
+
 type Step = 'form' | 'verify';
 type Mode = 'sign-up' | 'sign-in';
-/** Which Clerk flow owns the e-postkode-steg (must not mix sign-up vs sign-in). */
 type VerifyKind = 'sign-up' | 'sign-in';
+
+function clerkErrMessage(
+  err: unknown,
+  fields?: { code?: { message?: string } | null } | null,
+  fallback = 'Ugyldig kode. Prøv igjen.'
+): string {
+  if (fields?.code?.message) return fields.code.message;
+  if (err && typeof err === 'object') {
+    const e = err as {
+      message?: string;
+      errors?: { longMessage?: string; message?: string; code?: string }[];
+    };
+    const first = e.errors?.[0];
+    if (first?.longMessage) return first.longMessage;
+    if (first?.message) return first.message;
+    if (e.message) return e.message;
+  }
+  return fallback;
+}
 
 export default function BioBlixSignInScreen() {
   if (!isClerkConfigured) {
@@ -81,9 +102,30 @@ function BioBlixSignInForm() {
   const [step, setStep] = useState<Step>('form');
   const [verifyKind, setVerifyKind] = useState<VerifyKind>('sign-up');
   const [formError, setFormError] = useState<string | null>(null);
+  const codeSentRef = useRef(false);
 
   const busy = signInStatus === 'fetching' || signUpStatus === 'fetching';
   const canSubmit = acceptedLegal && !busy;
+
+  /** Prefer live Clerk status over React state (avoids stale sign-up verify). */
+  const activeVerifyKind: VerifyKind =
+    signIn.status === 'needs_client_trust' ||
+    signIn.status === 'needs_second_factor'
+      ? 'sign-in'
+      : verifyKind;
+
+  const beginSignInEmailVerify = useCallback(async () => {
+    const { error } = await signIn.mfa.sendEmailCode();
+    if (error) {
+      setFormError(clerkErrMessage(error, signInErrors.fields));
+      return false;
+    }
+    codeSentRef.current = true;
+    setVerifyKind('sign-in');
+    setStep('verify');
+    setCode('');
+    return true;
+  }, [signIn, signInErrors.fields]);
 
   const navigateAfterAuth = useCallback(
     ({
@@ -114,6 +156,7 @@ function BioBlixSignInForm() {
 
   const onCreateAccount = useCallback(async () => {
     setFormError(null);
+    codeSentRef.current = false;
     if (!requireLegal()) return;
 
     const emailAddress = email.trim().toLowerCase();
@@ -191,9 +234,11 @@ function BioBlixSignInForm() {
     }
 
     await signUp.verifications.sendEmailCode();
+    codeSentRef.current = true;
     if (signUp.unverifiedFields?.includes('email_address')) {
       setVerifyKind('sign-up');
       setStep('verify');
+      setCode('');
     } else {
       await signUp.finalize({ navigate: navigateAfterAuth });
     }
@@ -211,6 +256,7 @@ function BioBlixSignInForm() {
 
   const onSignIn = useCallback(async () => {
     setFormError(null);
+    codeSentRef.current = false;
     if (!requireLegal()) return;
 
     const emailAddress = email.trim().toLowerCase();
@@ -232,32 +278,21 @@ function BioBlixSignInForm() {
 
     if (signIn.status === 'complete') {
       await signIn.finalize({ navigate: navigateAfterAuth });
-    } else if (signIn.status === 'needs_client_trust') {
-      const emailFactor = signIn.supportedSecondFactors?.find(
-        (f) => f.strategy === 'email_code'
-      );
-      if (emailFactor) {
-        await signIn.mfa.sendEmailCode();
+    } else if (
+      signIn.status === 'needs_client_trust' ||
+      signIn.status === 'needs_second_factor'
+    ) {
+      // Always send via MFA email for device trust / 2FA (don't rely on factor list).
+      if (!codeSentRef.current) {
+        await beginSignInEmailVerify();
+      } else {
         setVerifyKind('sign-in');
         setStep('verify');
-      } else {
-        setFormError(
-          'Enheten må bekreftes, men e-postkode er ikke tilgjengelig.'
-        );
       }
-    } else if (signIn.status === 'needs_second_factor') {
-      const emailFactor = signIn.supportedSecondFactors?.find(
-        (f) => f.strategy === 'email_code'
+    } else {
+      setFormError(
+        `Innlogging stoppet (status: ${String(signIn.status)}). Prøv Start på nytt.`
       );
-      if (emailFactor) {
-        await signIn.mfa.sendEmailCode();
-        setVerifyKind('sign-in');
-        setStep('verify');
-      } else {
-        setFormError(
-          'Tofaktor er påkrevd. Aktiver e-postkode i Clerk Dashboard.'
-        );
-      }
     }
   }, [
     requireLegal,
@@ -266,24 +301,23 @@ function BioBlixSignInForm() {
     signIn,
     signInErrors,
     navigateAfterAuth,
+    beginSignInEmailVerify,
   ]);
 
   const onVerify = useCallback(async () => {
     setFormError(null);
-    if (!code.trim()) {
+    const trimmed = code.trim().replace(/\s+/g, '');
+    if (!trimmed) {
       setFormError('Skriv inn koden fra e-posten.');
       return;
     }
 
-    // Must use the same Clerk resource that sent the code (sign-up ≠ sign-in MFA).
-    if (verifyKind === 'sign-up') {
+    if (activeVerifyKind === 'sign-up') {
       const { error: verifyError } = await signUp.verifications.verifyEmailCode({
-        code: code.trim(),
+        code: trimmed,
       });
       if (verifyError) {
-        setFormError(
-          signUpErrors.fields?.code?.message ?? 'Ugyldig kode. Prøv igjen.'
-        );
+        setFormError(clerkErrMessage(verifyError, signUpErrors.fields));
         return;
       }
       await signUp.finalize({ navigate: navigateAfterAuth });
@@ -291,27 +325,55 @@ function BioBlixSignInForm() {
     }
 
     const { error: mfaError } = await signIn.mfa.verifyEmailCode({
-      code: code.trim(),
+      code: trimmed,
     });
     if (mfaError) {
       setFormError(
-        signInErrors.fields?.code?.message ?? 'Ugyldig kode. Prøv igjen.'
+        `${clerkErrMessage(mfaError, signInErrors.fields)} Bruk den nyeste koden, eller trykk «Send ny kode».`
       );
       return;
     }
     if (signIn.status === 'complete') {
       await signIn.finalize({ navigate: navigateAfterAuth });
     } else {
-      setFormError('Bekreftelse ikke fullført. Be om ny kode eller start på nytt.');
+      setFormError(
+        `Bekreftelse ikke fullført (status: ${String(signIn.status)}). Send ny kode.`
+      );
     }
   }, [
     code,
-    verifyKind,
+    activeVerifyKind,
     signIn,
     signUp,
     signInErrors,
     signUpErrors,
     navigateAfterAuth,
+  ]);
+
+  const onResendCode = useCallback(async () => {
+    setFormError(null);
+    setCode('');
+    if (activeVerifyKind === 'sign-up') {
+      const { error } = await signUp.verifications.sendEmailCode();
+      if (error) {
+        setFormError(clerkErrMessage(error, signUpErrors.fields));
+        return;
+      }
+    } else {
+      const { error } = await signIn.mfa.sendEmailCode();
+      if (error) {
+        setFormError(clerkErrMessage(error, signInErrors.fields));
+        return;
+      }
+    }
+    codeSentRef.current = true;
+    setFormError(null);
+  }, [
+    activeVerifyKind,
+    signIn,
+    signUp,
+    signInErrors.fields,
+    signUpErrors.fields,
   ]);
 
   if (!authLoaded) {
@@ -562,9 +624,19 @@ function BioBlixSignInForm() {
                 style={styles.cta}
               />
               <Pressable
+                disabled={busy}
+                onPress={() => void onResendCode()}
+                style={styles.linkBtn}
+              >
+                <BioBlixText variant="caption" color={BioBlixPalette.cyan}>
+                  Send ny kode
+                </BioBlixText>
+              </Pressable>
+              <Pressable
                 onPress={() => {
                   signIn.reset();
                   signUp.reset();
+                  codeSentRef.current = false;
                   setStep('form');
                   setVerifyKind('sign-up');
                   setCode('');
@@ -576,6 +648,9 @@ function BioBlixSignInForm() {
                   Start på nytt
                 </BioBlixText>
               </Pressable>
+              <BioBlixText variant="caption" color={BioBlixPalette.muted}>
+                Bruk kun den nyeste koden i innboksen ({activeVerifyKind}).
+              </BioBlixText>
             </>
           )}
 
@@ -584,6 +659,10 @@ function BioBlixSignInForm() {
               {formError}
             </BioBlixText>
           ) : null}
+
+          <BioBlixText variant="caption" color={BioBlixPalette.muted} style={styles.build}>
+            {AUTH_BUILD}
+          </BioBlixText>
         </ScrollView>
       </KeyboardAvoidingView>
     </BioBlixScreenShell>
@@ -697,5 +776,9 @@ const styles = StyleSheet.create({
   linkBtn: {
     paddingVertical: 8,
     alignSelf: 'flex-start',
+  },
+  build: {
+    marginTop: 16,
+    opacity: 0.5,
   },
 });
