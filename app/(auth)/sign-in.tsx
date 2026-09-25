@@ -27,7 +27,7 @@ import {
 } from '@/constants/bioblixTheme';
 
 /** Bump when auth flow changes — visible on screen to confirm Vercel build. */
-const AUTH_BUILD = 'auth-v10-apple';
+const AUTH_BUILD = 'auth-v11-apple';
 
 type Step = 'form' | 'verify' | 'apple-continue';
 type Mode = 'sign-up' | 'sign-in';
