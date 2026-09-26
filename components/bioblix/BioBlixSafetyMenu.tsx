@@ -13,6 +13,7 @@ type BioBlixSafetyMenuProps = {
   viewerUserId: string | null;
   onBlocked?: () => void;
   onDeleted?: () => void;
+  onEdit?: () => void;
 };
 
 export function BioBlixSafetyMenu({
@@ -21,6 +22,7 @@ export function BioBlixSafetyMenu({
   viewerUserId,
   onBlocked,
   onDeleted,
+  onEdit,
 }: BioBlixSafetyMenuProps) {
   const { getToken } = useAuth();
 
@@ -42,17 +44,48 @@ export function BioBlixSafetyMenu({
   };
 
   const openOwnPostMenu = async () => {
-    const shouldDelete = await confirmAction(
+    if (isWeb && typeof window !== 'undefined') {
+      const choice = window.prompt(
+        'Skriv «rediger» eller «slett» (eller avbryt):',
+        onEdit ? 'rediger' : 'slett'
+      );
+      const normalized = choice?.trim().toLowerCase() ?? '';
+      if (!normalized) return;
+      if (normalized.startsWith('redig') && onEdit) {
+        onEdit();
+        return;
+      }
+      if (normalized.startsWith('slett')) {
+        const ok = await confirmAction(
+          'Slett blix?',
+          'Dette blixet fjernes permanent fra feed og profil.',
+          { confirmLabel: 'Slett', destructive: true }
+        );
+        if (ok) await handleDelete();
+      }
+      return;
+    }
+
+    Alert.alert('Ditt blix', 'Hva vil du gjøre?', [
+      ...(onEdit
+        ? [{ text: 'Rediger', onPress: () => onEdit() }]
+        : []),
+      {
+        text: 'Slett',
+        style: 'destructive' as const,
+        onPress: () => void confirmDeleteNative(),
+      },
+      { text: 'Avbryt', style: 'cancel' as const },
+    ]);
+  };
+
+  const confirmDeleteNative = async () => {
+    const ok = await confirmAction(
       'Slett blix?',
       'Dette blixet fjernes permanent fra feed og profil.',
-      {
-        confirmLabel: 'Slett',
-        cancelLabel: 'Avbryt',
-        destructive: true,
-      }
+      { confirmLabel: 'Slett', destructive: true }
     );
-    if (!shouldDelete) return;
-    await handleDelete();
+    if (ok) await handleDelete();
   };
 
   const openOtherPostMenu = async (viewerId: string) => {
@@ -151,7 +184,7 @@ export function BioBlixSafetyMenu({
     <Pressable
       accessibilityLabel={
         viewerUserId === authorUserId
-          ? 'Slett eget blix'
+          ? 'Rediger eller slett blix'
           : 'Flere alternativer'
       }
       accessibilityRole="button"
