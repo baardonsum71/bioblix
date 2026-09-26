@@ -42,5 +42,17 @@ export function useBioBlixFeed(pageSize = 20) {
     setPosts((prev) => prev.filter((post) => post.userId !== authorUserId));
   }, []);
 
-  return { posts, loading, error, refresh, hideAuthor, blockedUsers };
+  const removePost = useCallback((postId: string) => {
+    setPosts((prev) => prev.filter((post) => post.id !== postId));
+  }, []);
+
+  return {
+    posts,
+    loading,
+    error,
+    refresh,
+    hideAuthor,
+    removePost,
+    blockedUsers,
+  };
 }

@@ -14,6 +14,7 @@ type BioBlixFeedItemProps = {
   username: string;
   viewerUserId: string | null;
   onAuthorBlocked?: () => void;
+  onDeleted?: () => void;
 };
 
 function FeedVideo({
@@ -56,6 +57,7 @@ export function BioBlixFeedItem({
   username,
   viewerUserId,
   onAuthorBlocked,
+  onDeleted,
 }: BioBlixFeedItemProps) {
   return (
     <View style={[styles.item, { height }]}>
@@ -74,6 +76,7 @@ export function BioBlixFeedItem({
         authorUserId={post.userId}
         viewerUserId={viewerUserId}
         onBlocked={onAuthorBlocked}
+        onDeleted={onDeleted}
       />
 
       <BioBlixFeedOverlay

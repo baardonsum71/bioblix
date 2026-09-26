@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
 import { View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BioBlixLogo } from '@/components/bioblix/BioBlixLogo';
 import { BioBlixText } from '@/components/bioblix/BioBlixText';
@@ -15,6 +16,10 @@ function TabIcon({ focused }: { focused: boolean }) {
 
 export default function BioBlixTabLayout() {
   const tab = BioBlixTheme.components.tabBar;
+  const insets = useSafeAreaInsets();
+  // Extra padding for iPhone home indicator + mobile browser chrome.
+  const bottomPad = Math.max(insets.bottom, 12) + 8;
+  const tabBarHeight = 52 + bottomPad;
 
   return (
     <Tabs
@@ -26,14 +31,18 @@ export default function BioBlixTabLayout() {
           backgroundColor: tab.background,
           borderTopColor: tab.border,
           borderTopWidth: 1,
-          height: 64,
-          paddingBottom: 10,
+          height: tabBarHeight,
+          paddingBottom: bottomPad,
           paddingTop: 8,
         },
         tabBarLabelStyle: {
           fontFamily: 'DMSans_700Bold',
           fontSize: 11,
           letterSpacing: 0.5,
+          marginBottom: 2,
+        },
+        tabBarItemStyle: {
+          paddingTop: 2,
         },
       }}
     >

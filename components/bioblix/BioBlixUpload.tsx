@@ -278,8 +278,10 @@ export default function BioBlixUpload() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView
+        style={styles.scroll}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled
       >
         <BioBlixText variant="label" color={Colors.lime}>
           {Brand.name}
@@ -465,11 +467,13 @@ export default function BioBlixUpload() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: Colors.ink },
+  scroll: { flex: 1 },
   content: {
     padding: 20,
     paddingTop: 56,
     paddingBottom: 48,
     gap: 8,
+    flexGrow: 1,
   },
   hint: {
     marginBottom: 12,

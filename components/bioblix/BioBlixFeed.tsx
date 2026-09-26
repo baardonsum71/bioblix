@@ -10,6 +10,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
+import { useIsFocused } from 'expo-router';
 
 import { BioBlixFeedItem } from '@/components/bioblix/BioBlixFeedItem';
 import { BioBlixText } from '@/components/bioblix/BioBlixText';
@@ -32,7 +33,9 @@ function displayNameFor(
 }
 
 export default function BioBlixFeed() {
-  const { posts, loading, error, refresh, hideAuthor } = useBioBlixFeed(40);
+  const isFocused = useIsFocused();
+  const { posts, loading, error, refresh, hideAuthor, removePost } =
+    useBioBlixFeed(40);
   const viewerUserId = useAppUserId();
   const [viewportHeight, setViewportHeight] = useState(0);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -101,7 +104,8 @@ export default function BioBlixFeed() {
   );
 
   useBioBlixFeedNavigation({
-    enabled: isWeb && viewportHeight > 0 && posts.length > 0,
+    // Only steal wheel/keys while Blix tab is focused — otherwise Konto/Publiser cannot scroll.
+    enabled: isFocused && isWeb && viewportHeight > 0 && posts.length > 0,
     itemCount: posts.length,
     activeIndex,
     onIndexChange: scrollToIndex,
@@ -119,7 +123,9 @@ export default function BioBlixFeed() {
   const onMomentumScrollEnd = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       if (!viewportHeight) return;
-      const index = Math.round(event.nativeEvent.contentOffset.y / viewportHeight);
+      const index = Math.round(
+        event.nativeEvent.contentOffset.y / viewportHeight
+      );
       setActiveIndex(index);
     },
     [viewportHeight]
@@ -140,7 +146,11 @@ export default function BioBlixFeed() {
           <BioBlixText variant="title" style={styles.emptyTitle}>
             Kunne ikke laste BioBlix
           </BioBlixText>
-          <BioBlixText variant="body" color={Colors.mistDim} style={styles.emptySub}>
+          <BioBlixText
+            variant="body"
+            color={Colors.mistDim}
+            style={styles.emptySub}
+          >
             {error.message}
           </BioBlixText>
           <Pressable style={styles.retry} onPress={() => void refresh()}>
@@ -160,7 +170,11 @@ export default function BioBlixFeed() {
         <BioBlixText variant="title" style={styles.emptyTitle}>
           Ingen blix ennå
         </BioBlixText>
-        <BioBlixText variant="body" color={Colors.mistDim} style={styles.emptySub}>
+        <BioBlixText
+          variant="body"
+          color={Colors.mistDim}
+          style={styles.emptySub}
+        >
           Publiser det første produkt-blixet fra Publiser-fanen.
         </BioBlixText>
       </View>
@@ -169,7 +183,7 @@ export default function BioBlixFeed() {
 
   return (
     <View
-      style={[styles.root, isWeb ? webRootStyle : null]}
+      style={[styles.root, isWeb && isFocused ? webRootStyle : null]}
       onLayout={(e) => {
         const next = Math.round(e.nativeEvent.layout.height);
         if (next > 0 && next !== viewportHeight) {
@@ -190,6 +204,7 @@ export default function BioBlixFeed() {
               username={displayNameFor(item.userId, authors)}
               viewerUserId={viewerUserId}
               onAuthorBlocked={() => hideAuthor(item.userId)}
+              onDeleted={() => removePost(item.id)}
             />
           )}
           pagingEnabled={!isWeb}
@@ -198,7 +213,7 @@ export default function BioBlixFeed() {
           decelerationRate="fast"
           disableIntervalMomentum
           showsVerticalScrollIndicator={false}
-          scrollEnabled
+          scrollEnabled={isFocused}
           getItemLayout={getItemLayout}
           onViewableItemsChanged={onViewableItemsChanged}
           viewabilityConfig={viewabilityConfig}
@@ -218,7 +233,7 @@ export default function BioBlixFeed() {
               />
             )
           }
-          style={[styles.list, isWeb ? webListStyle : null]}
+          style={[styles.list, isWeb && isFocused ? webListStyle : null]}
         />
       ) : (
         <View style={styles.center}>
@@ -226,8 +241,12 @@ export default function BioBlixFeed() {
         </View>
       )}
 
-      {isWeb && posts.length > 1 ? (
-        <BioBlixText variant="caption" color={Colors.mistDim} style={styles.webHint}>
+      {isWeb && isFocused && posts.length > 1 ? (
+        <BioBlixText
+          variant="caption"
+          color={Colors.mistDim}
+          style={styles.webHint}
+        >
           ↑ ↓ / J K eller musehjul for å bytte blix
         </BioBlixText>
       ) : null}

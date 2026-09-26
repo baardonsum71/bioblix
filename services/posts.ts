@@ -126,18 +126,35 @@ export async function listPostsByTag(
   return snap.docs.map((d) => mapPost(d.id, d.data()));
 }
 
+function sortPostsNewestFirst(posts: Post[]): Post[] {
+  return [...posts].sort((a, b) => {
+    const at =
+      typeof a.createdAt?.toMillis === 'function' ? a.createdAt.toMillis() : 0;
+    const bt =
+      typeof b.createdAt?.toMillis === 'function' ? b.createdAt.toMillis() : 0;
+    return bt - at;
+  });
+}
+
 export async function listPostsByUser(
   userId: string,
   max = 20
 ): Promise<Post[]> {
-  const q = query(
-    postsRef(),
-    where('userId', '==', userId),
-    orderBy('createdAt', 'desc'),
-    limit(max)
-  );
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => mapPost(d.id, d.data()));
+  try {
+    const q = query(
+      postsRef(),
+      where('userId', '==', userId),
+      orderBy('createdAt', 'desc'),
+      limit(max)
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map((d) => mapPost(d.id, d.data()));
+  } catch {
+    // Composite index may be missing — equality-only query still works.
+    const q = query(postsRef(), where('userId', '==', userId), limit(max));
+    const snap = await getDocs(q);
+    return sortPostsNewestFirst(snap.docs.map((d) => mapPost(d.id, d.data())));
+  }
 }
 
 export async function updatePost(

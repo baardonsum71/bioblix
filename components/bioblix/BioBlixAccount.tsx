@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
+  ScrollView,
   StyleSheet,
   View,
 } from 'react-native';
@@ -25,22 +26,27 @@ import {
 import { Brand, Colors } from '@/constants/Colors';
 import { useCurrentUserProfile } from '@/hooks/useCurrentUserProfile';
 import { useProYearlyEntitlement } from '@/hooks/useProYearlyEntitlement';
-import { notify } from '@/lib/platform';
+import { syncFirebaseAuthFromClerk } from '@/lib/clerk/firebaseSession';
+import { confirmAction, notify } from '@/lib/platform';
 import { shareProfile } from '@/lib/shareProfile';
 import { SUBSCRIPTION_PLANS } from '@/lib/subscription';
 import { countFollowers, countFollowing } from '@/services/follows';
+import { deletePost, listPostsByUser } from '@/services/posts';
 import { uploadAvatarMedia } from '@/services/storage';
 import { updateUser } from '@/services/users';
+import type { Post } from '@/types';
 
 export default function BioBlixAccount() {
   if (!isClerkConfigured) {
     return (
       <BioBlixScreenShell style={styles.shellPad}>
-        <BioBlixLogo variant="wordmark" size={96} />
-        <BioBlixText variant="display">Din konto</BioBlixText>
-        <BioBlixText variant="body" color={Colors.mistDim}>
-          Clerk er ikke konfigurert. Sett EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY.
-        </BioBlixText>
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <BioBlixLogo variant="wordmark" size={96} />
+          <BioBlixText variant="display">Din konto</BioBlixText>
+          <BioBlixText variant="body" color={Colors.mistDim}>
+            Clerk er ikke konfigurert. Sett EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY.
+          </BioBlixText>
+        </ScrollView>
       </BioBlixScreenShell>
     );
   }
@@ -65,6 +71,23 @@ function BioBlixAccountSigned() {
   const [followers, setFollowers] = useState(0);
   const [following, setFollowing] = useState(0);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [myPosts, setMyPosts] = useState<Post[]>([]);
+  const [postsLoading, setPostsLoading] = useState(false);
+
+  const loadMyPosts = useCallback(async () => {
+    if (!userId || !isSignedIn) {
+      setMyPosts([]);
+      return;
+    }
+    setPostsLoading(true);
+    try {
+      setMyPosts(await listPostsByUser(userId, 40));
+    } catch {
+      setMyPosts([]);
+    } finally {
+      setPostsLoading(false);
+    }
+  }, [userId, isSignedIn]);
 
   useEffect(() => {
     if (!userId || !isSignedIn) return;
@@ -73,8 +96,15 @@ function BioBlixAccountSigned() {
         setFollowers(a);
         setFollowing(b);
       })
-      .catch(() => undefined);
+      .catch(() => {
+        setFollowers(0);
+        setFollowing(0);
+      });
   }, [userId, isSignedIn, profile?.imageUrl]);
+
+  useEffect(() => {
+    void loadMyPosts();
+  }, [loadMyPosts]);
 
   const onPickAvatar = useCallback(async () => {
     if (!userId) return;
@@ -95,6 +125,7 @@ function BioBlixAccountSigned() {
     const asset = result.assets[0];
     setUploadingAvatar(true);
     try {
+      await syncFirebaseAuthFromClerk(() => getToken());
       const url = await uploadAvatarMedia({
         userId,
         uri: asset.uri,
@@ -133,6 +164,29 @@ function BioBlixAccountSigned() {
     }
   }, [userId, profile?.displayName, user]);
 
+  const onDeletePost = useCallback(
+    async (post: Post) => {
+      const ok = await confirmAction(
+        'Slett blix?',
+        `«${post.title}» fjernes permanent.`,
+        { confirmLabel: 'Slett', destructive: true }
+      );
+      if (!ok) return;
+      try {
+        await syncFirebaseAuthFromClerk(() => getToken());
+        await deletePost(post.id);
+        setMyPosts((prev) => prev.filter((p) => p.id !== post.id));
+        notify('Slettet', 'Blixet er fjernet.');
+      } catch (err) {
+        notify(
+          'Feil',
+          err instanceof Error ? err.message : 'Kunne ikke slette'
+        );
+      }
+    },
+    [getToken]
+  );
+
   if (!isLoaded) {
     return (
       <BioBlixScreenShell style={styles.shellCenter}>
@@ -143,29 +197,35 @@ function BioBlixAccountSigned() {
 
   if (!isSignedIn) {
     return (
-      <BioBlixScreenShell style={styles.shellPad}>
-        <BioBlixLogo variant="wordmark" size={96} />
-        <BioBlixText variant="display">Din konto</BioBlixText>
-        <BioBlixText variant="body" color={Colors.mistDim} style={styles.lead}>
-          Opprett profil for å publisere blix og synce Pro-status.
-        </BioBlixText>
-        <Link href="/(auth)/sign-in" asChild>
-          <Pressable style={styles.primaryWrap}>
-            <LinearGradient
-              colors={[...BioBlixGradient.colors]}
-              locations={[...BioBlixGradient.locations]}
-              start={BioBlixGradient.start}
-              end={BioBlixGradient.end}
-              style={styles.primaryLink}
-            >
-              <BioBlixText variant="label" color={Colors.ink}>
-                Opprett profil / logg inn
-              </BioBlixText>
-            </LinearGradient>
-          </Pressable>
-        </Link>
-        <PlansBlock />
-        <AboutLinks />
+      <BioBlixScreenShell>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={[styles.scrollContent, styles.shellPad]}
+          keyboardShouldPersistTaps="handled"
+        >
+          <BioBlixLogo variant="wordmark" size={96} />
+          <BioBlixText variant="display">Din konto</BioBlixText>
+          <BioBlixText variant="body" color={Colors.mistDim} style={styles.lead}>
+            Opprett profil for å publisere blix og synce Pro-status.
+          </BioBlixText>
+          <Link href="/(auth)/sign-in" asChild>
+            <Pressable style={styles.primaryWrap}>
+              <LinearGradient
+                colors={[...BioBlixGradient.colors]}
+                locations={[...BioBlixGradient.locations]}
+                start={BioBlixGradient.start}
+                end={BioBlixGradient.end}
+                style={styles.primaryLink}
+              >
+                <BioBlixText variant="label" color={Colors.ink}>
+                  Opprett profil / logg inn
+                </BioBlixText>
+              </LinearGradient>
+            </Pressable>
+          </Link>
+          <PlansBlock />
+          <AboutLinks />
+        </ScrollView>
       </BioBlixScreenShell>
     );
   }
@@ -178,86 +238,154 @@ function BioBlixAccountSigned() {
   const avatarUrl = profile?.imageUrl ?? user?.imageUrl ?? null;
 
   return (
-    <BioBlixScreenShell style={styles.shellPad}>
-      <Pressable onPress={() => void onPickAvatar()} style={styles.avatarWrap}>
-        {avatarUrl ? (
-          <Image source={{ uri: avatarUrl }} style={styles.avatar} contentFit="cover" />
-        ) : (
-          <View style={[styles.avatar, styles.avatarPlaceholder]}>
-            <BioBlixText variant="title" color={Colors.mistDim}>
-              {displayName.slice(0, 1).toUpperCase()}
+    <BioBlixScreenShell>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.scrollContent, styles.shellPad]}
+        keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled
+      >
+        <Pressable onPress={() => void onPickAvatar()} style={styles.avatarWrap}>
+          {avatarUrl ? (
+            <Image
+              source={{ uri: avatarUrl }}
+              style={styles.avatar}
+              contentFit="cover"
+            />
+          ) : (
+            <View style={[styles.avatar, styles.avatarPlaceholder]}>
+              <BioBlixText variant="title" color={Colors.mistDim}>
+                {displayName.slice(0, 1).toUpperCase()}
+              </BioBlixText>
+            </View>
+          )}
+          {uploadingAvatar ? (
+            <ActivityIndicator style={styles.avatarSpinner} color={Colors.lime} />
+          ) : (
+            <BioBlixText
+              variant="caption"
+              color={Colors.lime}
+              style={styles.avatarHint}
+            >
+              Bytt profilbilde
             </BioBlixText>
-          </View>
-        )}
-        {uploadingAvatar ? (
-          <ActivityIndicator style={styles.avatarSpinner} color={Colors.lime} />
-        ) : (
-          <BioBlixText variant="caption" color={Colors.lime} style={styles.avatarHint}>
-            Bytt profilbilde
-          </BioBlixText>
-        )}
-      </Pressable>
+          )}
+        </Pressable>
 
-      <BioBlixText variant="display">Din konto</BioBlixText>
-      <BioBlixText variant="body" color={Colors.mistDim} style={styles.lead}>
-        {displayName}
-        {user?.primaryEmailAddress?.emailAddress
-          ? `\n${user.primaryEmailAddress.emailAddress}`
-          : ''}
-      </BioBlixText>
-
-      <BioBlixText variant="caption" color={Colors.mistDim}>
-        {followers} følgere · {following} følger
-      </BioBlixText>
-
-      {profileLoading || entitlementLoading ? (
-        <ActivityIndicator color={Colors.lime} style={{ alignSelf: 'flex-start' }} />
-      ) : null}
-      {profileError ? (
-        <BioBlixText variant="caption" color={BioBlixPalette.danger}>
-          Profil: {profileError.message}
+        <BioBlixText variant="display">Din konto</BioBlixText>
+        <BioBlixText variant="body" color={Colors.mistDim} style={styles.lead}>
+          {displayName}
+          {user?.primaryEmailAddress?.emailAddress
+            ? `\n${user.primaryEmailAddress.emailAddress}`
+            : ''}
         </BioBlixText>
-      ) : null}
-      {profile || isProYearly ? (
+
         <BioBlixText variant="caption" color={Colors.mistDim}>
-          Plan:{' '}
-          {isOwner
-            ? 'Eier · Pro (gratis)'
-            : isProYearly || profile?.isProYearly
-              ? 'Pro Årlig'
-              : 'Standard'}
+          {followers} følgere · {following} følger
         </BioBlixText>
-      ) : null}
 
-      <View style={styles.rowActions}>
-        {userId ? (
-          <Pressable
-            style={styles.secondaryBtn}
-            onPress={() =>
-              router.push(`/u/${encodeURIComponent(userId)}` as Href)
-            }
-          >
+        {profileLoading || entitlementLoading ? (
+          <ActivityIndicator
+            color={Colors.lime}
+            style={{ alignSelf: 'flex-start' }}
+          />
+        ) : null}
+        {profileError ? (
+          <BioBlixText variant="caption" color={BioBlixPalette.danger}>
+            Profil: {profileError.message}
+          </BioBlixText>
+        ) : null}
+        {profile || isProYearly ? (
+          <BioBlixText variant="caption" color={Colors.mistDim}>
+            Plan:{' '}
+            {isOwner
+              ? 'Eier · Pro (gratis)'
+              : isProYearly || profile?.isProYearly
+                ? 'Pro Årlig'
+                : 'Standard'}
+          </BioBlixText>
+        ) : null}
+
+        <View style={styles.rowActions}>
+          {userId ? (
+            <Pressable
+              style={styles.secondaryBtn}
+              onPress={() =>
+                router.push(`/u/${encodeURIComponent(userId)}` as Href)
+              }
+            >
+              <BioBlixText variant="label" color={Colors.lime}>
+                Offentlig profil
+              </BioBlixText>
+            </Pressable>
+          ) : null}
+          <Pressable style={styles.secondaryBtn} onPress={() => void onShare()}>
             <BioBlixText variant="label" color={Colors.lime}>
-              Offentlig profil
+              Del profil
             </BioBlixText>
           </Pressable>
-        ) : null}
-        <Pressable style={styles.secondaryBtn} onPress={() => void onShare()}>
-          <BioBlixText variant="label" color={Colors.lime}>
-            Del profil
+        </View>
+
+        <View style={styles.postsHeader}>
+          <BioBlixText variant="label" color={Colors.mistDim}>
+            Mine blix ({myPosts.length})
+          </BioBlixText>
+          <Pressable onPress={() => void loadMyPosts()}>
+            <BioBlixText variant="caption" color={Colors.lime}>
+              Oppdater
+            </BioBlixText>
+          </Pressable>
+        </View>
+
+        {postsLoading ? (
+          <ActivityIndicator color={Colors.lime} style={{ alignSelf: 'flex-start' }} />
+        ) : myPosts.length === 0 ? (
+          <BioBlixText variant="body" color={Colors.mistDim}>
+            Ingen blix ennå. Publiser fra Publiser-fanen.
+          </BioBlixText>
+        ) : (
+          myPosts.map((post) => (
+            <View key={post.id} style={styles.postRow}>
+              <Image
+                source={{ uri: post.mediaUrl }}
+                style={styles.thumb}
+                contentFit="cover"
+              />
+              <View style={styles.postMeta}>
+                <BioBlixText variant="body" numberOfLines={2}>
+                  {post.title}
+                </BioBlixText>
+                <BioBlixText
+                  variant="caption"
+                  color={Colors.mistDim}
+                  numberOfLines={1}
+                >
+                  {post.description || post.mediaType}
+                </BioBlixText>
+              </View>
+              <Pressable
+                style={styles.deleteBtn}
+                onPress={() => void onDeletePost(post)}
+                hitSlop={8}
+              >
+                <BioBlixText variant="caption" color={BioBlixPalette.magenta}>
+                  Slett
+                </BioBlixText>
+              </Pressable>
+            </View>
+          ))
+        )}
+
+        <PlansBlock />
+
+        <Pressable onPress={() => void signOut()} style={styles.signOut}>
+          <BioBlixText variant="label" color={BioBlixPalette.magenta}>
+            Logg ut
           </BioBlixText>
         </Pressable>
-      </View>
 
-      <PlansBlock />
-
-      <Pressable onPress={() => void signOut()} style={styles.signOut}>
-        <BioBlixText variant="label" color={BioBlixPalette.magenta}>
-          Logg ut
-        </BioBlixText>
-      </Pressable>
-
-      <AboutLinks />
+        <AboutLinks />
+      </ScrollView>
     </BioBlixScreenShell>
   );
 }
@@ -309,10 +437,17 @@ function AboutLinks() {
 }
 
 const styles = StyleSheet.create({
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 48,
+    gap: 12,
+  },
   shellPad: {
     padding: 24,
     paddingTop: 56,
-    gap: 12,
   },
   shellCenter: {
     justifyContent: 'center',
@@ -358,6 +493,36 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
+  postsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  postRow: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: Colors.surfaceMuted,
+    paddingRight: 10,
+  },
+  thumb: {
+    width: 64,
+    height: 64,
+  },
+  postMeta: {
+    flex: 1,
+    gap: 2,
+    paddingVertical: 8,
+  },
+  deleteBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+  },
   planCard: {
     backgroundColor: Colors.surface,
     borderRadius: 16,
@@ -365,6 +530,7 @@ const styles = StyleSheet.create({
     gap: 6,
     borderWidth: 1,
     borderColor: Colors.surfaceMuted,
+    marginTop: 8,
   },
   planPro: {
     borderRadius: 16,
