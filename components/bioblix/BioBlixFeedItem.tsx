@@ -1,10 +1,12 @@
 import { useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
 
 import { BioBlixFeedOverlay } from '@/components/bioblix/BioBlixFeedOverlay';
 import { BioBlixSafetyMenu } from '@/components/bioblix/BioBlixSafetyMenu';
+import { BioBlixText } from '@/components/bioblix/BioBlixText';
+import { Colors } from '@/constants/Colors';
 import type { Post } from '@/types';
 
 type BioBlixFeedItemProps = {
@@ -15,6 +17,7 @@ type BioBlixFeedItemProps = {
   viewerUserId: string | null;
   onAuthorBlocked?: () => void;
   onDeleted?: () => void;
+  onEdit?: () => void;
 };
 
 function FeedVideo({
@@ -58,7 +61,10 @@ export function BioBlixFeedItem({
   viewerUserId,
   onAuthorBlocked,
   onDeleted,
+  onEdit,
 }: BioBlixFeedItemProps) {
+  const isOwner = Boolean(viewerUserId && viewerUserId === post.userId);
+
   return (
     <View style={[styles.item, { height }]}>
       {post.mediaType === 'video' ? (
@@ -77,7 +83,21 @@ export function BioBlixFeedItem({
         viewerUserId={viewerUserId}
         onBlocked={onAuthorBlocked}
         onDeleted={onDeleted}
+        onEdit={onEdit}
       />
+
+      {isOwner && onEdit ? (
+        <Pressable
+          style={styles.editBtn}
+          onPress={onEdit}
+          hitSlop={10}
+          accessibilityLabel="Rediger blix"
+        >
+          <BioBlixText variant="caption" color={Colors.white}>
+            Rediger
+          </BioBlixText>
+        </Pressable>
+      ) : null}
 
       <BioBlixFeedOverlay
         title={post.title}
@@ -99,5 +119,17 @@ const styles = StyleSheet.create({
   },
   media: {
     ...StyleSheet.absoluteFill,
+  },
+  editBtn: {
+    position: 'absolute',
+    top: 54,
+    left: 16,
+    zIndex: 20,
+    backgroundColor: 'rgba(7,20,16,0.55)',
+    borderRadius: 18,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(220,232,224,0.25)',
   },
 });

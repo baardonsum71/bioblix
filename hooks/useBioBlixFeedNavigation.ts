@@ -20,8 +20,8 @@ function isEditableTarget(target: EventTarget | null): boolean {
 }
 
 /**
- * Web-only: navigate BioBlix vertical feed with arrow keys + mouse wheel.
- * Avoids relying on mobile touch paging (which is flaky in desktop browsers).
+ * Web: navigate vertical feed with arrow keys, mouse wheel, and touch swipe.
+ * Touch swipe is critical on iPhone Safari where FlatList paging is flaky.
  */
 export function useBioBlixFeedNavigation({
   enabled,
@@ -31,6 +31,7 @@ export function useBioBlixFeedNavigation({
 }: Options) {
   const indexRef = useRef(activeIndex);
   const lockedRef = useRef(false);
+  const touchStartY = useRef<number | null>(null);
 
   useEffect(() => {
     indexRef.current = activeIndex;
@@ -57,7 +58,7 @@ export function useBioBlixFeedNavigation({
       fn();
       window.setTimeout(() => {
         lockedRef.current = false;
-      }, 480);
+      }, 420);
     };
 
     const onKeyDown = (event: KeyboardEvent) => {
@@ -75,8 +76,6 @@ export function useBioBlixFeedNavigation({
     const onWheel = (event: WheelEvent) => {
       if (isEditableTarget(event.target)) return;
       if (Math.abs(event.deltaY) < 20) return;
-
-      // Stop the page/body from scrolling; FlatList snaps via onIndexChange.
       event.preventDefault();
       withLock(() => {
         if (event.deltaY > 0) goTo(indexRef.current + 1);
@@ -84,12 +83,37 @@ export function useBioBlixFeedNavigation({
       });
     };
 
+    const onTouchStart = (event: TouchEvent) => {
+      if (isEditableTarget(event.target)) return;
+      touchStartY.current = event.touches[0]?.clientY ?? null;
+    };
+
+    const onTouchEnd = (event: TouchEvent) => {
+      if (touchStartY.current == null) return;
+      const endY = event.changedTouches[0]?.clientY;
+      if (endY == null) {
+        touchStartY.current = null;
+        return;
+      }
+      const delta = touchStartY.current - endY;
+      touchStartY.current = null;
+      if (Math.abs(delta) < 48) return;
+      withLock(() => {
+        if (delta > 0) goTo(indexRef.current + 1);
+        else goTo(indexRef.current - 1);
+      });
+    };
+
     window.addEventListener('keydown', onKeyDown, { capture: true });
     window.addEventListener('wheel', onWheel, { passive: false, capture: true });
+    window.addEventListener('touchstart', onTouchStart, { capture: true, passive: true });
+    window.addEventListener('touchend', onTouchEnd, { capture: true, passive: true });
 
     return () => {
       window.removeEventListener('keydown', onKeyDown, true);
       window.removeEventListener('wheel', onWheel, true);
+      window.removeEventListener('touchstart', onTouchStart, true);
+      window.removeEventListener('touchend', onTouchEnd, true);
     };
   }, [enabled, goTo]);
 }
