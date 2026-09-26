@@ -80,6 +80,7 @@ export function BioBlixFeedItem({
         title={post.title}
         description={post.description}
         username={username}
+        userId={post.userId}
         tags={post.tags}
         linkUrl={post.linkUrl}
       />

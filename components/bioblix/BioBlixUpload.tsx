@@ -222,6 +222,7 @@ export default function BioBlixUpload() {
           uri: media.uri,
           mediaType: media.mediaType,
           mimeType: media.mimeType,
+          getClerkToken: () => getToken(),
         }),
         90_000,
         'Mediaopplasting'

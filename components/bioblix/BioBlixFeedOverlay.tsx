@@ -10,6 +10,7 @@ type BioBlixFeedOverlayProps = {
   title: string;
   description: string;
   username: string;
+  userId?: string;
   tags?: string[];
   linkUrl?: string | null;
 };
@@ -18,6 +19,7 @@ export function BioBlixFeedOverlay({
   title,
   description,
   username,
+  userId,
   tags = [],
   linkUrl,
 }: BioBlixFeedOverlayProps) {
@@ -28,9 +30,18 @@ export function BioBlixFeedOverlay({
     <View style={styles.wrapper} pointerEvents="box-none">
       <View style={styles.scrim} pointerEvents="none" />
       <View style={styles.content}>
-        <BioBlixText variant="caption" color={Colors.lime}>
-          @{username}
-        </BioBlixText>
+        <Pressable
+          onPress={() => {
+            if (userId) {
+              router.push(`/u/${encodeURIComponent(userId)}` as Href);
+            }
+          }}
+          disabled={!userId}
+        >
+          <BioBlixText variant="caption" color={Colors.lime}>
+            @{username}
+          </BioBlixText>
+        </Pressable>
         <BioBlixText variant="title" numberOfLines={2}>
           {title}
         </BioBlixText>
