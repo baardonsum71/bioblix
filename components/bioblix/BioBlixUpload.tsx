@@ -152,15 +152,24 @@ export default function BioBlixUpload() {
   }, []);
 
   const onUpgradePress = useCallback(async () => {
-    const entitled = await presentProYearlyPaywall();
-    await refresh();
-    if (entitled) {
+    try {
+      const entitled = await presentProYearlyPaywall({
+        appUserId: userId,
+      });
+      await refresh();
+      if (entitled) {
+        notify(
+          'Pro Årlig aktiv',
+          'Du kan nå legge klikkbare butikklenker på BioBlix-innleggene dine.'
+        );
+      }
+    } catch (err) {
       notify(
-        'Pro Årlig aktiv',
-        'Du kan nå legge klikkbare butikklenker på BioBlix-innleggene dine.'
+        'Betaling',
+        err instanceof Error ? err.message : 'Kunne ikke åpne betaling'
       );
     }
-  }, [refresh]);
+  }, [refresh, userId]);
 
   const onPublish = useCallback(async () => {
     if (!userId || !media) {

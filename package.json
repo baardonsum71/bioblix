@@ -11,6 +11,7 @@
     "@expo-google-fonts/syne": "^0.4.2",
     "@expo/metro-runtime": "~57.0.16",
     "@firebase/storage": "^0.14.5",
+    "@revenuecat/purchases-js": "^1.65.0",
     "expo": "~57.0.24",
     "expo-auth-session": "^57.0.13",
     "expo-constants": "~57.0.19",

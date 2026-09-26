@@ -1,50 +1,74 @@
+import { Platform } from 'react-native';
 import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
 
 import { PRO_YEARLY_ENTITLEMENT } from '@/lib/revenuecat/constants';
 import { hasProYearlyEntitlement } from '@/lib/revenuecat';
+import { presentWebPaywall } from '@/lib/revenuecat/web';
+import { isWeb } from '@/lib/platform';
+
+type PresentOptions = {
+  appUserId?: string | null;
+  customerEmail?: string | null;
+};
 
 /**
- * Present RevenueCat paywall so the user can upgrade to Pro Yearly.
- * Returns true if they purchased/restored and now have `pro_yearly`.
+ * Present RevenueCat paywall so the user can upgrade to Pro.
+ * Web uses purchases-js (RN paywall freezes Safari). Native uses RevenueCatUI.
  */
-export async function presentProYearlyPaywall(): Promise<boolean> {
+export async function presentProYearlyPaywall(
+  options?: PresentOptions
+): Promise<boolean> {
   try {
-    const result = await RevenueCatUI.presentPaywall({
-      displayCloseButton: true,
-    });
+    if (isWeb || Platform.OS === 'web') {
+      const entitled = await presentWebPaywall(
+        options?.appUserId,
+        options?.customerEmail
+      );
+      if (entitled) return true;
+      return hasProYearlyEntitlement(options?.appUserId);
+    }
+
+    const result = await Promise.race([
+      RevenueCatUI.presentPaywall({
+        displayCloseButton: true,
+      }),
+      new Promise<PAYWALL_RESULT>((resolve) => {
+        setTimeout(() => resolve(PAYWALL_RESULT.CANCELLED), 120_000);
+      }),
+    ]);
 
     if (
       result === PAYWALL_RESULT.PURCHASED ||
       result === PAYWALL_RESULT.RESTORED
     ) {
-      return hasProYearlyEntitlement();
+      return hasProYearlyEntitlement(options?.appUserId);
     }
 
-    // Fallback: user may already have been entitled when paywall closed
     if (result === PAYWALL_RESULT.NOT_PRESENTED) {
-      return hasProYearlyEntitlement();
+      return hasProYearlyEntitlement(options?.appUserId);
     }
 
     return false;
   } catch (error) {
     console.warn('[revenuecat] presentPaywall failed', error);
-    return false;
+    throw error instanceof Error
+      ? error
+      : new Error('Kunne ikke åpne betaling. Prøv igjen.');
   }
 }
 
-export async function presentProYearlyPaywallIfNeeded(): Promise<boolean> {
+export async function presentProYearlyPaywallIfNeeded(
+  options?: PresentOptions
+): Promise<boolean> {
   try {
-    const result = await RevenueCatUI.presentPaywallIfNeeded({
-      requiredEntitlementIdentifier: PRO_YEARLY_ENTITLEMENT,
-    });
-
-    return (
-      result === PAYWALL_RESULT.PURCHASED ||
-      result === PAYWALL_RESULT.RESTORED ||
-      (await hasProYearlyEntitlement())
-    );
+    if (await hasProYearlyEntitlement(options?.appUserId)) {
+      return true;
+    }
+    return presentProYearlyPaywall(options);
   } catch (error) {
     console.warn('[revenuecat] presentPaywallIfNeeded failed', error);
     return false;
   }
 }
+
+export { PRO_YEARLY_ENTITLEMENT };
