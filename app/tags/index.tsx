@@ -11,10 +11,12 @@ import { Link, type Href } from 'expo-router';
 import { BioBlixText } from '@/components/bioblix/BioBlixText';
 import { BioBlixScreenShell } from '@/components/bioblix/BioBlixLogo';
 import { BioBlixPalette, Colors } from '@/constants/bioblixTheme';
+import { useI18n } from '@/lib/i18n';
 import { listAllTags } from '@/services/tags';
 import type { Tag } from '@/types';
 
 export default function TagsScreen() {
+  const { t } = useI18n();
   const [tags, setTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -25,11 +27,11 @@ export default function TagsScreen() {
     try {
       setTags(await listAllTags(200));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Kunne ikke hente tags');
+      setError(err instanceof Error ? err.message : t('common.error'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void refresh();
@@ -37,10 +39,7 @@ export default function TagsScreen() {
 
   return (
     <BioBlixScreenShell style={styles.shell}>
-      <BioBlixText variant="display">Alle tags</BioBlixText>
-      <BioBlixText variant="body" color={Colors.mistDim} style={styles.lead}>
-        Sortert etter popularitet (antall blix).
-      </BioBlixText>
+      <BioBlixText variant="display">{t('nav.tags')}</BioBlixText>
 
       {loading ? (
         <ActivityIndicator color={Colors.lime} style={styles.spinner} />
@@ -53,7 +52,7 @@ export default function TagsScreen() {
 
       {!loading && tags.length === 0 ? (
         <BioBlixText variant="body" color={Colors.mistDim}>
-          Ingen tags ennå. Legg til tags når du publiserer et blix.
+          {t('tags.empty')}
         </BioBlixText>
       ) : null}
 
@@ -70,9 +69,8 @@ export default function TagsScreen() {
               <BioBlixText variant="title" style={styles.name}>
                 #{item.name}
               </BioBlixText>
-              <BioBlixText variant="caption" color={Colors.lime}>
-                {item.postCount}{' '}
-                {item.postCount === 1 ? 'blix' : 'blix'}
+              <BioBlixText variant="caption" color={Colors.mistDim}>
+                {item.postCount}
               </BioBlixText>
             </Pressable>
           </Link>
@@ -84,34 +82,24 @@ export default function TagsScreen() {
 
 const styles = StyleSheet.create({
   shell: {
-    padding: 20,
-    paddingTop: 56,
-    gap: 8,
     flex: 1,
-  },
-  lead: {
-    marginBottom: 8,
-    maxWidth: 420,
+    padding: 20,
+    gap: 12,
   },
   spinner: {
     marginVertical: 16,
-    alignSelf: 'flex-start',
   },
   list: {
-    paddingBottom: 48,
-    gap: 4,
+    gap: 8,
+    paddingBottom: 40,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.surfaceMuted,
-    marginBottom: 8,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: BioBlixPalette.hairline,
   },
   name: {
     flex: 1,

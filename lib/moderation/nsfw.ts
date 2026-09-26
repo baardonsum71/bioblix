@@ -9,8 +9,9 @@ const THRESHOLDS = {
   Sexy: 0.85,
 } as const;
 
-export const NSFW_REJECT_MESSAGE =
-  'Nakenhet eller seksuelt innhold er ikke tillatt på BioBlix.';
+/** Stable error code — map to `t('moderation.nsfw')` in UI. */
+export const NSFW_REJECT_CODE = 'NSFW_REJECTED';
+export const NSFW_REJECT_MESSAGE = NSFW_REJECT_CODE;
 
 type NsfwClassName = 'Drawing' | 'Hentai' | 'Neutral' | 'Porn' | 'Sexy';
 
@@ -55,8 +56,7 @@ function loadHtmlImage(uri: string): Promise<HTMLImageElement> {
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => resolve(img);
-    img.onerror = () =>
-      reject(new Error('Kunne ikke laste bilde for innholdssjekk.'));
+    img.onerror = () => reject(new Error('MODERATION_CHECK_FAIL'));
     img.src = uri;
   });
 }
@@ -64,7 +64,7 @@ function loadHtmlImage(uri: string): Promise<HTMLImageElement> {
 /** Capture the first decoded frame of a video URI via canvas (web only). */
 async function videoFirstFrame(uri: string): Promise<HTMLCanvasElement> {
   if (typeof document === 'undefined') {
-    throw new Error('Kunne ikke sjekke video.');
+    throw new Error('MODERATION_CHECK_FAIL');
   }
 
   const video = document.createElement('video');
@@ -81,7 +81,7 @@ async function videoFirstFrame(uri: string): Promise<HTMLCanvasElement> {
     };
     const onError = () => {
       cleanup();
-      reject(new Error('Kunne ikke sjekke video.'));
+      reject(new Error('MODERATION_CHECK_FAIL'));
     };
     const cleanup = () => {
       video.removeEventListener('loadeddata', onReady);
@@ -100,14 +100,14 @@ async function videoFirstFrame(uri: string): Promise<HTMLCanvasElement> {
   const width = video.videoWidth || 0;
   const height = video.videoHeight || 0;
   if (width < 8 || height < 8) {
-    throw new Error('Kunne ikke sjekke video.');
+    throw new Error('MODERATION_CHECK_FAIL');
   }
 
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Kunne ikke sjekke video.');
+  if (!ctx) throw new Error('MODERATION_CHECK_FAIL');
   ctx.drawImage(video, 0, 0, width, height);
   video.removeAttribute('src');
   video.load();

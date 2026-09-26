@@ -14,6 +14,7 @@ import { BioBlixFeedItem } from '@/components/bioblix/BioBlixFeedItem';
 import { BioBlixText } from '@/components/bioblix/BioBlixText';
 import { Colors } from '@/constants/Colors';
 import { useBioBlixFeedNavigation } from '@/hooks/useBioBlixFeedNavigation';
+import { useI18n } from '@/lib/i18n';
 import { isWeb } from '@/lib/platform';
 import type { Post } from '@/types';
 
@@ -40,13 +41,15 @@ export function BioBlixVerticalFeed({
   usernameFor,
   viewerUserId,
   loading = false,
-  emptyMessage = 'Ingen blix ennå.',
+  emptyMessage,
   onAuthorBlocked,
   onDeleted,
   onEdit,
   requireFocus = true,
   showNavHint = true,
 }: BioBlixVerticalFeedProps) {
+  const { t } = useI18n();
+  const empty = emptyMessage ?? t('feed.empty');
   const isFocused = useIsFocused();
   const active = requireFocus ? isFocused : true;
   const [viewportHeight, setViewportHeight] = useState(0);
@@ -171,7 +174,7 @@ export function BioBlixVerticalFeed({
                   color={Colors.mistDim}
                   style={styles.empty}
                 >
-                  {emptyMessage}
+                  {empty}
                 </BioBlixText>
               )}
             </View>
@@ -190,9 +193,7 @@ export function BioBlixVerticalFeed({
           color={Colors.mistDim}
           style={styles.webHint}
         >
-          {isWeb
-            ? 'Sveip eller ↑ ↓ for å bytte blix'
-            : 'Sveip for å bytte blix'}
+          {isWeb ? t('feed.swipeHint') : t('feed.swipeHintShort')}
         </BioBlixText>
       ) : null}
     </View>

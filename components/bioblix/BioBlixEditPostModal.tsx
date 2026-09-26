@@ -19,7 +19,7 @@ import { Colors } from '@/constants/Colors';
 import { syncFirebaseAuthFromClerk } from '@/lib/clerk/firebaseSession';
 import { useI18n } from '@/lib/i18n';
 import {
-  NSFW_REJECT_MESSAGE,
+  NSFW_REJECT_CODE,
   assertMediaAllowed,
 } from '@/lib/moderation/nsfw';
 import { notify } from '@/lib/platform';
@@ -122,7 +122,13 @@ export function BioBlixEditPostModal({
     } catch (err) {
       notify(
         t('common.notAllowed'),
-        err instanceof Error ? err.message : NSFW_REJECT_MESSAGE
+        err instanceof Error && err.message === NSFW_REJECT_CODE
+          ? t('moderation.nsfw')
+          : err instanceof Error && err.message === 'MODERATION_CHECK_FAIL'
+            ? t('moderation.checkFail')
+            : err instanceof Error
+              ? err.message
+              : t('moderation.nsfw')
       );
       return;
     }

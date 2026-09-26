@@ -5,22 +5,24 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BioBlixText } from '@/components/bioblix/BioBlixText';
 import { BioBlixBrand, BioBlixPalette, BioBlixSpacing } from '@/constants/bioblixTheme';
 import {
+  getPrivacyPolicy,
   privacyPolicyMeta,
-  privacyPolicySections,
 } from '@/constants/privacyPolicy';
+import { useI18n } from '@/lib/i18n';
 
 /**
- * Personvernerklæring for BioBlix app + web.
- * Web: https://<domain>/privacy (bruk denne URL-en i App Store / Play).
+ * Privacy policy for BioBlix app + web.
  */
 export default function BioBlixPrivacyScreen() {
   const insets = useSafeAreaInsets();
+  const { t, locale } = useI18n();
+  const policy = getPrivacyPolicy(locale);
 
   return (
     <>
       <Stack.Screen
         options={{
-          title: 'Personvern',
+          title: t('nav.privacy'),
           headerShown: true,
         }}
       />
@@ -34,16 +36,15 @@ export default function BioBlixPrivacyScreen() {
         <BioBlixText variant="label" color={BioBlixPalette.aurora}>
           {BioBlixBrand.name}
         </BioBlixText>
-        <BioBlixText variant="display">Personvernerklæring</BioBlixText>
+        <BioBlixText variant="display">{t('privacy.title')}</BioBlixText>
         <BioBlixText variant="caption" color={BioBlixPalette.muted} style={styles.meta}>
-          Sist oppdatert: {privacyPolicyMeta.lastUpdated}
+          {t('privacy.updated', { date: policy.lastUpdated })}
         </BioBlixText>
         <BioBlixText variant="body" color={BioBlixPalette.fog} style={styles.intro}>
-          Gjelder BioBlix på iOS, Android og web. Kontakt:{' '}
-          {privacyPolicyMeta.contactEmail}
+          {t('privacy.intro', { email: privacyPolicyMeta.contactEmail })}
         </BioBlixText>
 
-        {privacyPolicySections.map((section) => (
+        {policy.sections.map((section) => (
           <View key={section.title} style={styles.section}>
             <BioBlixText variant="title" style={styles.sectionTitle}>
               {section.title}
@@ -63,8 +64,7 @@ export default function BioBlixPrivacyScreen() {
 
         <View style={styles.footer}>
           <BioBlixText variant="caption" color={BioBlixPalette.muted}>
-            © {new Date().getFullYear()} {BioBlixBrand.name}. Alle rettigheter
-            forbeholdt.
+            © {new Date().getFullYear()} {BioBlixBrand.name}. {t('privacy.rights')}
           </BioBlixText>
         </View>
       </ScrollView>

@@ -3,6 +3,11 @@ export const MIN_AGE = 16;
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+export type AgeErrorCode =
+  | 'auth.birthInvalid'
+  | 'auth.ageTooYoung'
+  | 'auth.birthRange';
+
 export function parseBirthDate(raw: string): Date | null {
   const trimmed = raw.trim();
   if (!ISO_DATE_RE.test(trimmed)) return null;
@@ -39,23 +44,19 @@ export function ageFromBirthDate(birthDate: Date, now = new Date()): number {
 export function isAtLeastAge(
   birthDateRaw: string,
   minAge = MIN_AGE
-): { ok: true; birthDate: string; age: number } | { ok: false; message: string } {
+):
+  | { ok: true; birthDate: string; age: number }
+  | { ok: false; code: AgeErrorCode; age?: number } {
   const parsed = parseBirthDate(birthDateRaw);
   if (!parsed) {
-    return {
-      ok: false,
-      message: 'Oppgi fødselsdato som ÅÅÅÅ-MM-DD (f.eks. 2005-03-15).',
-    };
+    return { ok: false, code: 'auth.birthInvalid' };
   }
   const age = ageFromBirthDate(parsed);
   if (age < minAge) {
-    return {
-      ok: false,
-      message: `BioBlix er bare for personer som er ${minAge} år eller eldre.`,
-    };
+    return { ok: false, code: 'auth.ageTooYoung', age: minAge };
   }
   if (age > 120) {
-    return { ok: false, message: 'Ugyldig fødselsdato.' };
+    return { ok: false, code: 'auth.birthRange' };
   }
   const birthDate = birthDateRaw.trim();
   return { ok: true, birthDate, age };
