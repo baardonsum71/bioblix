@@ -10,7 +10,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused } from 'expo-router';
 
 import { BioBlixFeedItem } from '@/components/bioblix/BioBlixFeedItem';
 import { BioBlixText } from '@/components/bioblix/BioBlixText';
