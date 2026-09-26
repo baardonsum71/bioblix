@@ -27,7 +27,7 @@ import {
 } from '@/constants/bioblixTheme';
 
 /** Bump when auth flow changes — visible on screen to confirm Vercel build. */
-const AUTH_BUILD = 'auth-v12-apple';
+const AUTH_BUILD = 'auth-v13-signup-unknown';
 
 type Step = 'form' | 'verify' | 'apple-continue';
 type Mode = 'sign-up' | 'sign-in';
@@ -446,54 +446,80 @@ function BioBlixSignInForm() {
       return;
     }
 
-    const payload = {
-      emailAddress,
-      password,
-      firstName: first,
-      lastName: last,
-      username,
-      unsafeMetadata: {
-        nickname: username,
-        acceptedPrivacyAt: new Date().toISOString(),
-      },
+    const meta = {
+      nickname: username,
+      acceptedPrivacyAt: new Date().toISOString(),
     };
 
-    let { error: signUpError } = await signUp.password(payload);
+    type SignUpPayload = {
+      emailAddress: string;
+      password: string;
+      firstName?: string;
+      lastName?: string;
+      username?: string;
+      unsafeMetadata: typeof meta;
+    };
 
-    // Username may be disabled in Clerk Dashboard — retry without it.
-    if (signUpError) {
-      const msg = String(signUpError.message ?? '').toLowerCase();
+    const attempts: SignUpPayload[] = [
+      {
+        emailAddress,
+        password,
+        firstName: first,
+        lastName: last,
+        username,
+        unsafeMetadata: meta,
+      },
+      {
+        emailAddress,
+        password,
+        firstName: first,
+        lastName: last,
+        unsafeMetadata: meta,
+      },
+      {
+        emailAddress,
+        password,
+        unsafeMetadata: meta,
+      },
+    ];
+
+    let signUpError: { message?: string; code?: string; errors?: { code?: string; message?: string; meta?: { paramName?: string } }[] } | null =
+      null;
+
+    for (const payload of attempts) {
+      const result = await signUp.password(payload);
+      signUpError = result.error;
+      if (!signUpError) break;
+
       const codeName =
-        (signUpError as { code?: string; errors?: { code?: string }[] }).code ??
-        (signUpError as { errors?: { code?: string }[] }).errors?.[0]?.code;
-      const usernameNotSupported =
+        signUpError.code ?? signUpError.errors?.[0]?.code ?? '';
+      const param = (
+        signUpError.errors?.[0]?.meta?.paramName ?? ''
+      ).toLowerCase();
+      const msg = String(
+        signUpError.errors?.[0]?.message ?? signUpError.message ?? ''
+      ).toLowerCase();
+      const isUnknownParam =
         codeName === 'form_param_unknown' ||
         codeName === 'form_param_nil' ||
-        msg.includes('username');
+        msg.includes('is unknown') ||
+        msg.includes('username') ||
+        param === 'username' ||
+        param === 'first_name' ||
+        param === 'lastname' ||
+        param === 'last_name' ||
+        param === 'firstName'.toLowerCase();
 
-      if (usernameNotSupported) {
-        const retry = await signUp.password({
-          emailAddress,
-          password,
-          firstName: first,
-          lastName: last,
-          unsafeMetadata: {
-            nickname: username,
-            acceptedPrivacyAt: new Date().toISOString(),
-          },
-        });
-        signUpError = retry.error;
-      }
+      if (!isUnknownParam) break;
     }
 
     if (signUpError) {
+      const param = signUpError.errors?.[0]?.meta?.paramName;
+      const detail = clerkErrMessage(signUpError, signUpErrors.fields);
       setFormError(
-        signUpErrors.fields?.username?.message ??
-          signUpErrors.fields?.emailAddress?.message ??
-          signUpErrors.fields?.password?.message ??
-          signUpErrors.fields?.firstName?.message ??
-          signUpError.message ??
-          'Kunne ikke opprette konto.'
+        param
+          ? `Clerk godtar ikke feltet «${param}». Slå det på under User & authentication → Email/Username/Name, eller prøv igjen.`
+          : detail || 'Kunne ikke opprette konto.'
       );
       return;
     }
