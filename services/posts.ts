@@ -49,6 +49,9 @@ function mapPost(id: string, data: DocumentData): Post {
       ? data.tags.filter((t: unknown): t is string => typeof t === 'string')
       : [],
     linkUrl: data.linkUrl ?? null,
+    likeCount: typeof data.likeCount === 'number' ? data.likeCount : 0,
+    commentCount:
+      typeof data.commentCount === 'number' ? data.commentCount : 0,
     createdAt: data.createdAt,
   };
 }
@@ -83,6 +86,8 @@ export async function createPost(input: CreatePostInput): Promise<string> {
     description: input.description,
     tags,
     linkUrl,
+    likeCount: 0,
+    commentCount: 0,
     createdAt: serverTimestamp(),
   });
 

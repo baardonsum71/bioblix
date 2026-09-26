@@ -62,11 +62,54 @@ service cloud.firestore {
             && request.resource.data.tags.size() <= 5))
         && linkUrlAllowedOnWrite();
 
-      allow update: if isPostOwner()
-        && request.resource.data.userId == resource.data.userId
-        && linkUrlAllowedOnWrite();
+      // Owner may edit content; anyone signed-in may bump like/comment counters only.
+      allow update: if (
+          isPostOwner()
+          && request.resource.data.userId == resource.data.userId
+          && linkUrlAllowedOnWrite()
+        )
+        || (
+          signedIn()
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['likeCount'])
+          && request.resource.data.likeCount is int
+          && (
+            request.resource.data.likeCount == resource.data.get('likeCount', 0) + 1
+            || request.resource.data.likeCount == resource.data.get('likeCount', 0) - 1
+          )
+        )
+        || (
+          signedIn()
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['commentCount'])
+          && request.resource.data.commentCount is int
+          && request.resource.data.commentCount
+            == resource.data.get('commentCount', 0) + 1
+        );
 
       allow delete: if isPostOwner();
+
+      match /likes/{likerId} {
+        allow read: if true;
+        allow create: if signedIn()
+          && request.auth.uid == likerId
+          && request.resource.data.userId == request.auth.uid;
+        allow delete: if signedIn() && request.auth.uid == likerId;
+        allow update: if false;
+      }
+
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if signedIn()
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 500
+          && request.resource.data.keys().hasAll(['userId', 'text', 'createdAt']);
+        allow update: if false;
+        allow delete: if signedIn()
+          && resource.data.userId == request.auth.uid;
+      }
     }
 
     /** Tag popularity docs — readable by all; signed-in may create/increment. */

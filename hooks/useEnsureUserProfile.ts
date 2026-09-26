@@ -6,6 +6,7 @@ import {
   clearFirebaseAuth,
   syncFirebaseAuthFromClerk,
 } from '@/lib/clerk/firebaseSession';
+import { useI18n } from '@/lib/i18n';
 import { upsertUser } from '@/services/users';
 
 /**
@@ -15,6 +16,7 @@ import { upsertUser } from '@/services/users';
 export function useEnsureUserProfile() {
   const { isSignedIn, isLoaded, getToken, userId } = useAuth();
   const { user } = useUser();
+  const { setCountryCode } = useI18n();
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const syncingRef = useRef(false);
@@ -70,6 +72,10 @@ export function useEnsureUserProfile() {
           countryCode: countryCodeRaw || null,
         });
 
+        if (countryCodeRaw) {
+          setCountryCode(countryCodeRaw);
+        }
+
         // Best-effort owner Pro grant (requires FIREBASE_SERVICE_ACCOUNT_JSON).
         // Check all Clerk emails (Apple can attach more than one).
         try {
@@ -103,7 +109,7 @@ export function useEnsureUserProfile() {
     return () => {
       cancelled = true;
     };
-  }, [isLoaded, isSignedIn, userId, user, getToken]);
+  }, [isLoaded, isSignedIn, userId, user, getToken, setCountryCode]);
 
   return { ready, error };
 }

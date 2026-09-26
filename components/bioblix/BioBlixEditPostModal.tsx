@@ -1,4 +1,5 @@
 import { useAuth } from '@clerk/expo';
+import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -12,9 +13,15 @@ import {
   View,
 } from 'react-native';
 
+import { BioBlixMediaPreview } from '@/components/bioblix/BioBlixMediaPreview';
 import { BioBlixText } from '@/components/bioblix/BioBlixText';
 import { Colors } from '@/constants/Colors';
 import { syncFirebaseAuthFromClerk } from '@/lib/clerk/firebaseSession';
+import { useI18n } from '@/lib/i18n';
+import {
+  NSFW_REJECT_MESSAGE,
+  assertMediaAllowed,
+} from '@/lib/moderation/nsfw';
 import { notify } from '@/lib/platform';
 import { validateProLinkUrl } from '@/lib/validation/proLink';
 import {
@@ -22,7 +29,8 @@ import {
   parseTagInput,
 } from '@/lib/validation/tags';
 import { updatePost } from '@/services/posts';
-import type { Post } from '@/types';
+import { uploadPostMedia } from '@/services/storage';
+import type { MediaType, Post } from '@/types';
 
 type BioBlixEditPostModalProps = {
   post: Post | null;
@@ -32,6 +40,12 @@ type BioBlixEditPostModalProps = {
   onSaved: (post: Post) => void;
 };
 
+type PickedMedia = {
+  uri: string;
+  mediaType: MediaType;
+  mimeType?: string;
+};
+
 export function BioBlixEditPostModal({
   post,
   visible,
@@ -39,7 +53,8 @@ export function BioBlixEditPostModal({
   onClose,
   onSaved,
 }: BioBlixEditPostModalProps) {
-  const { getToken } = useAuth();
+  const { getToken, userId } = useAuth();
+  const { t } = useI18n();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [linkUrl, setLinkUrl] = useState('');
@@ -47,6 +62,7 @@ export function BioBlixEditPostModal({
   const [tagDraft, setTagDraft] = useState('');
   const [tags, setTags] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [media, setMedia] = useState<PickedMedia | null>(null);
 
   useEffect(() => {
     if (!post || !visible) return;
@@ -56,6 +72,10 @@ export function BioBlixEditPostModal({
     setTags(post.tags ?? []);
     setTagDraft('');
     setLinkError(null);
+    setMedia({
+      uri: post.mediaUrl,
+      mediaType: post.mediaType,
+    });
   }, [post, visible]);
 
   const onLinkChange = (value: string) => {
@@ -78,21 +98,70 @@ export function BioBlixEditPostModal({
     setTags((prev) => prev.filter((t) => t !== slug));
   };
 
+  const onPickMedia = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      notify(t('upload.permission'), t('upload.permissionBody'));
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images', 'videos'],
+      allowsEditing: false,
+      quality: 0.7,
+      videoMaxDuration: 30,
+    });
+    if (result.canceled || !result.assets?.[0]) return;
+    const asset = result.assets[0];
+    const isVideo =
+      asset.type === 'video' ||
+      Boolean(asset.mimeType?.startsWith('video/')) ||
+      Boolean(asset.uri.match(/\.(mp4|mov|m4v|webm)$/i));
+    const mediaType: MediaType = isVideo ? 'video' : 'image';
+    try {
+      await assertMediaAllowed(asset.uri, mediaType);
+    } catch (err) {
+      notify(
+        t('common.notAllowed'),
+        err instanceof Error ? err.message : NSFW_REJECT_MESSAGE
+      );
+      return;
+    }
+    setMedia({
+      uri: asset.uri,
+      mediaType,
+      mimeType: asset.mimeType ?? undefined,
+    });
+  };
+
   const onSave = async () => {
-    if (!post) return;
+    if (!post || !media) return;
     const trimmedTitle = title.trim();
     if (!trimmedTitle) {
-      notify('Mangler tittel', 'Gi blixet en tittel.');
+      notify(t('upload.missingTitle'), t('upload.missingTitleBody'));
       return;
     }
     if (linkError) {
-      notify('Ugyldig lenke', linkError);
+      notify(t('upload.invalidLink'), linkError);
       return;
     }
 
     setSaving(true);
     try {
       await syncFirebaseAuthFromClerk(() => getToken());
+      let mediaUrl = post.mediaUrl;
+      let mediaType = post.mediaType;
+      const mediaChanged = media.uri !== post.mediaUrl;
+      if (mediaChanged) {
+        await assertMediaAllowed(media.uri, media.mediaType);
+        mediaUrl = await uploadPostMedia({
+          userId: userId ?? post.userId,
+          uri: media.uri,
+          mediaType: media.mediaType,
+          mimeType: media.mimeType,
+          getClerkToken: () => getToken(),
+        });
+        mediaType = media.mediaType;
+      }
       const nextLink =
         canUseLinks && linkUrl.trim() ? linkUrl.trim() : null;
       await updatePost(post.id, post.userId, {
@@ -100,6 +169,8 @@ export function BioBlixEditPostModal({
         description: description.trim(),
         tags,
         linkUrl: nextLink,
+        mediaUrl,
+        mediaType,
       });
       onSaved({
         ...post,
@@ -107,13 +178,15 @@ export function BioBlixEditPostModal({
         description: description.trim(),
         tags,
         linkUrl: nextLink,
+        mediaUrl,
+        mediaType,
       });
-      notify('Lagret', 'Blixet er oppdatert.');
+      notify(t('edit.saved'), t('edit.savedBody'));
       onClose();
     } catch (err) {
       notify(
-        'Feil',
-        err instanceof Error ? err.message : 'Kunne ikke lagre'
+        t('common.error'),
+        err instanceof Error ? err.message : t('edit.saveFail')
       );
     } finally {
       setSaving(false);
@@ -134,16 +207,16 @@ export function BioBlixEditPostModal({
         <View style={styles.header}>
           <Pressable onPress={onClose} hitSlop={12}>
             <BioBlixText variant="label" color={Colors.mistDim}>
-              Avbryt
+              {t('common.cancel')}
             </BioBlixText>
           </Pressable>
-          <BioBlixText variant="title">Rediger blix</BioBlixText>
+          <BioBlixText variant="title">{t('edit.title')}</BioBlixText>
           <Pressable onPress={() => void onSave()} hitSlop={12} disabled={saving}>
             {saving ? (
               <ActivityIndicator color={Colors.lime} />
             ) : (
               <BioBlixText variant="label" color={Colors.lime}>
-                Lagre
+                {t('edit.save')}
               </BioBlixText>
             )}
           </Pressable>
@@ -153,31 +226,40 @@ export function BioBlixEditPostModal({
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
         >
+          {media ? (
+            <BioBlixMediaPreview uri={media.uri} mediaType={media.mediaType} />
+          ) : null}
+          <Pressable style={styles.changeMedia} onPress={() => void onPickMedia()}>
+            <BioBlixText variant="caption" color={Colors.lime}>
+              {t('edit.changeMedia')}
+            </BioBlixText>
+          </Pressable>
+
           <BioBlixText variant="caption" color={Colors.mistDim}>
-            Tittel
+            {t('edit.titleField')}
           </BioBlixText>
           <TextInput
             value={title}
             onChangeText={setTitle}
             style={styles.input}
             placeholderTextColor={Colors.mistDim}
-            placeholder="Tittel"
+            placeholder={t('edit.titleField')}
           />
 
           <BioBlixText variant="caption" color={Colors.mistDim}>
-            Beskrivelse
+            {t('edit.description')}
           </BioBlixText>
           <TextInput
             value={description}
             onChangeText={setDescription}
             style={[styles.input, styles.textArea]}
             placeholderTextColor={Colors.mistDim}
-            placeholder="Beskrivelse"
+            placeholder={t('edit.description')}
             multiline
           />
 
           <BioBlixText variant="caption" color={Colors.mistDim}>
-            Tags
+            {t('edit.tags')}
           </BioBlixText>
           <View style={styles.tagRow}>
             {tags.map((tag) => (
@@ -200,14 +282,14 @@ export function BioBlixEditPostModal({
               onBlur={commitTagDraft}
               style={styles.input}
               placeholderTextColor={Colors.mistDim}
-              placeholder="Legg til tag"
+              placeholder={t('edit.addTag')}
               autoCapitalize="none"
               returnKeyType="done"
             />
           ) : null}
 
           <BioBlixText variant="caption" color={Colors.mistDim}>
-            Lenke {canUseLinks ? '' : '(Pro)'}
+            {t('edit.link')} {canUseLinks ? '' : t('edit.proOnly')}
           </BioBlixText>
           <TextInput
             value={linkUrl}
@@ -254,6 +336,10 @@ const styles = StyleSheet.create({
     padding: 20,
     gap: 8,
     paddingBottom: 40,
+  },
+  changeMedia: {
+    alignSelf: 'flex-start',
+    marginBottom: 8,
   },
   input: {
     borderWidth: 1,
