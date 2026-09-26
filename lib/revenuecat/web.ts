@@ -1,7 +1,9 @@
+import { apiUrl } from '@/lib/apiBase';
 import { PRO_YEARLY_ENTITLEMENT } from '@/lib/revenuecat/constants';
 
 type WebPurchasesModule = typeof import('@revenuecat/purchases-js');
 type WebPurchases = InstanceType<WebPurchasesModule['Purchases']>;
+type CustomerInfo = Awaited<ReturnType<WebPurchases['getCustomerInfo']>>;
 
 let cached: WebPurchasesModule | null = null;
 
@@ -10,7 +12,7 @@ async function loadWebSdk(): Promise<WebPurchasesModule> {
   try {
     await import('@revenuecat/purchases-js/styles');
   } catch {
-    // styles optional if bundler skips CSS
+    // styles optional
   }
   cached = await import('@revenuecat/purchases-js');
   return cached;
@@ -20,10 +22,43 @@ function webApiKey(): string | undefined {
   return process.env.EXPO_PUBLIC_REVENUECAT_WEB_API_KEY;
 }
 
-function unlockBodyScroll() {
+/** Remove RevenueCat checkout overlays that leave the page frozen. */
+export function cleanupWebCheckoutUi(): void {
   if (typeof document === 'undefined') return;
+  const selectors = [
+    '.rcb-ui-root',
+    '#rcb-ui-root',
+    '[class*="rcb-ui"]',
+    '[id*="rcb-"]',
+  ];
+  for (const sel of selectors) {
+    document.querySelectorAll(sel).forEach((el) => {
+      try {
+        el.remove();
+      } catch {
+        // ignore
+      }
+    });
+  }
   document.body.style.overflow = '';
   document.documentElement.style.overflow = '';
+  document.body.style.pointerEvents = '';
+  document.documentElement.style.pointerEvents = '';
+}
+
+function customerHasPro(info: CustomerInfo | null | undefined): boolean {
+  if (!info) return false;
+  const active = info.entitlements?.active ?? {};
+  if (typeof active[PRO_YEARLY_ENTITLEMENT] !== 'undefined') return true;
+  if (Object.keys(active).length > 0) return true;
+  try {
+    if (info.activeSubscriptions && info.activeSubscriptions.size > 0) {
+      return true;
+    }
+  } catch {
+    // ignore
+  }
+  return false;
 }
 
 function isCancelledError(
@@ -50,13 +85,6 @@ function missingPaywallError(error: unknown): boolean {
   );
 }
 
-function hasPro(active: Record<string, unknown> | undefined): boolean {
-  return typeof active?.[PRO_YEARLY_ENTITLEMENT] !== 'undefined';
-}
-
-/**
- * Configure RevenueCat Web Billing (`purchases-js`).
- */
 export async function configureWebPurchases(
   appUserId?: string | null
 ): Promise<WebPurchases | null> {
@@ -99,7 +127,7 @@ export async function hasWebProEntitlement(
     const purchases = await configureWebPurchases(appUserId);
     if (!purchases) return false;
     const info = await purchases.getCustomerInfo();
-    return hasPro(info.entitlements.active);
+    return customerHasPro(info);
   } catch (error) {
     console.warn('[revenuecat-web] getCustomerInfo failed', error);
     return false;
@@ -107,15 +135,96 @@ export async function hasWebProEntitlement(
 }
 
 /**
- * Fallback when offering has no designed paywall: pick monthly/yearly then purchase().
+ * Mirror Pro to Firestore via Admin API (webhook may be missing / delayed).
  */
+export async function syncProToFirestore(
+  getClerkToken: () => Promise<string | null>
+): Promise<boolean> {
+  const token = await getClerkToken();
+  if (!token) return false;
+  try {
+    const res = await fetch(apiUrl('/api/sync-pro'), {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    if (!res.ok) {
+      console.warn('[sync-pro]', await res.text());
+      return false;
+    }
+    const data = (await res.json()) as { isProYearly?: boolean };
+    return data.isProYearly === true;
+  } catch (error) {
+    console.warn('[sync-pro] failed', error);
+    return false;
+  }
+}
+
+async function racePurchaseWithPoll(
+  purchases: WebPurchases,
+  purchasePromise: Promise<{ customerInfo: CustomerInfo }>
+): Promise<CustomerInfo | null> {
+  return new Promise((resolve, reject) => {
+    let finished = false;
+
+    const finish = (info: CustomerInfo | null, err?: unknown) => {
+      if (finished) return;
+      finished = true;
+      cleanupWebCheckoutUi();
+      if (info) {
+        resolve(info);
+        return;
+      }
+      if (err) {
+        reject(err);
+        return;
+      }
+      resolve(null);
+    };
+
+    void purchasePromise
+      .then((r) => finish(r.customerInfo))
+      .catch((err) => {
+        // Give poll a moment in case payment already activated Pro.
+        window.setTimeout(() => {
+          void purchases
+            .getCustomerInfo()
+            .then((info) => {
+              if (customerHasPro(info)) finish(info);
+              else finish(null, err);
+            })
+            .catch(() => finish(null, err));
+        }, 800);
+      });
+
+    void (async () => {
+      for (let i = 0; i < 45; i++) {
+        if (finished) return;
+        await new Promise((r) => setTimeout(r, 2000));
+        if (finished) return;
+        try {
+          const info = await purchases.getCustomerInfo();
+          if (customerHasPro(info)) {
+            finish(info);
+            return;
+          }
+        } catch {
+          // keep polling
+        }
+      }
+    })();
+  });
+}
+
 async function purchaseViaPackagePicker(
   purchases: WebPurchases,
   customerEmail?: string | null
 ): Promise<boolean> {
-  const offerings = await purchases.getOfferings({ currency: 'NOK' }).catch(() =>
-    purchases.getOfferings()
-  );
+  const offerings = await purchases
+    .getOfferings({ currency: 'NOK' })
+    .catch(() => purchases.getOfferings());
   const current = offerings.current;
   if (!current || current.availablePackages.length === 0) {
     throw new Error(
@@ -151,11 +260,12 @@ async function purchaseViaPackagePicker(
   if (choice == null || choice.trim() === '') return false;
 
   const trimmed = choice.trim();
-  let pkg = yearly && (trimmed === '2' || trimmed.toLowerCase().startsWith('å'))
-    ? yearly
-    : monthly && (trimmed === '1' || trimmed.toLowerCase().startsWith('m'))
-      ? monthly
-      : null;
+  let pkg =
+    yearly && (trimmed === '2' || trimmed.toLowerCase().startsWith('å'))
+      ? yearly
+      : monthly && (trimmed === '1' || trimmed.toLowerCase().startsWith('m'))
+        ? monthly
+        : null;
 
   if (!pkg) {
     pkg = yearly ?? monthly ?? current.availablePackages[0] ?? null;
@@ -164,21 +274,20 @@ async function purchaseViaPackagePicker(
     throw new Error('Fant ingen pakke å kjøpe.');
   }
 
-  document.body.style.overflow = 'hidden';
   try {
-    const result = await purchases.purchase({
-      rcPackage: pkg,
-      customerEmail: customerEmail ?? undefined,
-    });
-    return hasPro(result.customerInfo.entitlements.active);
+    const info = await racePurchaseWithPoll(
+      purchases,
+      purchases.purchase({
+        rcPackage: pkg,
+        customerEmail: customerEmail ?? undefined,
+      })
+    );
+    return customerHasPro(info);
   } finally {
-    unlockBodyScroll();
+    cleanupWebCheckoutUi();
   }
 }
 
-/**
- * Present RevenueCat Web paywall, or package checkout if no paywall is attached.
- */
 export async function presentWebPaywall(
   appUserId?: string | null,
   customerEmail?: string | null
@@ -195,27 +304,21 @@ export async function presentWebPaywall(
     throw new Error('Betaling krever nettleser.');
   }
 
-  document.body.style.overflow = 'hidden';
-
   try {
     try {
-      const result = await Promise.race([
+      const info = await racePurchaseWithPoll(
+        purchases,
         purchases.presentPaywall({
           customerEmail: customerEmail ?? undefined,
-        }),
-        new Promise<never>((_, reject) => {
-          window.setTimeout(() => {
-            reject(new Error('Paywall tok for lang tid. Prøv igjen.'));
-          }, 180_000);
-        }),
-      ]);
-      return hasPro(result?.customerInfo?.entitlements?.active);
+        })
+      );
+      return customerHasPro(info);
     } catch (error) {
       if (isCancelledError(error, PurchasesError, ErrorCode)) {
         return false;
       }
       if (missingPaywallError(error)) {
-        unlockBodyScroll();
+        cleanupWebCheckoutUi();
         return purchaseViaPackagePicker(purchases, customerEmail);
       }
       throw error;
@@ -226,6 +329,6 @@ export async function presentWebPaywall(
     }
     throw error;
   } finally {
-    unlockBodyScroll();
+    cleanupWebCheckoutUi();
   }
 }

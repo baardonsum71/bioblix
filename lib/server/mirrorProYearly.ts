@@ -3,16 +3,23 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { getAdminDb } from './firebaseAdmin';
 
 /** Must match RevenueCat entitlement + client constant. */
-const PRO_YEARLY_ENTITLEMENT = 'pro_yearly';
+export const PRO_YEARLY_ENTITLEMENT = 'pro_yearly';
 
 type RevenueCatEntitlement = {
   expires_date: string | null;
   product_identifier?: string;
 };
 
+type RevenueCatSubscription = {
+  expires_date?: string | null;
+  unsubscribe_detected_at?: string | null;
+  billing_issues_detected_at?: string | null;
+};
+
 type RevenueCatSubscriberResponse = {
   subscriber?: {
     entitlements?: Record<string, RevenueCatEntitlement>;
+    subscriptions?: Record<string, RevenueCatSubscription>;
   };
 };
 
@@ -22,8 +29,37 @@ function isEntitlementActive(entitlement?: RevenueCatEntitlement): boolean {
   return new Date(entitlement.expires_date).getTime() > Date.now();
 }
 
+function isSubscriptionActive(sub?: RevenueCatSubscription): boolean {
+  if (!sub) return false;
+  if (sub.unsubscribe_detected_at) return false;
+  if (!sub.expires_date) return true;
+  return new Date(sub.expires_date).getTime() > Date.now();
+}
+
+function subscriberHasProAccess(
+  subscriber: RevenueCatSubscriberResponse['subscriber']
+): boolean {
+  if (!subscriber) return false;
+
+  const entitlements = subscriber.entitlements ?? {};
+  if (isEntitlementActive(entitlements[PRO_YEARLY_ENTITLEMENT])) {
+    return true;
+  }
+  // Products may be attached to a differently named entitlement in the dashboard.
+  for (const entitlement of Object.values(entitlements)) {
+    if (isEntitlementActive(entitlement)) return true;
+  }
+
+  const subscriptions = subscriber.subscriptions ?? {};
+  for (const sub of Object.values(subscriptions)) {
+    if (isSubscriptionActive(sub)) return true;
+  }
+
+  return false;
+}
+
 /**
- * Ask RevenueCat (secret API key) whether `pro_yearly` is currently active.
+ * Ask RevenueCat (secret API key) whether the user currently has Pro access.
  */
 export async function fetchIsProYearlyFromRevenueCat(
   appUserId: string
@@ -49,8 +85,7 @@ export async function fetchIsProYearlyFromRevenueCat(
   }
 
   const data = (await response.json()) as RevenueCatSubscriberResponse;
-  const entitlement = data.subscriber?.entitlements?.[PRO_YEARLY_ENTITLEMENT];
-  return isEntitlementActive(entitlement);
+  return subscriberHasProAccess(data.subscriber);
 }
 
 /**
