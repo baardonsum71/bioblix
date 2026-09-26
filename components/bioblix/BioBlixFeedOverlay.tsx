@@ -81,9 +81,9 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     justifyContent: 'flex-end',
   },
+  // Full-bleed dark wash — matches previous bottom contrast across the whole blix.
   scrim: {
     ...StyleSheet.absoluteFill,
-    top: '42%',
     backgroundColor: Colors.scrim,
   },
   content: {
