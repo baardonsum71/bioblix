@@ -30,6 +30,7 @@ import { useCurrentUserProfile } from '@/hooks/useCurrentUserProfile';
 import { useProYearlyEntitlement } from '@/hooks/useProYearlyEntitlement';
 import { syncFirebaseAuthFromClerk } from '@/lib/clerk/firebaseSession';
 import { notify } from '@/lib/platform';
+import { presentProYearlyPaywall } from '@/lib/revenuecat/paywall';
 import { shareProfile } from '@/lib/shareProfile';
 import { SUBSCRIPTION_PLANS } from '@/lib/subscription';
 import { countFollowers, countFollowing } from '@/services/follows';
@@ -67,7 +68,7 @@ function BioBlixAccountSigned() {
     error: profileError,
     refresh,
   } = useCurrentUserProfile(isSignedIn ? userId : null);
-  const { isProYearly, isOwner, loading: entitlementLoading } =
+  const { isProYearly, isOwner, loading: entitlementLoading, refresh: refreshEntitlement } =
     useProYearlyEntitlement(isSignedIn ? userId : null);
 
   const [followers, setFollowers] = useState(0);
@@ -76,6 +77,9 @@ function BioBlixAccountSigned() {
   const [myPosts, setMyPosts] = useState<Post[]>([]);
   const [postsLoading, setPostsLoading] = useState(false);
   const [editing, setEditing] = useState<Post | null>(null);
+  const [upgrading, setUpgrading] = useState(false);
+
+  const hasPro = Boolean(isOwner || isProYearly || profile?.isProYearly);
 
   const loadMyPosts = useCallback(async () => {
     if (!userId || !isSignedIn) {
@@ -166,6 +170,26 @@ function BioBlixAccountSigned() {
       );
     }
   }, [userId, profile?.displayName, user]);
+
+  const onUpgrade = useCallback(async () => {
+    if (hasPro) {
+      notify('Pro aktiv', 'Du har allerede Pro med klikkbare lenker.');
+      return;
+    }
+    setUpgrading(true);
+    try {
+      const entitled = await presentProYearlyPaywall();
+      await refreshEntitlement();
+      if (entitled) {
+        notify(
+          'Pro aktiv',
+          'Du kan nå legge klikkbare butikklenker på blixene dine.'
+        );
+      }
+    } finally {
+      setUpgrading(false);
+    }
+  }, [hasPro, refreshEntitlement]);
 
   if (!isLoaded) {
     return (
@@ -260,8 +284,8 @@ function BioBlixAccountSigned() {
               <BioBlixText variant="caption" color={Colors.mistDim}>
                 {isOwner
                   ? 'Eier · Pro'
-                  : isProYearly || profile?.isProYearly
-                    ? 'Pro Årlig'
+                  : hasPro
+                    ? 'Pro'
                     : 'Standard'}
               </BioBlixText>
             )}
@@ -306,6 +330,41 @@ function BioBlixAccountSigned() {
           </Pressable>
         </View>
 
+        {!hasPro ? (
+          <Pressable
+            style={styles.upgradeWrap}
+            onPress={() => void onUpgrade()}
+            disabled={upgrading}
+          >
+            <LinearGradient
+              colors={[...BioBlixGradient.colors]}
+              locations={[...BioBlixGradient.locations]}
+              start={BioBlixGradient.start}
+              end={BioBlixGradient.end}
+              style={styles.upgradeBtn}
+            >
+              {upgrading ? (
+                <ActivityIndicator color={Colors.ink} />
+              ) : (
+                <>
+                  <BioBlixText variant="label" color={Colors.ink}>
+                    Bli Pro — betal her
+                  </BioBlixText>
+                  <BioBlixText variant="caption" color={Colors.inkElevated}>
+                    59 kr/mnd eller 399 kr/år · klikkbare lenker
+                  </BioBlixText>
+                </>
+              )}
+            </LinearGradient>
+          </Pressable>
+        ) : (
+          <View style={styles.proActiveBanner}>
+            <BioBlixText variant="caption" color={Colors.lime}>
+              Pro aktiv · klikkbare lenker på blix
+            </BioBlixText>
+          </View>
+        )}
+
         <View style={styles.postsHeader}>
           <BioBlixText variant="label" color={Colors.mistDim}>
             Mine blix ({myPosts.length})
@@ -338,16 +397,24 @@ function BioBlixAccountSigned() {
               </BioBlixText>
             </Pressable>
           </Link>
-          <BioBlixText variant="caption" color={Colors.mistDim}>
-            {SUBSCRIPTION_PLANS.pro.label} snart · 59/mnd · 399/år
-          </BioBlixText>
+          {!hasPro ? (
+            <Pressable onPress={() => void onUpgrade()} disabled={upgrading}>
+              <BioBlixText variant="caption" color={Colors.lime}>
+                Oppgrader til Pro
+              </BioBlixText>
+            </Pressable>
+          ) : (
+            <BioBlixText variant="caption" color={Colors.mistDim}>
+              {SUBSCRIPTION_PLANS.pro.label}
+            </BioBlixText>
+          )}
         </View>
       </View>
 
       <BioBlixEditPostModal
         post={editing}
         visible={Boolean(editing)}
-        canUseLinks={Boolean(isProYearly || isOwner)}
+        canUseLinks={hasPro}
         onClose={() => setEditing(null)}
         onSaved={(updated) => {
           setMyPosts((prev) =>
@@ -486,6 +553,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 8,
+  },
+  upgradeWrap: {
+    marginHorizontal: 16,
+    marginBottom: 10,
+    borderRadius: BioBlixRadii.md,
+    overflow: 'hidden',
+  },
+  upgradeBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    gap: 2,
+    alignItems: 'flex-start',
+  },
+  proActiveBanner: {
+    marginHorizontal: 16,
+    marginBottom: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.lime,
   },
   planCard: {
     backgroundColor: Colors.surface,
