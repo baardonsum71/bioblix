@@ -2,6 +2,7 @@ import { useAuth } from '@clerk/expo';
 import { Alert, Pressable, StyleSheet, Text } from 'react-native';
 
 import { syncFirebaseAuthFromClerk } from '@/lib/clerk/firebaseSession';
+import { useI18n } from '@/lib/i18n';
 import { confirmAction, isWeb, notify } from '@/lib/platform';
 import { createReport } from '@/services/reports';
 import { deletePost } from '@/services/posts';
@@ -25,13 +26,11 @@ export function BioBlixSafetyMenu({
   onEdit,
 }: BioBlixSafetyMenuProps) {
   const { getToken } = useAuth();
+  const { t, locale } = useI18n();
 
   const openMenu = () => {
     if (!viewerUserId) {
-      notify(
-        'Logg inn kreves',
-        'Du må være innlogget for å slette, rapportere eller blokkere.'
-      );
+      notify(t('social.signInRequired'), t('social.signInRequiredBody'));
       return;
     }
 
@@ -45,83 +44,85 @@ export function BioBlixSafetyMenu({
 
   const openOwnPostMenu = async () => {
     if (isWeb && typeof window !== 'undefined') {
-      const choice = window.prompt(
-        'Skriv «rediger» eller «slett» (eller avbryt):',
-        onEdit ? 'rediger' : 'slett'
-      );
+      const hint =
+        locale === 'nb'
+          ? 'Skriv «rediger» eller «slett» (eller avbryt):'
+          : 'Type “edit” or “delete” (or cancel):';
+      const choice = window.prompt(hint, onEdit ? (locale === 'nb' ? 'rediger' : 'edit') : (locale === 'nb' ? 'slett' : 'delete'));
       const normalized = choice?.trim().toLowerCase() ?? '';
       if (!normalized) return;
-      if (normalized.startsWith('redig') && onEdit) {
+      if ((normalized.startsWith('redig') || normalized.startsWith('edit')) && onEdit) {
         onEdit();
         return;
       }
-      if (normalized.startsWith('slett')) {
+      if (normalized.startsWith('slett') || normalized.startsWith('del')) {
         const ok = await confirmAction(
-          'Slett blix?',
-          'Dette blixet fjernes permanent fra feed og profil.',
-          { confirmLabel: 'Slett', destructive: true }
+          t('safety.deleteTitle'),
+          t('safety.deleteBody'),
+          { confirmLabel: t('safety.delete'), destructive: true }
         );
         if (ok) await handleDelete();
       }
       return;
     }
 
-    Alert.alert('Ditt blix', 'Hva vil du gjøre?', [
+    Alert.alert(t('tabs.blix'), undefined, [
       ...(onEdit
-        ? [{ text: 'Rediger', onPress: () => onEdit() }]
+        ? [{ text: t('safety.edit'), onPress: () => onEdit() }]
         : []),
       {
-        text: 'Slett',
+        text: t('safety.delete'),
         style: 'destructive' as const,
         onPress: () => void confirmDeleteNative(),
       },
-      { text: 'Avbryt', style: 'cancel' as const },
+      { text: t('common.cancel'), style: 'cancel' as const },
     ]);
   };
 
   const confirmDeleteNative = async () => {
     const ok = await confirmAction(
-      'Slett blix?',
-      'Dette blixet fjernes permanent fra feed og profil.',
-      { confirmLabel: 'Slett', destructive: true }
+      t('safety.deleteTitle'),
+      t('safety.deleteBody'),
+      { confirmLabel: t('safety.delete'), destructive: true }
     );
     if (ok) await handleDelete();
   };
 
   const openOtherPostMenu = async (viewerId: string) => {
     if (isWeb && typeof window !== 'undefined') {
-      const choice = window.prompt(
-        'Skriv «rapporter» eller «blokker» (eller avbryt):',
-        'rapporter'
-      );
+      const hint =
+        locale === 'nb'
+          ? 'Skriv «rapporter» eller «blokker» (eller avbryt):'
+          : 'Type “report” or “block” (or cancel):';
+      const choice = window.prompt(hint, locale === 'nb' ? 'rapporter' : 'report');
       const normalized = choice?.trim().toLowerCase() ?? '';
       if (!normalized) return;
-      if (normalized.startsWith('rappor')) {
+      if (normalized.startsWith('rappor') || normalized.startsWith('report')) {
         await handleReport(viewerId);
         return;
       }
-      if (normalized.startsWith('blokk')) {
+      if (normalized.startsWith('blokk') || normalized.startsWith('block')) {
         const ok = await confirmAction(
-          'Blokker bruker?',
-          'Innlegg fra denne brukeren skjules fra blix-strømmen din.',
-          { confirmLabel: 'Blokker', destructive: true }
+          t('safety.blockTitle'),
+          t('safety.blockBody'),
+          { confirmLabel: t('safety.block'), destructive: true }
         );
         if (ok) await handleBlock(viewerId);
       }
       return;
     }
 
-    Alert.alert('Sikkerhet', 'Hva vil du gjøre med dette innlegget?', [
+    Alert.alert(t('safety.reportOrBlock'), undefined, [
       {
-        text: 'Rapporter innlegg',
+        text: t('safety.report'),
         onPress: () => void handleReport(viewerId),
       },
       {
-        text: 'Blokker bruker',
+        text: t('safety.block'),
         style: 'destructive',
         onPress: () => void confirmBlockNative(viewerId),
       },
-      { text: 'Avbryt', style: 'cancel' },
+      { text: t('common.cancel'), style: 'cancel' },
     ]);
   };
 
@@ -130,11 +131,11 @@ export function BioBlixSafetyMenu({
       await syncFirebaseAuthFromClerk(() => getToken());
       await deletePost(postId);
       onDeleted?.();
-      notify('Slettet', 'Blixet er fjernet.');
+      notify(t('safety.deleted'), t('safety.deletedBody'));
     } catch (error) {
       notify(
-        'Kunne ikke slette',
-        error instanceof Error ? error.message : 'Prøv igjen senere.'
+        t('common.error'),
+        error instanceof Error ? error.message : t('common.error')
       );
     }
   };
@@ -146,23 +147,20 @@ export function BioBlixSafetyMenu({
         reportedUserId: authorUserId,
         reporterId,
       });
-      notify(
-        'Takk',
-        'Rapporten er sendt. BioBlix-teamet vil se på innlegget.'
-      );
+      notify(t('safety.reported'), t('safety.reportedBody'));
     } catch (error) {
       notify(
-        'Kunne ikke rapportere',
-        error instanceof Error ? error.message : 'Prøv igjen senere.'
+        t('common.error'),
+        error instanceof Error ? error.message : t('common.error')
       );
     }
   };
 
   const confirmBlockNative = async (viewerId: string) => {
     const ok = await confirmAction(
-      'Blokker bruker?',
-      'Innlegg fra denne brukeren skjules fra blix-strømmen din.',
-      { confirmLabel: 'Blokker', destructive: true }
+      t('safety.blockTitle'),
+      t('safety.blockBody'),
+      { confirmLabel: t('safety.block'), destructive: true }
     );
     if (ok) await handleBlock(viewerId);
   };
@@ -171,11 +169,11 @@ export function BioBlixSafetyMenu({
     try {
       await blockUser(viewerId, authorUserId);
       onBlocked?.();
-      notify('Blokkert', 'Brukeren er skjult fra feeden din.');
+      notify(t('safety.blocked'), t('safety.blockedBody'));
     } catch (error) {
       notify(
-        'Kunne ikke blokkere',
-        error instanceof Error ? error.message : 'Prøv igjen senere.'
+        t('common.error'),
+        error instanceof Error ? error.message : t('common.error')
       );
     }
   };
@@ -184,8 +182,8 @@ export function BioBlixSafetyMenu({
     <Pressable
       accessibilityLabel={
         viewerUserId === authorUserId
-          ? 'Rediger eller slett blix'
-          : 'Flere alternativer'
+          ? t('safety.editOrDelete')
+          : t('safety.reportOrBlock')
       }
       accessibilityRole="button"
       hitSlop={12}
@@ -203,13 +201,12 @@ const styles = StyleSheet.create({
     top: 54,
     right: 16,
     zIndex: 20,
-    minWidth: 40,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: 'rgba(7,20,16,0.55)',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 10,
     borderWidth: 1,
     borderColor: 'rgba(220,232,224,0.25)',
   },
@@ -217,10 +214,9 @@ const styles = StyleSheet.create({
     opacity: 0.75,
   },
   dots: {
-    color: '#FFFFFF',
+    color: '#F4F7F5',
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: '700',
     letterSpacing: 1,
-    marginTop: -4,
   },
 });

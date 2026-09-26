@@ -18,11 +18,19 @@ export interface Post {
   tags: string[];
   /** Clickable product/app link — Pro tier only */
   linkUrl?: string | null;
+  likeCount: number;
+  commentCount: number;
   createdAt: Timestamp;
 }
 
 /** Payload for creating a new post (id & createdAt assigned by the service). */
-export type CreatePostInput = Omit<Post, 'id' | 'createdAt'>;
+export type CreatePostInput = Omit<
+  Post,
+  'id' | 'createdAt' | 'likeCount' | 'commentCount'
+> & {
+  likeCount?: number;
+  commentCount?: number;
+};
 
 /** Partial update for editable post fields. */
 export type UpdatePostInput = Partial<

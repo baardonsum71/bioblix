@@ -7,6 +7,7 @@ import { BioBlixFeedOverlay } from '@/components/bioblix/BioBlixFeedOverlay';
 import { BioBlixSafetyMenu } from '@/components/bioblix/BioBlixSafetyMenu';
 import { BioBlixText } from '@/components/bioblix/BioBlixText';
 import { Colors } from '@/constants/Colors';
+import { useI18n } from '@/lib/i18n';
 import type { Post } from '@/types';
 
 type BioBlixFeedItemProps = {
@@ -46,7 +47,7 @@ function FeedVideo({
     <VideoView
       player={player}
       style={styles.media}
-      contentFit="cover"
+      contentFit="contain"
       nativeControls={false}
       allowsPictureInPicture={false}
     />
@@ -63,6 +64,7 @@ export function BioBlixFeedItem({
   onDeleted,
   onEdit,
 }: BioBlixFeedItemProps) {
+  const { t } = useI18n();
   const isOwner = Boolean(viewerUserId && viewerUserId === post.userId);
 
   return (
@@ -73,7 +75,7 @@ export function BioBlixFeedItem({
         <Image
           source={{ uri: post.mediaUrl }}
           style={styles.media}
-          contentFit="cover"
+          contentFit="contain"
         />
       )}
 
@@ -91,21 +93,23 @@ export function BioBlixFeedItem({
           style={styles.editBtn}
           onPress={onEdit}
           hitSlop={10}
-          accessibilityLabel="Rediger blix"
+          accessibilityLabel={t('social.edit')}
         >
           <BioBlixText variant="caption" color={Colors.white}>
-            Rediger
+            {t('social.edit')}
           </BioBlixText>
         </Pressable>
       ) : null}
 
       <BioBlixFeedOverlay
+        post={post}
         title={post.title}
         description={post.description}
         username={username}
         userId={post.userId}
         tags={post.tags}
         linkUrl={post.linkUrl}
+        viewerUserId={viewerUserId}
       />
     </View>
   );

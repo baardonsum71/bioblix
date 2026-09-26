@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BioBlixLogo } from '@/components/bioblix/BioBlixLogo';
 import { BioBlixText } from '@/components/bioblix/BioBlixText';
 import { BioBlixTheme } from '@/constants/bioblixTheme';
+import { useI18n } from '@/lib/i18n';
 
 function TabIcon({ focused }: { focused: boolean }) {
   return (
@@ -17,6 +18,7 @@ function TabIcon({ focused }: { focused: boolean }) {
 export default function BioBlixTabLayout() {
   const tab = BioBlixTheme.components.tabBar;
   const insets = useSafeAreaInsets();
+  const { t } = useI18n();
   // Extra padding for iPhone home indicator + mobile browser chrome.
   const bottomPad = Math.max(insets.bottom, 12) + 8;
   const tabBarHeight = 52 + bottomPad;
@@ -49,14 +51,14 @@ export default function BioBlixTabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Blix',
+          title: t('tabs.blix'),
           tabBarIcon: ({ focused }) => <TabIcon focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="create"
         options={{
-          title: 'Publiser',
+          title: t('tabs.publish'),
           tabBarIcon: ({ color, focused }) => (
             <BioBlixText
               variant="label"
@@ -71,7 +73,7 @@ export default function BioBlixTabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Konto',
+          title: t('tabs.account'),
           tabBarIcon: ({ color, focused }) => (
             <BioBlixText
               variant="label"

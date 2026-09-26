@@ -67,7 +67,7 @@ export async function upsertUser(
     if (input.birthDate && !existing.data()?.birthDate) {
       patch.birthDate = input.birthDate;
     }
-    if (input.countryCode && !existing.data()?.countryCode) {
+    if (input.countryCode) {
       patch.countryCode = input.countryCode;
     }
     await updateDoc(ref, patch);

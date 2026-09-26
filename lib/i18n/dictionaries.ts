@@ -80,7 +80,62 @@ export type MessageKey =
   | 'paywall.noPackages'
   | 'paywall.noPackage'
   | 'paywall.needsBrowser'
-  | 'paywall.notConfigured';
+  | 'paywall.notConfigured'
+  | 'tabs.blix'
+  | 'tabs.publish'
+  | 'tabs.account'
+  | 'account.edit'
+  | 'account.delete'
+  | 'account.editDelete'
+  | 'account.emptyPosts'
+  | 'account.upgradePro'
+  | 'account.refresh'
+  | 'edit.title'
+  | 'edit.save'
+  | 'edit.saved'
+  | 'edit.savedBody'
+  | 'edit.saveFail'
+  | 'edit.changeMedia'
+  | 'edit.titleField'
+  | 'edit.description'
+  | 'edit.tags'
+  | 'edit.addTag'
+  | 'edit.link'
+  | 'edit.proOnly'
+  | 'social.comments'
+  | 'social.noComments'
+  | 'social.commentPlaceholder'
+  | 'social.send'
+  | 'social.signInRequired'
+  | 'social.signInRequiredBody'
+  | 'social.edit'
+  | 'profile.noBlix'
+  | 'profile.followersFollowing'
+  | 'profile.follow'
+  | 'profile.following'
+  | 'profile.share'
+  | 'profile.invalid'
+  | 'profile.notFound'
+  | 'profile.blixSection'
+  | 'feed.empty'
+  | 'feed.loadError'
+  | 'feed.retry'
+  | 'safety.editOrDelete'
+  | 'safety.reportOrBlock'
+  | 'safety.deleteTitle'
+  | 'safety.deleteBody'
+  | 'safety.delete'
+  | 'safety.edit'
+  | 'safety.report'
+  | 'safety.block'
+  | 'safety.blockTitle'
+  | 'safety.blockBody'
+  | 'safety.deleted'
+  | 'safety.deletedBody'
+  | 'safety.blocked'
+  | 'safety.blockedBody'
+  | 'safety.reported'
+  | 'safety.reportedBody';
 
 export type Dictionary = Record<MessageKey, string>;
 
@@ -173,6 +228,61 @@ export const en: Dictionary = {
   'paywall.needsBrowser': 'Payment requires a browser.',
   'paywall.notConfigured':
     'RevenueCat Web is not configured. Check EXPO_PUBLIC_REVENUECAT_WEB_API_KEY.',
+  'tabs.blix': 'Blix',
+  'tabs.publish': 'Publish',
+  'tabs.account': 'Account',
+  'account.edit': 'Edit',
+  'account.delete': 'Delete',
+  'account.editDelete': 'Edit · Delete',
+  'account.emptyPosts': 'No blix yet. Publish from the Publish tab.',
+  'account.upgradePro': 'Upgrade to Pro',
+  'account.refresh': 'Refresh',
+  'edit.title': 'Edit blix',
+  'edit.save': 'Save',
+  'edit.saved': 'Saved',
+  'edit.savedBody': 'Your blix was updated.',
+  'edit.saveFail': 'Could not save',
+  'edit.changeMedia': 'Change photo or video',
+  'edit.titleField': 'Title',
+  'edit.description': 'Description',
+  'edit.tags': 'Tags',
+  'edit.addTag': 'Add tag',
+  'edit.link': 'Link',
+  'edit.proOnly': '(Pro)',
+  'social.comments': 'Comments',
+  'social.noComments': 'No comments yet.',
+  'social.commentPlaceholder': 'Write a comment…',
+  'social.send': 'Send',
+  'social.signInRequired': 'Sign in',
+  'social.signInRequiredBody': 'Sign in to like or comment.',
+  'social.edit': 'Edit',
+  'profile.noBlix': 'No blix yet.',
+  'profile.followersFollowing': '{followers} followers · {following} following',
+  'profile.follow': 'Follow',
+  'profile.following': 'Following',
+  'profile.share': 'Share profile',
+  'profile.invalid': 'Invalid profile',
+  'profile.notFound': 'User not found',
+  'profile.blixSection': 'Blix ({count})',
+  'feed.empty': 'No blix in the feed yet.',
+  'feed.loadError': 'Could not load BioBlix',
+  'feed.retry': 'Try again',
+  'safety.editOrDelete': 'Edit or delete blix',
+  'safety.reportOrBlock': 'More options',
+  'safety.deleteTitle': 'Delete blix?',
+  'safety.deleteBody': 'This blix will be permanently removed from the feed and profile.',
+  'safety.delete': 'Delete',
+  'safety.edit': 'Edit',
+  'safety.report': 'Report post',
+  'safety.block': 'Block user',
+  'safety.blockTitle': 'Block user?',
+  'safety.blockBody': 'Posts from this user will be hidden from your feed.',
+  'safety.deleted': 'Deleted',
+  'safety.deletedBody': 'Blix removed.',
+  'safety.blocked': 'Blocked',
+  'safety.blockedBody': 'This user is hidden from your feed.',
+  'safety.reported': 'Thanks',
+  'safety.reportedBody': 'Report sent. The BioBlix team will review it.',
 };
 
 export const nb: Dictionary = {
@@ -265,4 +375,59 @@ export const nb: Dictionary = {
   'paywall.needsBrowser': 'Betaling krever nettleser.',
   'paywall.notConfigured':
     'RevenueCat Web er ikke konfigurert. Sjekk EXPO_PUBLIC_REVENUECAT_WEB_API_KEY.',
+  'tabs.blix': 'Blix',
+  'tabs.publish': 'Publiser',
+  'tabs.account': 'Konto',
+  'account.edit': 'Rediger',
+  'account.delete': 'Slett',
+  'account.editDelete': 'Rediger · Slett',
+  'account.emptyPosts': 'Ingen blix ennå. Publiser fra Publiser-fanen.',
+  'account.upgradePro': 'Oppgrader til Pro',
+  'account.refresh': 'Oppdater',
+  'edit.title': 'Rediger blix',
+  'edit.save': 'Lagre',
+  'edit.saved': 'Lagret',
+  'edit.savedBody': 'Blixet er oppdatert.',
+  'edit.saveFail': 'Kunne ikke lagre',
+  'edit.changeMedia': 'Bytt bilde eller video',
+  'edit.titleField': 'Tittel',
+  'edit.description': 'Beskrivelse',
+  'edit.tags': 'Tags',
+  'edit.addTag': 'Legg til tag',
+  'edit.link': 'Lenke',
+  'edit.proOnly': '(Pro)',
+  'social.comments': 'Kommentarer',
+  'social.noComments': 'Ingen kommentarer ennå.',
+  'social.commentPlaceholder': 'Skriv en kommentar…',
+  'social.send': 'Send',
+  'social.signInRequired': 'Logg inn',
+  'social.signInRequiredBody': 'Logg inn for å like eller kommentere.',
+  'social.edit': 'Rediger',
+  'profile.noBlix': 'Ingen blix ennå.',
+  'profile.followersFollowing': '{followers} følgere · {following} følger',
+  'profile.follow': 'Følg',
+  'profile.following': 'Følger',
+  'profile.share': 'Del profil',
+  'profile.invalid': 'Ugyldig profil',
+  'profile.notFound': 'Fant ikke brukeren',
+  'profile.blixSection': 'Blix ({count})',
+  'feed.empty': 'Ingen blix i strømmen ennå.',
+  'feed.loadError': 'Kunne ikke laste BioBlix',
+  'feed.retry': 'Prøv igjen',
+  'safety.editOrDelete': 'Rediger eller slett blix',
+  'safety.reportOrBlock': 'Flere alternativer',
+  'safety.deleteTitle': 'Slett blix?',
+  'safety.deleteBody': 'Dette blixet fjernes permanent fra feed og profil.',
+  'safety.delete': 'Slett',
+  'safety.edit': 'Rediger',
+  'safety.report': 'Rapporter innlegg',
+  'safety.block': 'Blokker bruker',
+  'safety.blockTitle': 'Blokker bruker?',
+  'safety.blockBody': 'Innlegg fra denne brukeren skjules fra blix-strømmen din.',
+  'safety.deleted': 'Slettet',
+  'safety.deletedBody': 'Blixet er fjernet.',
+  'safety.blocked': 'Blokkert',
+  'safety.blockedBody': 'Brukeren er skjult fra feeden din.',
+  'safety.reported': 'Takk',
+  'safety.reportedBody': 'Rapporten er sendt. BioBlix-teamet vil se på innlegget.',
 };

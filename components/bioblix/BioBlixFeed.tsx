@@ -14,6 +14,7 @@ import { Brand, Colors } from '@/constants/Colors';
 import { useAppUserId } from '@/hooks/useAppUserId';
 import { useBioBlixFeed } from '@/hooks/useBioBlixFeed';
 import { useProYearlyEntitlement } from '@/hooks/useProYearlyEntitlement';
+import { useI18n } from '@/lib/i18n';
 import { getUserById } from '@/services/users';
 import type { Post } from '@/types';
 
@@ -29,6 +30,7 @@ function displayNameFor(
 
 export default function BioBlixFeed() {
   const isFocused = useIsFocused();
+  const { t } = useI18n();
   const { posts, loading, error, refresh, hideAuthor, removePost } =
     useBioBlixFeed(40);
   const viewerUserId = useAppUserId();
@@ -84,7 +86,7 @@ export default function BioBlixFeed() {
       return (
         <View style={styles.center}>
           <BioBlixText variant="title" style={styles.emptyTitle}>
-            Kunne ikke laste BioBlix
+            {t('feed.loadError')}
           </BioBlixText>
           <BioBlixText
             variant="body"
@@ -95,14 +97,14 @@ export default function BioBlixFeed() {
           </BioBlixText>
           <Pressable style={styles.retry} onPress={() => void refresh()}>
             <BioBlixText variant="label" color={Colors.ink}>
-              Prøv igjen
+              {t('feed.retry')}
             </BioBlixText>
           </Pressable>
         </View>
       );
     }
     return null;
-  }, [loading, error, refresh]);
+  }, [loading, error, refresh, t]);
 
   const onSaved = useCallback((updated: Post) => {
     setLocalPosts((prev) => {
@@ -127,14 +129,14 @@ export default function BioBlixFeed() {
             {Brand.name}
           </BioBlixText>
           <BioBlixText variant="title" style={styles.emptyTitle}>
-            Ingen blix ennå
+            {t('feed.empty')}
           </BioBlixText>
           <BioBlixText
             variant="body"
             color={Colors.mistDim}
             style={styles.emptySub}
           >
-            Publiser det første produkt-blixet fra Publiser-fanen.
+            {t('account.emptyPosts')}
           </BioBlixText>
         </View>
       </View>

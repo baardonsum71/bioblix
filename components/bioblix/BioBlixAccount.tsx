@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 
 import { BioBlixEditPostModal } from '@/components/bioblix/BioBlixEditPostModal';
+import { BioBlixPostCard } from '@/components/bioblix/BioBlixPostCard';
 import { BioBlixText } from '@/components/bioblix/BioBlixText';
 import { CountryPicker } from '@/components/bioblix/CountryPicker';
 import {
@@ -47,14 +48,15 @@ import { updateUser } from '@/services/users';
 import type { Post } from '@/types';
 
 export default function BioBlixAccount() {
+  const { t } = useI18n();
   if (!isClerkConfigured) {
     return (
       <BioBlixScreenShell style={styles.shellPad}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <BioBlixLogo variant="wordmark" size={96} />
-          <BioBlixText variant="display">Din konto</BioBlixText>
+          <BioBlixText variant="display">{t('account.title')}</BioBlixText>
           <BioBlixText variant="body" color={Colors.mistDim}>
-            Clerk er ikke konfigurert. Sett EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY.
+            Clerk is not configured. Set EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY.
           </BioBlixText>
         </ScrollView>
       </BioBlixScreenShell>
@@ -309,7 +311,7 @@ function BioBlixAccountSigned() {
           keyboardShouldPersistTaps="handled"
         >
           <BioBlixLogo variant="wordmark" size={96} />
-          <BioBlixText variant="display">Din konto</BioBlixText>
+          <BioBlixText variant="display">{t('account.title')}</BioBlixText>
           <BioBlixText variant="body" color={Colors.mistDim} style={styles.lead}>
             Opprett profil for å publisere blix og synce Pro-status.
           </BioBlixText>
@@ -422,7 +424,7 @@ function BioBlixAccountSigned() {
             onPress={() => void loadMyPosts()}
           >
             <BioBlixText variant="caption" color={Colors.lime}>
-              Oppdater
+              {t('account.refresh')}
             </BioBlixText>
           </Pressable>
           <Pressable onPress={() => void signOut()} style={styles.secondaryBtn}>
@@ -483,7 +485,7 @@ function BioBlixAccountSigned() {
             {t('account.myBlix')} ({myPosts.length})
           </BioBlixText>
           <BioBlixText variant="caption" color={Colors.mistDim}>
-            Rediger · Slett
+            {t('account.editDelete')}
           </BioBlixText>
         </View>
 
@@ -498,53 +500,19 @@ function BioBlixAccountSigned() {
             color={Colors.mistDim}
             style={styles.emptyPosts}
           >
-            Ingen blix ennå. Publiser fra Publiser-fanen.
+            {t('account.emptyPosts')}
           </BioBlixText>
         ) : (
           <View style={styles.postsList}>
             {myPosts.map((post) => (
-              <View key={post.id} style={styles.postCard}>
-                <Image
-                  source={{ uri: post.mediaUrl }}
-                  style={styles.postThumb}
-                  contentFit="cover"
-                />
-                <View style={styles.postMeta}>
-                  <BioBlixText variant="body" numberOfLines={2}>
-                    {post.title}
-                  </BioBlixText>
-                  <BioBlixText
-                    variant="caption"
-                    color={Colors.mistDim}
-                    numberOfLines={1}
-                  >
-                    {post.description || post.mediaType}
-                  </BioBlixText>
-                  <View style={styles.postActions}>
-                    <Pressable
-                      onPress={() => setEditing(post)}
-                      hitSlop={8}
-                      style={styles.postActionBtn}
-                    >
-                      <BioBlixText variant="caption" color={Colors.lime}>
-                        Rediger
-                      </BioBlixText>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => void onDeletePost(post)}
-                      hitSlop={8}
-                      style={styles.postActionBtn}
-                    >
-                      <BioBlixText
-                        variant="caption"
-                        color={BioBlixPalette.magenta}
-                      >
-                        Slett
-                      </BioBlixText>
-                    </Pressable>
-                  </View>
-                </View>
-              </View>
+              <BioBlixPostCard
+                key={post.id}
+                post={post}
+                editLabel={t('account.edit')}
+                deleteLabel={t('account.delete')}
+                onEdit={() => setEditing(post)}
+                onDelete={() => void onDeletePost(post)}
+              />
             ))}
           </View>
         )}
@@ -560,7 +528,7 @@ function BioBlixAccountSigned() {
           {!hasPro ? (
             <Pressable onPress={() => void onUpgrade()} disabled={upgrading}>
               <BioBlixText variant="caption" color={Colors.lime}>
-                Oppgrader til Pro
+                {t('account.upgradePro')}
               </BioBlixText>
             </Pressable>
           ) : (

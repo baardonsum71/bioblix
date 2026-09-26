@@ -1,7 +1,8 @@
 import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
+import { BioBlixPalette } from '@/constants/bioblixTheme';
 import type { MediaType } from '@/types';
 
 type PreviewProps = {
@@ -10,7 +11,11 @@ type PreviewProps = {
 };
 
 function ImagePreview({ uri }: { uri: string }) {
-  return <Image source={{ uri }} style={styles.preview} contentFit="cover" />;
+  return (
+    <View style={styles.frame}>
+      <Image source={{ uri }} style={styles.preview} contentFit="contain" />
+    </View>
+  );
 }
 
 function VideoPreview({ uri }: { uri: string }) {
@@ -21,12 +26,14 @@ function VideoPreview({ uri }: { uri: string }) {
   });
 
   return (
-    <VideoView
-      player={player}
-      style={styles.preview}
-      contentFit="cover"
-      nativeControls={false}
-    />
+    <View style={styles.frame}>
+      <VideoView
+        player={player}
+        style={styles.preview}
+        contentFit="contain"
+        nativeControls={false}
+      />
+    </View>
   );
 }
 
@@ -38,9 +45,15 @@ export function BioBlixMediaPreview({ uri, mediaType }: PreviewProps) {
 }
 
 const styles = StyleSheet.create({
-  preview: {
+  frame: {
     width: '100%',
     aspectRatio: 9 / 16,
     maxHeight: 360,
+    backgroundColor: BioBlixPalette.night,
+    overflow: 'hidden',
+  },
+  preview: {
+    width: '100%',
+    height: '100%',
   },
 });

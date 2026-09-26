@@ -11,9 +11,11 @@ import {
 } from 'react-native';
 
 import { BioBlixText } from '@/components/bioblix/BioBlixText';
+import { BioBlixPostCard } from '@/components/bioblix/BioBlixPostCard';
 import { BioBlixScreenShell } from '@/components/bioblix/BioBlixLogo';
 import { BioBlixPalette } from '@/constants/bioblixTheme';
 import { Colors } from '@/constants/Colors';
+import { useI18n } from '@/lib/i18n';
 import { confirmAction, notify } from '@/lib/platform';
 import { shareProfile } from '@/lib/shareProfile';
 import {
@@ -32,6 +34,7 @@ export default function PublicProfileScreen() {
   const userId = typeof rawId === 'string' ? decodeURIComponent(rawId) : '';
   const { userId: viewerId, isSignedIn } = useAuth();
   const router = useRouter();
+  const { t } = useI18n();
 
   const [profile, setProfile] = useState<User | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
@@ -156,7 +159,7 @@ export default function PublicProfileScreen() {
   if (!userId) {
     return (
       <BioBlixScreenShell style={styles.center}>
-        <BioBlixText>Ugyldig profil</BioBlixText>
+        <BioBlixText>{t('profile.invalid')}</BioBlixText>
       </BioBlixScreenShell>
     );
   }
@@ -172,7 +175,7 @@ export default function PublicProfileScreen() {
   if (!profile) {
     return (
       <BioBlixScreenShell style={styles.center}>
-        <BioBlixText>Fant ikke brukeren</BioBlixText>
+        <BioBlixText>{t('profile.notFound')}</BioBlixText>
       </BioBlixScreenShell>
     );
   }
@@ -198,7 +201,7 @@ export default function PublicProfileScreen() {
         <View style={styles.headerText}>
           <BioBlixText variant="title">{profile.displayName}</BioBlixText>
           <BioBlixText variant="caption" color={Colors.mistDim}>
-            {followers} følgere · {following} følger
+            {t('profile.followersFollowing', { followers, following })}
           </BioBlixText>
         </View>
       </View>
@@ -214,19 +217,19 @@ export default function PublicProfileScreen() {
               variant="label"
               color={followingThem ? Colors.lime : Colors.ink}
             >
-              {followingThem ? 'Følger' : 'Følg'}
+              {followingThem ? t('profile.following') : t('profile.follow')}
             </BioBlixText>
           </Pressable>
         ) : null}
         <Pressable style={[styles.btn, styles.btnGhost]} onPress={() => void onShare()}>
           <BioBlixText variant="label" color={Colors.lime}>
-            Del profil
+            {t('profile.share')}
           </BioBlixText>
         </Pressable>
       </View>
 
       <BioBlixText variant="label" color={Colors.mistDim} style={styles.section}>
-        Blix ({posts.length})
+        {t('profile.blixSection', { count: posts.length })}
       </BioBlixText>
       <FlatList
         style={styles.listFlex}
@@ -234,37 +237,20 @@ export default function PublicProfileScreen() {
         keyExtractor={(p) => p.id}
         contentContainerStyle={styles.list}
         ListEmptyComponent={
-          <BioBlixText variant="body" color={Colors.mistDim}>
-            Ingen blix ennå.
+          <BioBlixText
+            variant="body"
+            color={Colors.mistDim}
+            style={{ paddingHorizontal: 16 }}
+          >
+            {t('profile.noBlix')}
           </BioBlixText>
         }
         renderItem={({ item }) => (
-          <View style={styles.postRow}>
-            <Image
-              source={{ uri: item.mediaUrl }}
-              style={styles.thumb}
-              contentFit="cover"
-            />
-            <View style={styles.postMeta}>
-              <BioBlixText variant="body" numberOfLines={2}>
-                {item.title}
-              </BioBlixText>
-              <BioBlixText variant="caption" color={Colors.mistDim} numberOfLines={1}>
-                {item.description || item.mediaType}
-              </BioBlixText>
-            </View>
-            {isSelf ? (
-              <Pressable
-                style={styles.deleteBtn}
-                onPress={() => void onDeletePost(item)}
-                hitSlop={8}
-              >
-                <BioBlixText variant="caption" color={BioBlixPalette.magenta}>
-                  Slett
-                </BioBlixText>
-              </Pressable>
-            ) : null}
-          </View>
+          <BioBlixPostCard
+            post={item}
+            deleteLabel={t('account.delete')}
+            onDelete={isSelf ? () => void onDeletePost(item) : undefined}
+          />
         )}
       />
     </BioBlixScreenShell>
