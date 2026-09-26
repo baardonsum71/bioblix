@@ -44,18 +44,31 @@ export default function PublicProfileScreen() {
     if (!userId) return;
     setLoading(true);
     try {
-      const [user, userPosts, fol, fing] = await Promise.all([
+      const [user, userPosts] = await Promise.all([
         getUserById(userId),
         listPostsByUser(userId, 30),
-        countFollowers(userId),
-        countFollowing(userId),
       ]);
       setProfile(user);
       setPosts(userPosts);
-      setFollowers(fol);
-      setFollowing(fing);
+
+      try {
+        const [fol, fing] = await Promise.all([
+          countFollowers(userId),
+          countFollowing(userId),
+        ]);
+        setFollowers(fol);
+        setFollowing(fing);
+      } catch {
+        setFollowers(0);
+        setFollowing(0);
+      }
+
       if (isSignedIn && viewerId && viewerId !== userId) {
-        setFollowingThem(await isFollowing(viewerId, userId));
+        try {
+          setFollowingThem(await isFollowing(viewerId, userId));
+        } catch {
+          setFollowingThem(false);
+        }
       } else {
         setFollowingThem(false);
       }

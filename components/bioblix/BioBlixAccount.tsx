@@ -25,6 +25,7 @@ import {
 import { Brand, Colors } from '@/constants/Colors';
 import { useCurrentUserProfile } from '@/hooks/useCurrentUserProfile';
 import { useProYearlyEntitlement } from '@/hooks/useProYearlyEntitlement';
+import { syncFirebaseAuthFromClerk } from '@/lib/clerk/firebaseSession';
 import { notify } from '@/lib/platform';
 import { shareProfile } from '@/lib/shareProfile';
 import { SUBSCRIPTION_PLANS } from '@/lib/subscription';
@@ -73,7 +74,10 @@ function BioBlixAccountSigned() {
         setFollowers(a);
         setFollowing(b);
       })
-      .catch(() => undefined);
+      .catch(() => {
+        setFollowers(0);
+        setFollowing(0);
+      });
   }, [userId, isSignedIn, profile?.imageUrl]);
 
   const onPickAvatar = useCallback(async () => {
@@ -95,6 +99,7 @@ function BioBlixAccountSigned() {
     const asset = result.assets[0];
     setUploadingAvatar(true);
     try {
+      await syncFirebaseAuthFromClerk(() => getToken());
       const url = await uploadAvatarMedia({
         userId,
         uri: asset.uri,
