@@ -12,8 +12,9 @@ import {
 
 import { BioBlixText } from '@/components/bioblix/BioBlixText';
 import { BioBlixScreenShell } from '@/components/bioblix/BioBlixLogo';
+import { BioBlixPalette } from '@/constants/bioblixTheme';
 import { Colors } from '@/constants/Colors';
-import { notify } from '@/lib/platform';
+import { confirmAction, notify } from '@/lib/platform';
 import { shareProfile } from '@/lib/shareProfile';
 import {
   countFollowers,
@@ -22,7 +23,7 @@ import {
   isFollowing,
   unfollowUser,
 } from '@/services/follows';
-import { listPostsByUser } from '@/services/posts';
+import { deletePost, listPostsByUser } from '@/services/posts';
 import { getUserById } from '@/services/users';
 import type { Post, User } from '@/types';
 
@@ -44,12 +45,14 @@ export default function PublicProfileScreen() {
     if (!userId) return;
     setLoading(true);
     try {
-      const [user, userPosts] = await Promise.all([
-        getUserById(userId),
-        listPostsByUser(userId, 30),
-      ]);
+      const user = await getUserById(userId);
       setProfile(user);
-      setPosts(userPosts);
+
+      try {
+        setPosts(await listPostsByUser(userId, 30));
+      } catch {
+        setPosts([]);
+      }
 
       try {
         const [fol, fing] = await Promise.all([
@@ -131,6 +134,25 @@ export default function PublicProfileScreen() {
     }
   };
 
+  const onDeletePost = async (post: Post) => {
+    const ok = await confirmAction(
+      'Slett blix?',
+      `«${post.title}» fjernes permanent.`,
+      { confirmLabel: 'Slett', destructive: true }
+    );
+    if (!ok) return;
+    try {
+      await deletePost(post.id);
+      setPosts((prev) => prev.filter((p) => p.id !== post.id));
+      notify('Slettet', 'Blixet er fjernet.');
+    } catch (err) {
+      notify(
+        'Feil',
+        err instanceof Error ? err.message : 'Kunne ikke slette'
+      );
+    }
+  };
+
   if (!userId) {
     return (
       <BioBlixScreenShell style={styles.center}>
@@ -207,6 +229,7 @@ export default function PublicProfileScreen() {
         Blix ({posts.length})
       </BioBlixText>
       <FlatList
+        style={styles.listFlex}
         data={posts}
         keyExtractor={(p) => p.id}
         contentContainerStyle={styles.list}
@@ -230,6 +253,17 @@ export default function PublicProfileScreen() {
                 {item.description || item.mediaType}
               </BioBlixText>
             </View>
+            {isSelf ? (
+              <Pressable
+                style={styles.deleteBtn}
+                onPress={() => void onDeletePost(item)}
+                hitSlop={8}
+              >
+                <BioBlixText variant="caption" color={BioBlixPalette.magenta}>
+                  Slett
+                </BioBlixText>
+              </Pressable>
+            ) : null}
           </View>
         )}
       />
@@ -289,6 +323,9 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: 10,
   },
+  listFlex: {
+    flex: 1,
+  },
   list: {
     paddingBottom: 40,
     gap: 10,
@@ -296,11 +333,13 @@ const styles = StyleSheet.create({
   postRow: {
     flexDirection: 'row',
     gap: 12,
+    alignItems: 'center',
     backgroundColor: Colors.surface,
     borderRadius: 12,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: Colors.surfaceMuted,
+    paddingRight: 10,
   },
   thumb: {
     width: 72,
@@ -309,8 +348,11 @@ const styles = StyleSheet.create({
   postMeta: {
     flex: 1,
     paddingVertical: 10,
-    paddingRight: 12,
     gap: 4,
     justifyContent: 'center',
+  },
+  deleteBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 6,
   },
 });
