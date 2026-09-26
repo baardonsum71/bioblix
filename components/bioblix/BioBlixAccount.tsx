@@ -178,7 +178,10 @@ function BioBlixAccountSigned() {
     }
     setUpgrading(true);
     try {
-      const entitled = await presentProYearlyPaywall();
+      const entitled = await presentProYearlyPaywall({
+        appUserId: userId,
+        customerEmail: user?.primaryEmailAddress?.emailAddress ?? null,
+      });
       await refreshEntitlement();
       if (entitled) {
         notify(
@@ -186,10 +189,15 @@ function BioBlixAccountSigned() {
           'Du kan nå legge klikkbare butikklenker på blixene dine.'
         );
       }
+    } catch (err) {
+      notify(
+        'Betaling',
+        err instanceof Error ? err.message : 'Kunne ikke åpne betaling'
+      );
     } finally {
       setUpgrading(false);
     }
-  }, [hasPro, refreshEntitlement]);
+  }, [hasPro, refreshEntitlement, userId, user]);
 
   if (!isLoaded) {
     return (

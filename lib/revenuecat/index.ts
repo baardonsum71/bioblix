@@ -2,6 +2,11 @@ import { Platform } from 'react-native';
 import Purchases, { LOG_LEVEL, type CustomerInfo } from 'react-native-purchases';
 
 import { PRO_YEARLY_ENTITLEMENT } from '@/lib/revenuecat/constants';
+import {
+  configureWebPurchases,
+  hasWebProEntitlement,
+} from '@/lib/revenuecat/web';
+import { isWeb } from '@/lib/platform';
 
 let configured = false;
 
@@ -17,10 +22,15 @@ function apiKeyForPlatform(): string | undefined {
 
 /**
  * Configure Purchases once at app start. Safe to call multiple times.
- * Never throws — missing keys / web preview must not crash Vercel builds.
+ * Web → purchases-js. Native → react-native-purchases.
  */
 export async function configureRevenueCat(appUserId?: string | null): Promise<void> {
   try {
+    if (isWeb || Platform.OS === 'web') {
+      await configureWebPurchases(appUserId);
+      return;
+    }
+
     if (configured) {
       if (appUserId) {
         await Purchases.logIn(appUserId);
@@ -46,12 +56,15 @@ export async function configureRevenueCat(appUserId?: string | null): Promise<vo
     });
     configured = true;
   } catch (error) {
-    console.warn('[revenuecat] configure failed (non-fatal on web)', error);
+    console.warn('[revenuecat] configure failed (non-fatal)', error);
   }
 }
 
 export async function getCustomerInfo(): Promise<CustomerInfo | null> {
   try {
+    if (isWeb || Platform.OS === 'web') {
+      return null;
+    }
     if (!configured) {
       await configureRevenueCat();
     }
@@ -66,7 +79,12 @@ export async function getCustomerInfo(): Promise<CustomerInfo | null> {
 /**
  * True when the active entitlements include `pro_yearly`.
  */
-export async function hasProYearlyEntitlement(): Promise<boolean> {
+export async function hasProYearlyEntitlement(
+  appUserId?: string | null
+): Promise<boolean> {
+  if (isWeb || Platform.OS === 'web') {
+    return hasWebProEntitlement(appUserId);
+  }
   const info = await getCustomerInfo();
   if (!info) return false;
   return typeof info.entitlements.active[PRO_YEARLY_ENTITLEMENT] !== 'undefined';

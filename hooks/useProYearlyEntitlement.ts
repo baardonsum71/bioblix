@@ -61,7 +61,7 @@ export function useProYearlyEntitlement(appUserId?: string | null) {
       if (isSignedIn) {
         try {
           await configureRevenueCat(appUserId);
-          fromRc = await hasProYearlyEntitlement();
+          fromRc = await hasProYearlyEntitlement(appUserId);
         } catch {
           fromRc = false;
         }
