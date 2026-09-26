@@ -14,6 +14,10 @@ export interface User {
   email: string;
   displayName: string;
   imageUrl: string | null;
+  /** ISO date YYYY-MM-DD when known (required for new sign-ups, 16+). */
+  birthDate: string | null;
+  /** ISO 3166-1 alpha-2 (Russia excluded). Drives locale + billing currency. */
+  countryCode: string | null;
   /** Standard: post media only. Pro: media + clickable linkUrl on posts. */
   subscriptionTier: SubscriptionTier;
   /**

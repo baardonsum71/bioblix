@@ -31,6 +31,14 @@ function mapUser(id: string, data: DocumentData): User {
     email: data.email,
     displayName: data.displayName,
     imageUrl: data.imageUrl ?? null,
+    birthDate:
+      typeof data.birthDate === 'string' && data.birthDate.trim()
+        ? data.birthDate.trim()
+        : null,
+    countryCode:
+      typeof data.countryCode === 'string' && data.countryCode.trim()
+        ? data.countryCode.trim().toUpperCase()
+        : null,
     subscriptionTier: data.subscriptionTier ?? 'standard',
     isProYearly: data.isProYearly === true,
     blockedUsers: Array.isArray(data.blockedUsers) ? data.blockedUsers : [],
@@ -50,11 +58,19 @@ export async function upsertUser(
 
   if (existing.exists()) {
     // Never overwrite avatar from Clerk sync — users set imageUrl via updateUser.
-    await updateDoc(ref, {
+    const patch: Record<string, unknown> = {
       email: input.email,
       displayName: input.displayName,
       updatedAt: serverTimestamp(),
-    });
+    };
+    // Only set birthDate if missing and we have a value from Clerk metadata.
+    if (input.birthDate && !existing.data()?.birthDate) {
+      patch.birthDate = input.birthDate;
+    }
+    if (input.countryCode && !existing.data()?.countryCode) {
+      patch.countryCode = input.countryCode;
+    }
+    await updateDoc(ref, patch);
     return;
   }
 
@@ -63,6 +79,8 @@ export async function upsertUser(
     email: input.email,
     displayName: input.displayName,
     imageUrl: input.imageUrl ?? null,
+    birthDate: input.birthDate ?? null,
+    countryCode: input.countryCode ?? null,
     subscriptionTier: input.subscriptionTier ?? 'standard',
     isProYearly: false,
     blockedUsers: [],
@@ -116,6 +134,8 @@ export async function blockUser(
         imageUrl: null,
         subscriptionTier: 'standard',
         isProYearly: false,
+        birthDate: null,
+        countryCode: null,
         blockedUsers: [blockedUserId],
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),

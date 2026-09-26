@@ -1,4 +1,10 @@
 import { apiUrl } from '@/lib/apiBase';
+import {
+  currencyFromCountry,
+  formatPlanPricesFallback,
+  localeFromCountry,
+} from '@/lib/i18n/countryLocale';
+import { translate } from '@/lib/i18n';
 import { PRO_YEARLY_ENTITLEMENT } from '@/lib/revenuecat/constants';
 
 type WebPurchasesModule = typeof import('@revenuecat/purchases-js');
@@ -220,16 +226,19 @@ async function racePurchaseWithPoll(
 
 async function purchaseViaPackagePicker(
   purchases: WebPurchases,
-  customerEmail?: string | null
+  customerEmail?: string | null,
+  countryCode?: string | null
 ): Promise<boolean> {
+  const currency = currencyFromCountry(countryCode);
+  const locale = localeFromCountry(countryCode);
+  const fallback = formatPlanPricesFallback(countryCode);
+
   const offerings = await purchases
-    .getOfferings({ currency: 'NOK' })
+    .getOfferings({ currency })
     .catch(() => purchases.getOfferings());
   const current = offerings.current;
   if (!current || current.availablePackages.length === 0) {
-    throw new Error(
-      'Ingen Pro-pakker funnet. Sjekk Offerings i RevenueCat (Current offering + produkter).'
-    );
+    throw new Error(translate(locale, 'paywall.noPackages'));
   }
 
   const yearly =
@@ -244,14 +253,22 @@ async function purchaseViaPackagePicker(
     );
 
   const lines = [
-    'Velg Pro-plan:',
+    translate(locale, 'paywall.selectPlan'),
     monthly
-      ? `1 = Månedlig (${monthly.webBillingProduct?.currentPrice?.formattedPrice ?? '59 kr'})`
+      ? translate(locale, 'paywall.monthly', {
+          price:
+            monthly.webBillingProduct?.currentPrice?.formattedPrice ??
+            fallback.monthly,
+        })
       : null,
     yearly
-      ? `2 = Årlig (${yearly.webBillingProduct?.currentPrice?.formattedPrice ?? '399 kr'})`
+      ? translate(locale, 'paywall.yearly', {
+          price:
+            yearly.webBillingProduct?.currentPrice?.formattedPrice ??
+            fallback.yearly,
+        })
       : null,
-    'Avbryt = lukk',
+    translate(locale, 'paywall.cancel'),
   ]
     .filter(Boolean)
     .join('\n');
@@ -261,7 +278,7 @@ async function purchaseViaPackagePicker(
 
   const trimmed = choice.trim();
   let pkg =
-    yearly && (trimmed === '2' || trimmed.toLowerCase().startsWith('å'))
+    yearly && (trimmed === '2' || trimmed.toLowerCase().startsWith('å') || trimmed.toLowerCase().startsWith('y'))
       ? yearly
       : monthly && (trimmed === '1' || trimmed.toLowerCase().startsWith('m'))
         ? monthly
@@ -271,7 +288,7 @@ async function purchaseViaPackagePicker(
     pkg = yearly ?? monthly ?? current.availablePackages[0] ?? null;
   }
   if (!pkg) {
-    throw new Error('Fant ingen pakke å kjøpe.');
+    throw new Error(translate(locale, 'paywall.noPackage'));
   }
 
   try {
@@ -290,18 +307,18 @@ async function purchaseViaPackagePicker(
 
 export async function presentWebPaywall(
   appUserId?: string | null,
-  customerEmail?: string | null
+  customerEmail?: string | null,
+  countryCode?: string | null
 ): Promise<boolean> {
+  const locale = localeFromCountry(countryCode);
   const { PurchasesError, ErrorCode } = await loadWebSdk();
   const purchases = await configureWebPurchases(appUserId);
   if (!purchases) {
-    throw new Error(
-      'RevenueCat Web er ikke konfigurert. Sjekk EXPO_PUBLIC_REVENUECAT_WEB_API_KEY.'
-    );
+    throw new Error(translate(locale, 'paywall.notConfigured'));
   }
 
   if (typeof document === 'undefined') {
-    throw new Error('Betaling krever nettleser.');
+    throw new Error(translate(locale, 'paywall.needsBrowser'));
   }
 
   try {
@@ -319,7 +336,7 @@ export async function presentWebPaywall(
       }
       if (missingPaywallError(error)) {
         cleanupWebCheckoutUi();
-        return purchaseViaPackagePicker(purchases, customerEmail);
+        return purchaseViaPackagePicker(purchases, customerEmail, countryCode);
       }
       throw error;
     }

@@ -3,7 +3,7 @@
  * Update `lastUpdated` when the text changes.
  */
 export const privacyPolicyMeta = {
-  lastUpdated: '18. september 2026',
+  lastUpdated: '26. september 2026',
   contactEmail: 'privacy@bioblix.app',
   controllerName: 'BioBlix',
 } as const;
@@ -63,6 +63,7 @@ export const privacyPolicySections: PrivacySection[] = [
     title: '6. Brukergenerert innhold og eksterne lenker',
     paragraphs: [
       'Innhold du publiserer kan være synlig for andre brukere. Du er ansvarlig for at innholdet er lovlig og at du har rettigheter til media og lenker du deler.',
+      'Nakenhet og seksuelt innhold er ikke tillatt på BioBlix. Vi bruker automatisk og manuell moderering; innhold som bryter dette kan avvises ved opplasting eller fjernes senere.',
       'Pro-lenker kan føre deg ut av BioBlix til eksterne nettsteder. BioBlix er ikke ansvarlig for innhold eller personvernpraksis på eksterne sider. Du får en advarsel før du forlater appen/web.',
       'Vi kan fjerne eller begrense innhold som bryter vilkår, lov eller sikkerhetsregler, inkludert etter rapportering.',
     ],
@@ -88,9 +89,10 @@ export const privacyPolicySections: PrivacySection[] = [
     ],
   },
   {
-    title: '10. Barn',
+    title: '10. Barn og aldersgrense',
     paragraphs: [
-      'BioBlix er ikke rettet mot barn under 13 år (eller høyere aldersgrense der lokal lov krever det). Vi ber ikke bevisst om personopplysninger fra barn under denne alderen. Oppdager vi slik behandling, sletter vi opplysningene.',
+      'BioBlix er bare for personer som er 16 år eller eldre. Vi ber ikke bevisst om personopplysninger fra personer under 16. Oppdager vi slik behandling, sletter vi opplysningene.',
+      'Ved registrering ber vi om fødselsdato for å håndheve aldersgrensen.',
     ],
   },
   {

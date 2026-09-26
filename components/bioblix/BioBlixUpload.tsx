@@ -21,6 +21,11 @@ import { useAppUserId } from '@/hooks/useAppUserId';
 import { useProYearlyEntitlement } from '@/hooks/useProYearlyEntitlement';
 import { syncFirebaseAuthFromClerk } from '@/lib/clerk/firebaseSession';
 import { firebaseAuth } from '@/lib/firebase/auth';
+import { useI18n } from '@/lib/i18n';
+import {
+  NSFW_REJECT_MESSAGE,
+  assertMediaAllowed,
+} from '@/lib/moderation/nsfw';
 import { notify } from '@/lib/platform';
 import { presentProYearlyPaywall } from '@/lib/revenuecat/paywall';
 import { syncProToFirestore } from '@/lib/revenuecat/web';
@@ -45,6 +50,7 @@ type PickedMedia = {
 export default function BioBlixUpload() {
   const userId = useAppUserId();
   const { getToken } = useAuth();
+  const { t, countryCode } = useI18n();
   const { isProYearly, loading: entitlementLoading, refresh } =
     useProYearlyEntitlement(userId);
 
@@ -122,10 +128,7 @@ export default function BioBlixUpload() {
   const pickMedia = useCallback(async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      notify(
-        'Tilgang i BioBlix',
-        'Gi tilgang til bildebiblioteket for å legge til et produkt-blix.'
-      );
+      notify(t('upload.permission'), t('upload.permissionBody'));
       return;
     }
 
@@ -144,18 +147,30 @@ export default function BioBlixUpload() {
       asset.type === 'video' ||
       Boolean(asset.mimeType?.startsWith('video/')) ||
       Boolean(asset.uri.match(/\.(mp4|mov|m4v|webm)$/i));
+    const mediaType: MediaType = isVideo ? 'video' : 'image';
+
+    try {
+      await assertMediaAllowed(asset.uri, mediaType);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : NSFW_REJECT_MESSAGE;
+      notify(t('upload.nsfwTitle'), message);
+      setMedia(null);
+      return;
+    }
 
     setMedia({
       uri: asset.uri,
-      mediaType: isVideo ? 'video' : 'image',
+      mediaType,
       mimeType: asset.mimeType ?? undefined,
     });
-  }, []);
+  }, [t]);
 
   const onUpgradePress = useCallback(async () => {
     try {
       const entitled = await presentProYearlyPaywall({
         appUserId: userId,
+        countryCode,
       });
       let mirrored = false;
       try {
@@ -165,39 +180,30 @@ export default function BioBlixUpload() {
       }
       await refresh();
       if (entitled || mirrored) {
-        notify(
-          'Pro Årlig aktiv',
-          'Du kan nå legge klikkbare butikklenker på BioBlix-innleggene dine.'
-        );
+        notify(t('account.proActivated'), t('account.proActivatedBody'));
       }
     } catch (err) {
       notify(
-        'Betaling',
-        err instanceof Error ? err.message : 'Kunne ikke åpne betaling'
+        t('account.payment'),
+        err instanceof Error ? err.message : t('account.paymentFail')
       );
     }
-  }, [refresh, userId, getToken]);
+  }, [refresh, userId, getToken, countryCode, t]);
 
   const onPublish = useCallback(async () => {
     if (!userId || !media) {
-      notify(
-        'Mangler bruker',
-        'Sett EXPO_PUBLIC_DEV_USER_ID i .env (eller koble Clerk) før du publiserer.'
-      );
+      notify(t('upload.missingUser'), t('upload.missingUserBody'));
       return;
     }
 
     if (!title.trim()) {
-      notify('Tittel mangler', 'Gi blixet en tydelig produkttittel.');
+      notify(t('upload.missingTitle'), t('upload.missingTitleBody'));
       return;
     }
 
     const trimmedLink = linkUrl.trim();
     if (trimmedLink && !isProYearly) {
-      notify(
-        'Pro kreves',
-        'Klikkbare lenker krever Pro Årlig i BioBlix.'
-      );
+      notify(t('upload.proRequired'), t('upload.proRequiredBody'));
       return;
     }
 
@@ -206,7 +212,7 @@ export default function BioBlixUpload() {
       const validation = validateProLinkUrl(trimmedLink);
       if (!validation.ok) {
         setLinkError(validation.message);
-        notify('Ugyldig lenke', validation.message);
+        notify(t('upload.invalidLink'), validation.message);
         return;
       }
       safeLink = validation.url;
@@ -217,9 +223,20 @@ export default function BioBlixUpload() {
       : tags;
 
     setPublishing(true);
-    setPublishStatus('Kobler til Firebase…');
+    setPublishStatus(t('upload.checkingContent'));
     try {
+      try {
+        await assertMediaAllowed(media.uri, media.mediaType);
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : NSFW_REJECT_MESSAGE;
+        notify(t('upload.nsfwTitle'), message);
+        setMedia(null);
+        return;
+      }
+
       // Always refresh Clerk→Firebase so we don't hang on a stale session.
+      setPublishStatus(t('upload.connectingFirebase'));
       await withTimeout(
         syncFirebaseAuthFromClerk(() => getToken()),
         25_000,
@@ -231,7 +248,7 @@ export default function BioBlixUpload() {
         );
       }
 
-      setPublishStatus('Laster opp media…');
+      setPublishStatus(t('upload.uploadingMedia'));
       const mediaUrl = await withTimeout(
         uploadPostMedia({
           userId,
@@ -244,7 +261,7 @@ export default function BioBlixUpload() {
         'Mediaopplasting'
       );
 
-      setPublishStatus('Lagrer blix…');
+      setPublishStatus(t('upload.saving'));
       await withTimeout(
         createPost({
           userId,
@@ -267,11 +284,11 @@ export default function BioBlixUpload() {
       setTags([]);
       setMedia(null);
       void listPopularTags(12).then(setPopular).catch(() => undefined);
-      notify('Live i BioBlix', 'Blixet ditt er synlig i strømmen.');
+      notify(t('upload.live'), t('upload.liveBody'));
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : 'Kunne ikke publisere.';
-      notify('Feil', message);
+        error instanceof Error ? error.message : t('upload.publishFail');
+      notify(t('common.error'), message);
     } finally {
       setPublishing(false);
       setPublishStatus(null);
@@ -286,6 +303,7 @@ export default function BioBlixUpload() {
     tags,
     tagDraft,
     getToken,
+    t,
   ]);
 
   return (
@@ -302,9 +320,9 @@ export default function BioBlixUpload() {
         <BioBlixText variant="label" color={Colors.lime}>
           {Brand.name}
         </BioBlixText>
-        <BioBlixText variant="display">Nytt blix</BioBlixText>
+        <BioBlixText variant="display">{t('upload.title')}</BioBlixText>
         <BioBlixText variant="body" color={Colors.mistDim} style={styles.hint}>
-          Vis frem appen eller produktet ditt i ett kort, skarpt øyeblikk.
+          {t('upload.hint')}
         </BioBlixText>
 
         <Pressable style={styles.mediaButton} onPress={pickMedia}>
@@ -313,10 +331,10 @@ export default function BioBlixUpload() {
           ) : (
             <View style={styles.mediaPlaceholder}>
               <BioBlixText variant="title" color={Colors.mist}>
-                Velg bilde eller video
+                {t('upload.pickMedia')}
               </BioBlixText>
               <BioBlixText variant="caption" color={Colors.mistDim}>
-                Fra kamerarullen · maks ~60 sek
+                Max ~60 sec
               </BioBlixText>
             </View>
           )}
@@ -463,7 +481,7 @@ export default function BioBlixUpload() {
             <ActivityIndicator color={Colors.ink} />
           ) : (
             <BioBlixText variant="title" color={Colors.ink}>
-              Publiser blix
+              {t('upload.publish')}
             </BioBlixText>
           )}
         </Pressable>
