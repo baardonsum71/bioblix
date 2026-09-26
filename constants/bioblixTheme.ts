@@ -4,9 +4,9 @@
  */
 export const BioBlixBrand = {
   name: 'BioBlix',
-  tagline: 'Vis frem apper og produkter i korte blix',
+  tagline: 'Showcase apps and products in short blix',
   shortDescription:
-    'BioBlix er en vertikal showcase der skapere deler korte videoer og bilder av egne apper og produkter — med valgfri Pro-lenke rett til butikk eller landingsside.',
+    'BioBlix is a vertical showcase where creators share short videos and images of their apps and products — with an optional Pro link straight to a store or landing page.',
   scheme: 'bioblix',
   bundleId: 'com.bioblix.app',
   supportUrl: 'https://bioblix.app/support',

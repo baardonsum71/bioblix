@@ -8,34 +8,35 @@ import {
 } from '@/components/bioblix/BioBlixLogo';
 import { BioBlixText } from '@/components/bioblix/BioBlixText';
 import { BioBlixBrand, BioBlixPalette } from '@/constants/bioblixTheme';
+import { useI18n } from '@/lib/i18n';
 
 /** About sheet — unique BioBlix positioning (helps App Store differentiation). */
 export default function BioBlixAboutModal() {
+  const { t } = useI18n();
+
   return (
     <BioBlixScreenShell style={styles.container}>
       <BioBlixLogo variant="wordmark" size={120} />
       <BioBlixText variant="title" style={styles.tagline}>
-        {BioBlixBrand.tagline}
+        {t('brand.tagline')}
       </BioBlixText>
       <BioBlixText variant="body" color={BioBlixPalette.muted} style={styles.copy}>
-        {BioBlixBrand.shortDescription}
+        {t('brand.shortDescription')}
       </BioBlixText>
       <View style={styles.card}>
         <BioBlixText variant="label" color={BioBlixPalette.cyan}>
-          Hva gjør BioBlix annerledes
+          {t('about.diffTitle')}
         </BioBlixText>
         <BioBlixText variant="body" color={BioBlixPalette.fog} style={styles.bullet}>
-          Vertikale produkt-blix laget for apper og fysiske varer — ikke generisk
-          sosial scrolling.
+          {t('about.diffFeed')}
         </BioBlixText>
         <BioBlixText variant="body" color={BioBlixPalette.fog} style={styles.bullet}>
-          Pro Årlig låser opp klikkbare butikklenker, speilet sikkert via
-          RevenueCat → Firestore.
+          {t('about.diffPro')}
         </BioBlixText>
       </View>
       <Link href="/privacy" style={styles.privacyLink}>
         <BioBlixText variant="label" color={BioBlixPalette.magenta}>
-          Les personvernerklæringen
+          {t('about.readPrivacy')}
         </BioBlixText>
       </Link>
       <StatusBar style={Platform.OS === 'ios' ? 'light' : 'auto'} />

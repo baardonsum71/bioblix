@@ -55,7 +55,7 @@ export async function presentProYearlyPaywall(
     console.warn('[revenuecat] presentPaywall failed', error);
     throw error instanceof Error
       ? error
-      : new Error('Kunne ikke åpne betaling. Prøv igjen.');
+      : new Error('PAYWALL_OPEN_FAIL');
   }
 }
 

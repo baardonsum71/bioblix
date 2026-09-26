@@ -1,8 +1,10 @@
 import { Image } from 'expo-image';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useVideoPlayer, VideoView } from 'expo-video';
+import { useEffect } from 'react';
+import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { BioBlixText } from '@/components/bioblix/BioBlixText';
-import { BioBlixPalette, BioBlixRadii } from '@/constants/bioblixTheme';
+import { BioBlixPalette } from '@/constants/bioblixTheme';
 import { Colors } from '@/constants/Colors';
 import type { Post } from '@/types';
 
@@ -12,10 +14,36 @@ type BioBlixPostCardProps = {
   onDelete?: () => void;
   editLabel?: string;
   deleteLabel?: string;
+  /** When true, play muted looping video preview. */
+  active?: boolean;
 };
 
+function CardVideo({ uri, active }: { uri: string; active: boolean }) {
+  const player = useVideoPlayer(uri, (p) => {
+    p.loop = true;
+    p.muted = true;
+  });
+
+  useEffect(() => {
+    if (active) {
+      player.play();
+    } else {
+      player.pause();
+    }
+  }, [active, player]);
+
+  return (
+    <VideoView
+      player={player}
+      style={styles.media}
+      contentFit="contain"
+      nativeControls={false}
+    />
+  );
+}
+
 /**
- * Profile/account post card — same 9:16 framing as feed preview (full image via contain).
+ * Same framing as the Blix feed item: full-width vertical 9:16 frame, contain media.
  */
 export function BioBlixPostCard({
   post,
@@ -23,23 +51,39 @@ export function BioBlixPostCard({
   onDelete,
   editLabel = 'Edit',
   deleteLabel = 'Delete',
+  active = true,
 }: BioBlixPostCardProps) {
+  const { width } = useWindowDimensions();
+  // Cap height so long profiles stay scrollable, but keep feed-like proportions.
+  const height = Math.min(width * (16 / 9), 640);
+
   return (
-    <View style={styles.card}>
-      <View style={styles.mediaWrap}>
+    <View style={[styles.card, { height, width: '100%' }]}>
+      {post.mediaType === 'video' ? (
+        <CardVideo uri={post.mediaUrl} active={active} />
+      ) : (
         <Image
           source={{ uri: post.mediaUrl }}
           style={styles.media}
           contentFit="contain"
         />
-      </View>
-      <View style={styles.meta}>
-        <BioBlixText variant="body" numberOfLines={2}>
+      )}
+
+      <View style={styles.scrim} pointerEvents="none" />
+
+      <View style={styles.content}>
+        <BioBlixText variant="title" color={Colors.white} numberOfLines={2}>
           {post.title}
         </BioBlixText>
-        <BioBlixText variant="caption" color={Colors.mistDim} numberOfLines={2}>
-          {post.description || post.mediaType}
-        </BioBlixText>
+        {post.description ? (
+          <BioBlixText
+            variant="body"
+            color={Colors.mist}
+            numberOfLines={3}
+          >
+            {post.description}
+          </BioBlixText>
+        ) : null}
         {onEdit || onDelete ? (
           <View style={styles.actions}>
             {onEdit ? (
@@ -65,27 +109,24 @@ export function BioBlixPostCard({
 
 const styles = StyleSheet.create({
   card: {
-    flexDirection: 'row',
-    gap: 12,
-    paddingHorizontal: 16,
-    marginBottom: 14,
-    alignItems: 'flex-start',
-  },
-  mediaWrap: {
-    width: 108,
-    aspectRatio: 9 / 16,
-    borderRadius: BioBlixRadii.sm,
-    overflow: 'hidden',
     backgroundColor: BioBlixPalette.night,
+    overflow: 'hidden',
+    marginBottom: 12,
+    position: 'relative',
   },
   media: {
-    width: '100%',
-    height: '100%',
+    ...StyleSheet.absoluteFill,
   },
-  meta: {
-    flex: 1,
-    gap: 4,
-    paddingTop: 4,
+  scrim: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: Colors.scrim,
+  },
+  content: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 20,
+    gap: 6,
   },
   actions: {
     flexDirection: 'row',

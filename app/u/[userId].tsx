@@ -4,19 +4,18 @@ import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  FlatList,
   Pressable,
   StyleSheet,
   View,
 } from 'react-native';
 
 import { BioBlixText } from '@/components/bioblix/BioBlixText';
-import { BioBlixPostCard } from '@/components/bioblix/BioBlixPostCard';
+import { BioBlixVerticalFeed } from '@/components/bioblix/BioBlixVerticalFeed';
 import { BioBlixScreenShell } from '@/components/bioblix/BioBlixLogo';
 import { BioBlixPalette } from '@/constants/bioblixTheme';
 import { Colors } from '@/constants/Colors';
 import { useI18n } from '@/lib/i18n';
-import { confirmAction, notify } from '@/lib/platform';
+import { notify } from '@/lib/platform';
 import { shareProfile } from '@/lib/shareProfile';
 import {
   countFollowers,
@@ -25,7 +24,7 @@ import {
   isFollowing,
   unfollowUser,
 } from '@/services/follows';
-import { deletePost, listPostsByUser } from '@/services/posts';
+import { listPostsByUser } from '@/services/posts';
 import { getUserById } from '@/services/users';
 import type { Post, User } from '@/types';
 
@@ -80,13 +79,13 @@ export default function PublicProfileScreen() {
       }
     } catch (err) {
       notify(
-        'Feil',
-        err instanceof Error ? err.message : 'Kunne ikke laste profil'
+        t('common.error'),
+        err instanceof Error ? err.message : t('common.error')
       );
     } finally {
       setLoading(false);
     }
-  }, [userId, isSignedIn, viewerId]);
+  }, [userId, isSignedIn, viewerId, t]);
 
   useEffect(() => {
     void load();
@@ -94,7 +93,7 @@ export default function PublicProfileScreen() {
 
   const onToggleFollow = async () => {
     if (!isSignedIn || !viewerId) {
-      notify('Logg inn', 'Du må være innlogget for å følge andre.');
+      notify(t('social.signInRequired'), t('social.signInRequiredBody'));
       router.push('/(auth)/sign-in' as Href);
       return;
     }
@@ -112,8 +111,8 @@ export default function PublicProfileScreen() {
       }
     } catch (err) {
       notify(
-        'Feil',
-        err instanceof Error ? err.message : 'Kunne ikke oppdatere følge'
+        t('common.error'),
+        err instanceof Error ? err.message : t('common.error')
       );
     } finally {
       setBusy(false);
@@ -126,32 +125,14 @@ export default function PublicProfileScreen() {
       await shareProfile({
         userId: profile.id,
         displayName: profile.displayName,
+        message: t('share.checkOut', { name: profile.displayName }),
       });
-      notify('Delt', 'Profillenken er klar (delt eller kopiert).');
+      notify(t('account.share'), t('account.shared'));
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return;
       notify(
-        'Feil',
-        err instanceof Error ? err.message : 'Kunne ikke dele profil'
-      );
-    }
-  };
-
-  const onDeletePost = async (post: Post) => {
-    const ok = await confirmAction(
-      'Slett blix?',
-      `«${post.title}» fjernes permanent.`,
-      { confirmLabel: 'Slett', destructive: true }
-    );
-    if (!ok) return;
-    try {
-      await deletePost(post.id);
-      setPosts((prev) => prev.filter((p) => p.id !== post.id));
-      notify('Slettet', 'Blixet er fjernet.');
-    } catch (err) {
-      notify(
-        'Feil',
-        err instanceof Error ? err.message : 'Kunne ikke slette'
+        t('common.error'),
+        err instanceof Error ? err.message : t('account.shareFail')
       );
     }
   };
@@ -207,9 +188,9 @@ export default function PublicProfileScreen() {
       </View>
 
       <View style={styles.actions}>
-        {!isSelf ? (
+        {!isSelf && isSignedIn ? (
           <Pressable
-            style={[styles.btn, followingThem && styles.btnGhost]}
+            style={[styles.btn, followingThem ? styles.btnGhost : styles.btnFill]}
             onPress={() => void onToggleFollow()}
             disabled={busy}
           >
@@ -231,28 +212,20 @@ export default function PublicProfileScreen() {
       <BioBlixText variant="label" color={Colors.mistDim} style={styles.section}>
         {t('profile.blixSection', { count: posts.length })}
       </BioBlixText>
-      <FlatList
-        style={styles.listFlex}
-        data={posts}
-        keyExtractor={(p) => p.id}
-        contentContainerStyle={styles.list}
-        ListEmptyComponent={
-          <BioBlixText
-            variant="body"
-            color={Colors.mistDim}
-            style={{ paddingHorizontal: 16 }}
-          >
-            {t('profile.noBlix')}
-          </BioBlixText>
-        }
-        renderItem={({ item }) => (
-          <BioBlixPostCard
-            post={item}
-            deleteLabel={t('account.delete')}
-            onDelete={isSelf ? () => void onDeletePost(item) : undefined}
-          />
-        )}
-      />
+
+      <View style={styles.feedWrap}>
+        <BioBlixVerticalFeed
+          posts={posts}
+          loading={false}
+          viewerUserId={viewerId ?? null}
+          usernameFor={() => profile.displayName}
+          emptyMessage={t('profile.noBlix')}
+          onDeleted={(postId) =>
+            setPosts((prev) => prev.filter((p) => p.id !== postId))
+          }
+          requireFocus={false}
+        />
+      </View>
     </BioBlixScreenShell>
   );
 }
@@ -260,7 +233,6 @@ export default function PublicProfileScreen() {
 const styles = StyleSheet.create({
   shell: {
     flex: 1,
-    paddingHorizontal: 20,
     paddingTop: 16,
   },
   center: {
@@ -273,6 +245,7 @@ const styles = StyleSheet.create({
     gap: 14,
     alignItems: 'center',
     marginBottom: 16,
+    paddingHorizontal: 20,
   },
   avatar: {
     width: 72,
@@ -293,52 +266,27 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
     gap: 10,
-    marginBottom: 20,
+    marginBottom: 12,
+    paddingHorizontal: 20,
   },
   btn: {
-    backgroundColor: Colors.lime,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 12,
   },
+  btnFill: {
+    backgroundColor: Colors.lime,
+  },
   btnGhost: {
-    backgroundColor: 'transparent',
     borderWidth: 1,
     borderColor: Colors.lime,
   },
   section: {
-    marginBottom: 10,
+    paddingHorizontal: 20,
+    marginBottom: 8,
   },
-  listFlex: {
+  feedWrap: {
     flex: 1,
-  },
-  list: {
-    paddingBottom: 40,
-    gap: 10,
-  },
-  postRow: {
-    flexDirection: 'row',
-    gap: 12,
-    alignItems: 'center',
-    backgroundColor: Colors.surface,
-    borderRadius: 12,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: Colors.surfaceMuted,
-    paddingRight: 10,
-  },
-  thumb: {
-    width: 72,
-    height: 72,
-  },
-  postMeta: {
-    flex: 1,
-    paddingVertical: 10,
-    gap: 4,
-    justifyContent: 'center',
-  },
-  deleteBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 6,
+    minHeight: 360,
   },
 });

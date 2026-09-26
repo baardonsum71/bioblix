@@ -13,7 +13,7 @@ import 'react-native-reanimated';
 
 import { BioBlixProviders } from '@/components/bioblix/BioBlixProviders';
 import { BioBlixPalette } from '@/constants/bioblixTheme';
-import { I18nProvider } from '@/lib/i18n';
+import { I18nProvider, useI18n } from '@/lib/i18n';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -22,6 +22,58 @@ export const unstable_settings = {
 };
 
 SplashScreen.preventAutoHideAsync();
+
+function RootStack() {
+  const { t } = useI18n();
+  return (
+    <Stack
+      screenOptions={{
+        contentStyle: { backgroundColor: BioBlixPalette.night },
+        headerStyle: { backgroundColor: BioBlixPalette.night },
+        headerTintColor: BioBlixPalette.fog,
+        headerTitleStyle: { fontFamily: 'Syne_700Bold' },
+      }}
+    >
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+      <Stack.Screen
+        name="privacy"
+        options={{
+          title: t('nav.privacy'),
+          headerBackTitle: t('nav.back'),
+        }}
+      />
+      <Stack.Screen
+        name="modal"
+        options={{
+          presentation: 'modal',
+          title: t('nav.about'),
+        }}
+      />
+      <Stack.Screen
+        name="tags/index"
+        options={{
+          title: t('nav.tags'),
+          headerBackTitle: t('nav.back'),
+        }}
+      />
+      <Stack.Screen
+        name="tags/[tag]"
+        options={{
+          title: t('nav.tag'),
+          headerBackTitle: t('nav.tags'),
+        }}
+      />
+      <Stack.Screen
+        name="u/[userId]"
+        options={{
+          title: t('nav.profile'),
+          headerBackTitle: t('nav.back'),
+        }}
+      />
+    </Stack>
+  );
+}
 
 export default function BioBlixRootLayout() {
   const [loaded, error] = useFonts({
@@ -48,52 +100,7 @@ export default function BioBlixRootLayout() {
     <I18nProvider>
       <BioBlixProviders>
         <StatusBar style="light" />
-        <Stack
-          screenOptions={{
-            contentStyle: { backgroundColor: BioBlixPalette.night },
-            headerStyle: { backgroundColor: BioBlixPalette.night },
-            headerTintColor: BioBlixPalette.fog,
-            headerTitleStyle: { fontFamily: 'Syne_700Bold' },
-          }}
-        >
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="privacy"
-          options={{
-            title: 'Personvern',
-            headerBackTitle: 'Tilbake',
-          }}
-        />
-        <Stack.Screen
-          name="modal"
-          options={{
-            presentation: 'modal',
-            title: 'Om BioBlix',
-          }}
-        />
-        <Stack.Screen
-          name="tags/index"
-          options={{
-            title: 'Alle tags',
-            headerBackTitle: 'Tilbake',
-          }}
-        />
-        <Stack.Screen
-          name="tags/[tag]"
-          options={{
-            title: 'Tag',
-            headerBackTitle: 'Tags',
-          }}
-        />
-        <Stack.Screen
-          name="u/[userId]"
-          options={{
-            title: 'Profil',
-            headerBackTitle: 'Tilbake',
-          }}
-        />
-      </Stack>
+        <RootStack />
       </BioBlixProviders>
     </I18nProvider>
   );

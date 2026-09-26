@@ -13,6 +13,7 @@ import { BioBlixText } from '@/components/bioblix/BioBlixText';
 import { BioBlixScreenShell } from '@/components/bioblix/BioBlixLogo';
 import { BioBlixPalette, Colors } from '@/constants/bioblixTheme';
 import { useAppUserId } from '@/hooks/useAppUserId';
+import { useI18n } from '@/lib/i18n';
 import { normalizeTag } from '@/lib/validation/tags';
 import { listPostsByTag } from '@/services/posts';
 import { getTagById } from '@/services/tags';
@@ -23,6 +24,7 @@ export default function TagFeedScreen() {
   const { tag: rawTag } = useLocalSearchParams<{ tag: string }>();
   const slug = normalizeTag(decodeURIComponent(rawTag ?? '')) ?? '';
   const viewerId = useAppUserId();
+  const { t } = useI18n();
   const { height } = useWindowDimensions();
   const itemHeight = Math.max(height - 120, 480);
 
@@ -63,11 +65,11 @@ export default function TagFeedScreen() {
       );
       setUsernames(Object.fromEntries(entries));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Kunne ikke hente blix');
+      setError(err instanceof Error ? err.message : t('common.error'));
     } finally {
       setLoading(false);
     }
-  }, [slug]);
+  }, [slug, t]);
 
   useEffect(() => {
     void refresh();
@@ -77,7 +79,7 @@ export default function TagFeedScreen() {
     return (
       <BioBlixScreenShell style={styles.shell}>
         <BioBlixText variant="body" color={Colors.mistDim}>
-          Ugyldig tag.
+          {t('tags.invalid')}
         </BioBlixText>
       </BioBlixScreenShell>
     );
@@ -89,7 +91,7 @@ export default function TagFeedScreen() {
         <BioBlixText variant="title">#{slug}</BioBlixText>
         <BioBlixText variant="caption" color={Colors.mistDim}>
           {postCount != null
-            ? `${postCount} ${postCount === 1 ? 'blix' : 'blix'}`
+            ? t('profile.blixSection', { count: postCount })
             : '…'}
         </BioBlixText>
       </View>
@@ -109,7 +111,7 @@ export default function TagFeedScreen() {
 
       {!loading && posts.length === 0 ? (
         <BioBlixText variant="body" color={Colors.mistDim} style={styles.empty}>
-          Ingen blix med denne taggen ennå.
+          {t('tags.noPosts')}
         </BioBlixText>
       ) : null}
 

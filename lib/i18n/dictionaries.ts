@@ -135,7 +135,107 @@ export type MessageKey =
   | 'safety.blocked'
   | 'safety.blockedBody'
   | 'safety.reported'
-  | 'safety.reportedBody';
+  | 'safety.reportedBody'
+  | 'upload.changeMedia'
+  | 'upload.titleField'
+  | 'upload.titlePlaceholder'
+  | 'upload.description'
+  | 'upload.descriptionPlaceholder'
+  | 'upload.tags'
+  | 'upload.allTags'
+  | 'upload.tagsPlaceholder'
+  | 'upload.addTag'
+  | 'upload.popular'
+  | 'upload.linkLocked'
+  | 'upload.upgradeHint'
+  | 'upload.firebaseAuth'
+  | 'upload.firebaseAuthFail'
+  | 'account.createProfileHint'
+  | 'account.planStandard'
+  | 'account.planProFeature'
+  | 'account.privacyPolicy'
+  | 'account.about'
+  | 'link.leaveTitle'
+  | 'link.leaveBody'
+  | 'link.continue'
+  | 'link.openApp'
+  | 'link.buyHere'
+  | 'link.seeProduct'
+  | 'nav.privacy'
+  | 'nav.about'
+  | 'nav.tags'
+  | 'nav.tag'
+  | 'nav.profile'
+  | 'nav.back'
+  | 'tags.empty'
+  | 'notFound.title'
+  | 'notFound.body'
+  | 'feed.swipeHint'
+  | 'feed.swipeHintShort'
+  | 'tags.invalid'
+  | 'tags.noPosts'
+  | 'privacy.title'
+  | 'privacy.updated'
+  | 'privacy.intro'
+  | 'account.public'
+  | 'moderation.nsfw'
+  | 'moderation.checkFail'
+  | 'auth.acceptLegal'
+  | 'auth.appleRetry'
+  | 'auth.appleUpdateFail'
+  | 'auth.sessionFail'
+  | 'auth.appleFail'
+  | 'auth.fillName'
+  | 'auth.appleSessionMissing'
+  | 'auth.appleSessionInvalid'
+  | 'auth.nicknameShort'
+  | 'auth.fillNames'
+  | 'auth.fillEmailPassword'
+  | 'auth.passwordShort'
+  | 'auth.createFail'
+  | 'auth.loginStopped'
+  | 'auth.verifyIncomplete'
+  | 'auth.enterCode'
+  | 'auth.appleCompleteTitle'
+  | 'auth.appleNameMissing'
+  | 'auth.appleOneStep'
+  | 'auth.pickNickname'
+  | 'auth.clerkField'
+  | 'auth.birthInvalid'
+  | 'auth.ageTooYoung'
+  | 'auth.birthRange'
+  | 'auth.invalidCode'
+  | 'share.checkOut'
+  | 'paywall.openFail'
+  | 'privacy.rights'
+  | 'auth.showPassword'
+  | 'auth.hidePassword'
+  | 'auth.show'
+  | 'auth.hide'
+  | 'auth.termsAnd'
+  | 'auth.clerkPasswordRequired'
+  | 'auth.usernameRejected'
+  | 'auth.clerkKeyMissing'
+  | 'auth.notReady'
+  | 'auth.acceptPrefix'
+  | 'auth.continueApple'
+  | 'auth.orEmail'
+  | 'auth.continueConfirm'
+  | 'auth.clerkMissing'
+  | 'auth.status'
+  | 'about.diffTitle'
+  | 'about.diffFeed'
+  | 'about.diffPro'
+  | 'about.readPrivacy'
+  | 'auth.useLatestCode'
+  | 'brand.tagline'
+  | 'brand.shortDescription'
+  | 'auth.sendNewCode'
+  | 'auth.stillMissing'
+  | 'auth.countryHint'
+  | 'auth.verifyEmailTitle'
+  | 'auth.codeSent'
+  | 'auth.signInHint'
 
 export type Dictionary = Record<MessageKey, string>;
 
@@ -283,6 +383,112 @@ export const en: Dictionary = {
   'safety.blockedBody': 'This user is hidden from your feed.',
   'safety.reported': 'Thanks',
   'safety.reportedBody': 'Report sent. The BioBlix team will review it.',
+  'upload.changeMedia': 'Change media',
+  'upload.titleField': 'Title',
+  'upload.titlePlaceholder': 'e.g. PocketBudget for iOS',
+  'upload.description': 'Description',
+  'upload.descriptionPlaceholder': 'What does the product solve — in one sentence?',
+  'upload.tags': 'Tags (max {max})',
+  'upload.allTags': 'All tags',
+  'upload.tagsPlaceholder': 'e.g. app, ios, productivity',
+  'upload.addTag': 'Add tag',
+  'upload.popular': 'Popular',
+  'upload.linkLocked': 'Locked — requires Pro Yearly',
+  'upload.upgradeHint':
+    'Upgrade to Pro Yearly to add clickable links on your blix.',
+  'upload.firebaseAuth': 'Firebase sign-in',
+  'upload.firebaseAuthFail':
+    'Firebase sign-in failed. Sign out and back in, then try again.',
+  'account.createProfileHint':
+    'Create a profile to publish blix and sync Pro status.',
+  'account.planStandard': 'Monthly · publish video/image without outbound link',
+  'account.planProFeature': 'Clickable store links on every blix',
+  'account.privacyPolicy': 'Privacy policy',
+  'account.about': 'About {name}',
+  'link.leaveTitle': 'You are leaving {name}',
+  'link.leaveBody':
+    '{name} is not responsible for content on external sites. Continue to {domain}?',
+  'link.continue': 'Continue',
+  'link.openApp': 'Open app',
+  'link.buyHere': 'Buy here',
+  'link.seeProduct': 'See product',
+  'nav.privacy': 'Privacy',
+  'nav.about': 'About BioBlix',
+  'nav.tags': 'All tags',
+  'nav.tag': 'Tag',
+  'nav.profile': 'Profile',
+  'nav.back': 'Back',
+  'tags.empty': 'No tags yet. Add tags when you publish a blix.',
+  'notFound.title': 'Off course',
+  'notFound.body': 'Go back to the blix feed and keep exploring products.',
+  'feed.swipeHint': 'Swipe or ↑ ↓ to change blix',
+  'feed.swipeHintShort': 'Swipe to change blix',
+  'tags.invalid': 'Invalid tag.',
+  'tags.noPosts': 'No blix with this tag yet.',
+  'privacy.title': 'Privacy policy',
+  'privacy.updated': 'Last updated: {date}',
+  'privacy.intro':
+    'Applies to BioBlix on iOS, Android and web. Contact: {email}',
+  'account.public': 'Public',
+  'moderation.nsfw': 'Nudity or sexual content is not allowed on BioBlix.',
+  'moderation.checkFail': 'Could not check media for content.',
+  'auth.acceptLegal': 'You must accept the terms and privacy policy first.',
+  'auth.appleRetry': ' Start over and try Apple again (or sign in with email).',
+  'auth.appleUpdateFail': 'Could not update Apple profile.',
+  'auth.sessionFail': 'Could not complete session.',
+  'auth.appleFail': 'Apple sign-in failed. Check that Apple is enabled in Clerk.',
+  'auth.fillName': 'Enter first and last name to finish Apple sign-in.',
+  'auth.appleSessionMissing': 'Apple session is missing. Tap “Start over” and try again.',
+  'auth.appleSessionInvalid': 'Apple session is invalid ({status}). Tap “Start over” and try again.',
+  'auth.nicknameShort': 'Nickname must be at least 3 characters (no spaces).',
+  'auth.fillNames': 'Enter first and last name.',
+  'auth.fillEmailPassword': 'Enter email and password.',
+  'auth.passwordShort': 'Password must be at least 8 characters.',
+  'auth.createFail': 'Could not create account.',
+  'auth.loginStopped': 'Sign-in stopped (status: {status}). Try Start over.',
+  'auth.verifyIncomplete': 'Verification not complete (status: {status}). Send a new code.',
+  'auth.enterCode': 'Enter the code from your email.',
+  'auth.appleCompleteTitle': 'Finish Apple account',
+  'auth.appleNameMissing': 'Apple did not share a name. Enter first and last name to continue.',
+  'auth.appleOneStep': 'One step left to activate your Apple account. Tap Finish.',
+  'auth.pickNickname': 'Choose a nickname and enter your name to get started.',
+  'auth.clerkField': 'Clerk does not accept the “{param}” field. Enable it under User & authentication → Email/Username/Name, or try again.',
+  'auth.birthInvalid': 'Enter birth date as YYYY-MM-DD (e.g. 2005-03-15).',
+  'auth.ageTooYoung': 'BioBlix is only for people aged {age} or older.',
+  'auth.birthRange': 'Invalid birth date.',
+  'auth.invalidCode': 'Invalid code. Try again.',
+  'share.checkOut': 'Check out {name} on BioBlix',
+  'paywall.openFail': 'Could not open payment. Try again.',
+  'privacy.rights': 'All rights reserved.',
+  'auth.showPassword': 'Show password',
+  'auth.hidePassword': 'Hide password',
+  'auth.show': 'Show',
+  'auth.hide': 'Hide',
+  'auth.termsAnd': 'and the terms of use',
+  'auth.clerkPasswordRequired': 'Clerk requires a password after Apple. Turn off Password as required, or use email.',
+  'auth.usernameRejected': 'Username rejected. Keep Username off in Clerk.',
+  'auth.clerkKeyMissing': 'Set EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY in .env (and CLERK_SECRET_KEY on the server).',
+  'auth.notReady': 'Auth not ready',
+  'auth.acceptPrefix': 'I accept the',
+  'auth.continueApple': 'Continue with Apple',
+  'auth.orEmail': 'or email',
+  'auth.continueConfirm': 'By continuing you confirm that you have read our privacy policy.',
+  'auth.clerkMissing': 'Clerk missing: {fields}',
+  'auth.status': 'Status: {status}',
+  'about.diffTitle': 'What makes BioBlix different',
+  'about.diffFeed': 'Vertical product blix made for apps and physical goods — not generic social scrolling.',
+  'about.diffPro': 'Pro Yearly unlocks clickable store links, mirrored securely via RevenueCat → Firestore.',
+  'about.readPrivacy': 'Read the privacy policy',
+  'auth.useLatestCode': 'Use the latest code, or tap “Send new code”.',
+  'brand.tagline': 'Showcase apps and products in short blix',
+  'brand.shortDescription':
+    'BioBlix is a vertical showcase where creators share short videos and images of their apps and products — with an optional Pro link straight to a store or landing page.',
+  'auth.sendNewCode': 'Send new code',
+  'auth.stillMissing': 'Still missing: {fields}.',
+  'auth.countryHint': 'Choose your country first — the form switches to your language.',
+  'auth.verifyEmailTitle': 'Confirm email',
+  'auth.codeSent': 'We sent a code to your email.',
+  'auth.signInHint': 'Sign in with email and password.',
 };
 
 export const nb: Dictionary = {
@@ -430,4 +636,110 @@ export const nb: Dictionary = {
   'safety.blockedBody': 'Brukeren er skjult fra feeden din.',
   'safety.reported': 'Takk',
   'safety.reportedBody': 'Rapporten er sendt. BioBlix-teamet vil se på innlegget.',
+  'upload.changeMedia': 'Bytt medie',
+  'upload.titleField': 'Tittel',
+  'upload.titlePlaceholder': 'F.eks. PocketBudget for iOS',
+  'upload.description': 'Beskrivelse',
+  'upload.descriptionPlaceholder': 'Hva løser produktet — på én setning?',
+  'upload.tags': 'Tags (maks {max})',
+  'upload.allTags': 'Alle tags',
+  'upload.tagsPlaceholder': 'f.eks. app, ios, produktivitet',
+  'upload.addTag': 'Legg til tag',
+  'upload.popular': 'Populære',
+  'upload.linkLocked': 'Låst — krever Pro Årlig',
+  'upload.upgradeHint':
+    'Oppgrader til Pro Årlig for å legge til klikkbare lenker på dine blix.',
+  'upload.firebaseAuth': 'Firebase-innlogging',
+  'upload.firebaseAuthFail':
+    'Firebase-innlogging feilet. Logg ut og inn igjen, så prøv på nytt.',
+  'account.createProfileHint':
+    'Opprett profil for å publisere blix og synce Pro-status.',
+  'account.planStandard': 'Månedlig · publiser video/bilde uten utgående lenke',
+  'account.planProFeature': 'Klikkbare butikklenker på hvert blix',
+  'account.privacyPolicy': 'Personvernerklæring',
+  'account.about': 'Om {name}',
+  'link.leaveTitle': 'Du forlater nå {name}',
+  'link.leaveBody':
+    '{name} er ikke ansvarlig for innholdet på eksterne nettsteder. Vil du fortsette til {domain}?',
+  'link.continue': 'Fortsett',
+  'link.openApp': 'Åpne appen',
+  'link.buyHere': 'Kjøp her',
+  'link.seeProduct': 'Se produktet',
+  'nav.privacy': 'Personvern',
+  'nav.about': 'Om BioBlix',
+  'nav.tags': 'Alle tags',
+  'nav.tag': 'Tag',
+  'nav.profile': 'Profil',
+  'nav.back': 'Tilbake',
+  'tags.empty': 'Ingen tags ennå. Legg til tags når du publiserer et blix.',
+  'notFound.title': 'Ute av kurs',
+  'notFound.body': 'Gå tilbake til blix-strømmen og fortsett å utforske produkter.',
+  'feed.swipeHint': 'Sveip eller ↑ ↓ for å bytte blix',
+  'feed.swipeHintShort': 'Sveip for å bytte blix',
+  'tags.invalid': 'Ugyldig tag.',
+  'tags.noPosts': 'Ingen blix med denne taggen ennå.',
+  'privacy.title': 'Personvernerklæring',
+  'privacy.updated': 'Sist oppdatert: {date}',
+  'privacy.intro':
+    'Gjelder BioBlix på iOS, Android og web. Kontakt: {email}',
+  'account.public': 'Offentlig',
+  'moderation.nsfw': 'Nakenhet eller seksuelt innhold er ikke tillatt på BioBlix.',
+  'moderation.checkFail': 'Kunne ikke sjekke media for innhold.',
+  'auth.acceptLegal': 'Du må godta vilkår og personvernerklæring først.',
+  'auth.appleRetry': ' Start på nytt og prøv Apple igjen (eller logg inn med e-post).',
+  'auth.appleUpdateFail': 'Kunne ikke oppdatere Apple-profil.',
+  'auth.sessionFail': 'Kunne ikke fullføre sesjon.',
+  'auth.appleFail': 'Apple-innlogging feilet. Sjekk at Apple er på i Clerk.',
+  'auth.fillName': 'Fyll inn fornavn og etternavn for å fullføre Apple-innlogging.',
+  'auth.appleSessionMissing': 'Apple-sesjonen mangler. Trykk «Start på nytt» og prøv igjen.',
+  'auth.appleSessionInvalid': 'Apple-sesjonen er ugyldig ({status}). Trykk «Start på nytt» og prøv igjen.',
+  'auth.nicknameShort': 'Kallenavn må være minst 3 tegn (uten mellomrom).',
+  'auth.fillNames': 'Fyll inn fornavn og etternavn.',
+  'auth.fillEmailPassword': 'Skriv inn e-post og passord.',
+  'auth.passwordShort': 'Passord må være minst 8 tegn.',
+  'auth.createFail': 'Kunne ikke opprette konto.',
+  'auth.loginStopped': 'Innlogging stoppet (status: {status}). Prøv Start på nytt.',
+  'auth.verifyIncomplete': 'Bekreftelse ikke fullført (status: {status}). Send ny kode.',
+  'auth.enterCode': 'Skriv inn koden fra e-posten.',
+  'auth.appleCompleteTitle': 'Fullfør Apple-konto',
+  'auth.appleNameMissing': 'Apple delte ikke navn. Fyll inn fornavn og etternavn for å fortsette.',
+  'auth.appleOneStep': 'Ett steg igjen for å aktivere Apple-kontoen. Trykk Fullfør.',
+  'auth.pickNickname': 'Velg kallenavn og fyll inn navn for å komme i gang.',
+  'auth.clerkField': 'Clerk godtar ikke feltet «{param}». Slå det på under User & authentication → Email/Username/Name, eller prøv igjen.',
+  'auth.birthInvalid': 'Oppgi fødselsdato som ÅÅÅÅ-MM-DD (f.eks. 2005-03-15).',
+  'auth.ageTooYoung': 'BioBlix er bare for personer som er {age} år eller eldre.',
+  'auth.birthRange': 'Ugyldig fødselsdato.',
+  'auth.invalidCode': 'Ugyldig kode. Prøv igjen.',
+  'share.checkOut': 'Sjekk {name} på BioBlix',
+  'paywall.openFail': 'Kunne ikke åpne betaling. Prøv igjen.',
+  'privacy.rights': 'Alle rettigheter forbeholdt.',
+  'auth.showPassword': 'Vis passord',
+  'auth.hidePassword': 'Skjul passord',
+  'auth.show': 'Vis',
+  'auth.hide': 'Skjul',
+  'auth.termsAnd': 'og vilkårene for bruk',
+  'auth.clerkPasswordRequired': 'Clerk krever passord etter Apple. Slå av Passord som påkrevd, eller bruk e-post.',
+  'auth.usernameRejected': 'Brukernavn avvist. Hold Username av i Clerk.',
+  'auth.clerkKeyMissing': 'Sett EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY i .env (og CLERK_SECRET_KEY på serveren).',
+  'auth.notReady': 'Auth ikke klar',
+  'auth.acceptPrefix': 'Jeg godtar',
+  'auth.continueApple': 'Fortsett med Apple',
+  'auth.orEmail': 'eller e-post',
+  'auth.continueConfirm': 'Ved å fortsette bekrefter du at du har lest vår personvernpolicy.',
+  'auth.clerkMissing': 'Clerk mangler: {fields}',
+  'auth.status': 'Status: {status}',
+  'about.diffTitle': 'What makes BioBlix different',
+  'about.diffFeed': 'Vertical product blix made for apps and physical goods — not generic social scrolling.',
+  'about.diffPro': 'Pro Yearly unlocks clickable store links, mirrored securely via RevenueCat → Firestore.',
+  'about.readPrivacy': 'Read the privacy policy',
+  'auth.useLatestCode': 'Use the latest code, or tap “Send new code”.',
+  'brand.tagline': 'Showcase apps and products in short blix',
+  'brand.shortDescription':
+    'BioBlix is a vertical showcase where creators share short videos and images of their apps and products — with an optional Pro link straight to a store or landing page.',
+  'auth.sendNewCode': 'Send new code',
+  'auth.stillMissing': 'Still missing: {fields}.',
+  'auth.countryHint': 'Choose your country first — the form switches to your language.',
+  'auth.verifyEmailTitle': 'Confirm email',
+  'auth.codeSent': 'We sent a code to your email.',
+  'auth.signInHint': 'Sign in with email and password.',
 };

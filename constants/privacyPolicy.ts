@@ -1,9 +1,10 @@
 /**
  * BioBlix privacy policy — shared by iOS, Android and web (/privacy).
- * Update `lastUpdated` when the text changes.
+ * Update dates when the text changes.
  */
 export const privacyPolicyMeta = {
-  lastUpdated: '26. september 2026',
+  lastUpdatedEn: '26 September 2026',
+  lastUpdatedNb: '26. september 2026',
   contactEmail: 'privacy@bioblix.app',
   controllerName: 'BioBlix',
 } as const;
@@ -13,7 +14,7 @@ export type PrivacySection = {
   paragraphs: string[];
 };
 
-export const privacyPolicySections: PrivacySection[] = [
+export const privacyPolicySectionsNb: PrivacySection[] = [
   {
     title: '1. Innledning',
     paragraphs: [
@@ -114,3 +115,124 @@ export const privacyPolicySections: PrivacySection[] = [
     ],
   },
 ];
+
+export const privacyPolicySectionsEn: PrivacySection[] = [
+  {
+    title: '1. Introduction',
+    paragraphs: [
+      'This privacy policy applies to the BioBlix app (iOS and Android) and BioBlix on the web. It explains which personal data we process, why we do so, and what rights you have.',
+      'By using BioBlix you accept this policy. If you do not accept it, please stop using the service.',
+    ],
+  },
+  {
+    title: '2. Data controller',
+    paragraphs: [
+      'BioBlix is the controller for personal data collected via the app and website.',
+      'Privacy questions can be sent to privacy@bioblix.app.',
+    ],
+  },
+  {
+    title: '3. What data we process',
+    paragraphs: [
+      'Account and authentication: When you sign in (via Clerk), we may process identifiers such as user ID, email address, display name and profile image.',
+      'Content you create (UGC): Videos, images, titles, descriptions and any Pro links you publish, plus metadata such as publish time.',
+      'Moderation and safety: Reports about posts, and lists of users you have blocked.',
+      'Subscriptions and purchases: Pro Yearly status (e.g. isProYearly), handled via RevenueCat and platform payment systems (Apple, Google and/or Stripe on web). We normally do not receive full card numbers.',
+      'Technical information: Device and browser information needed to deliver the service (e.g. platform, limited error logs).',
+    ],
+  },
+  {
+    title: '4. Purposes and legal bases',
+    paragraphs: [
+      'Deliver BioBlix: show the feed, store posts, sync account and subscription (contract performance).',
+      'Security and abuse: report/block, prevent spam and invalid Pro links (legitimate interest / legal obligation where applicable).',
+      'Payment and access control: verify Pro subscription before clickable links are enabled (contract performance).',
+      'Communication: respond to privacy or support requests (legitimate interest / consent where relevant).',
+    ],
+  },
+  {
+    title: '5. Sharing with processors',
+    paragraphs: [
+      'We use trusted providers to run BioBlix. They process data on our behalf under contract:',
+      'Clerk — sign-in and user identity.',
+      'Google Firebase (Firestore and Storage) — database and file storage for posts and media.',
+      'RevenueCat — subscriptions and entitlement (Pro Yearly).',
+      'Apple App Store / Google Play / Stripe — payment processing where applicable.',
+      'Vercel — hosting of BioBlix web.',
+      'We do not sell your personal data to third parties for marketing.',
+    ],
+  },
+  {
+    title: '6. User-generated content and external links',
+    paragraphs: [
+      'Content you publish may be visible to other users. You are responsible for ensuring the content is lawful and that you have rights to the media and links you share.',
+      'Nudity and sexual content are not allowed on BioBlix. We use automatic and manual moderation; content that breaks this may be rejected at upload or removed later.',
+      'Pro links may take you out of BioBlix to external websites. BioBlix is not responsible for content or privacy practices on external sites. You get a warning before leaving the app/web.',
+      'We may remove or restrict content that breaks terms, law or safety rules, including after reports.',
+    ],
+  },
+  {
+    title: '7. Retention',
+    paragraphs: [
+      'We store data as long as needed to deliver the service, fulfil contracts (including subscriptions) and meet legal requirements.',
+      'When you delete your account or request deletion, we remove or anonymise data we no longer have a legal basis to keep, subject to backups and legally required retention.',
+    ],
+  },
+  {
+    title: '8. Transfers outside the EEA',
+    paragraphs: [
+      'Some processors may process data outside the EEA (e.g. the USA). Where that happens, we use appropriate mechanisms such as EU standard contractual clauses (SCCs) or equivalent where the provider offers them.',
+    ],
+  },
+  {
+    title: '9. Your rights',
+    paragraphs: [
+      'Under privacy law (including GDPR) you may have rights of access, rectification, erasure, restriction, data portability and to object to certain processing.',
+      'You may also complain to your supervisory authority. To exercise rights, contact privacy@bioblix.app.',
+    ],
+  },
+  {
+    title: '10. Children and age limit',
+    paragraphs: [
+      'BioBlix is only for people aged 16 or older. We do not knowingly collect personal data from people under 16. If we discover such processing, we delete the data.',
+      'At registration we ask for a birth date to enforce the age limit.',
+    ],
+  },
+  {
+    title: '11. Cookies (web)',
+    paragraphs: [
+      'On the web, sign-in and security may require necessary cookies or local storage (e.g. session via Clerk). We do not use marketing cookies without consent where required.',
+    ],
+  },
+  {
+    title: '12. Security',
+    paragraphs: [
+      'We use technical and organisational measures (access control, encrypted transport, backend rules) to protect data. No service is 100% secure; tell us if you suspect a breach.',
+    ],
+  },
+  {
+    title: '13. Changes',
+    paragraphs: [
+      'We may update this policy. A new version is published in the app and at /privacy on the web, with an updated date. Material changes may be announced in the service where practical.',
+    ],
+  },
+];
+
+/** @deprecated Prefer locale-aware helpers below. */
+export const privacyPolicySections = privacyPolicySectionsNb;
+
+export function getPrivacyPolicy(locale: 'en' | 'nb'): {
+  lastUpdated: string;
+  sections: PrivacySection[];
+} {
+  if (locale === 'en') {
+    return {
+      lastUpdated: privacyPolicyMeta.lastUpdatedEn,
+      sections: privacyPolicySectionsEn,
+    };
+  }
+  return {
+    lastUpdated: privacyPolicyMeta.lastUpdatedNb,
+    sections: privacyPolicySectionsNb,
+  };
+}

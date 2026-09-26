@@ -46,7 +46,7 @@ export function BioBlixFeedOverlay({
   viewerUserId,
 }: BioBlixFeedOverlayProps) {
   const router = useRouter();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const hasLink = Boolean(linkUrl?.trim());
 
   const [liked, setLiked] = useState(false);
@@ -215,10 +215,12 @@ export function BioBlixFeedOverlay({
         {hasLink ? (
           <Pressable
             style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}
-            onPress={() => confirmAndOpenBioBlixLink(linkUrl!.trim())}
+            onPress={() =>
+              confirmAndOpenBioBlixLink(linkUrl!.trim(), { locale })
+            }
           >
             <BioBlixText variant="title" color={Colors.ink}>
-              {bioBlixLinkCtaLabel(linkUrl!)}
+              {bioBlixLinkCtaLabel(linkUrl!, locale)}
             </BioBlixText>
           </Pressable>
         ) : null}

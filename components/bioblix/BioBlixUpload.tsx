@@ -23,7 +23,7 @@ import { syncFirebaseAuthFromClerk } from '@/lib/clerk/firebaseSession';
 import { firebaseAuth } from '@/lib/firebase/auth';
 import { useI18n } from '@/lib/i18n';
 import {
-  NSFW_REJECT_MESSAGE,
+  NSFW_REJECT_CODE,
   assertMediaAllowed,
 } from '@/lib/moderation/nsfw';
 import { notify } from '@/lib/platform';
@@ -153,7 +153,13 @@ export default function BioBlixUpload() {
       await assertMediaAllowed(asset.uri, mediaType);
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : NSFW_REJECT_MESSAGE;
+        err instanceof Error && err.message === NSFW_REJECT_CODE
+          ? t('moderation.nsfw')
+          : err instanceof Error && err.message === 'MODERATION_CHECK_FAIL'
+            ? t('moderation.checkFail')
+            : err instanceof Error
+              ? err.message
+              : t('moderation.nsfw');
       notify(t('upload.nsfwTitle'), message);
       setMedia(null);
       return;
@@ -229,7 +235,13 @@ export default function BioBlixUpload() {
         await assertMediaAllowed(media.uri, media.mediaType);
       } catch (err) {
         const message =
-          err instanceof Error ? err.message : NSFW_REJECT_MESSAGE;
+          err instanceof Error && err.message === NSFW_REJECT_CODE
+          ? t('moderation.nsfw')
+          : err instanceof Error && err.message === 'MODERATION_CHECK_FAIL'
+            ? t('moderation.checkFail')
+            : err instanceof Error
+              ? err.message
+              : t('moderation.nsfw');
         notify(t('upload.nsfwTitle'), message);
         setMedia(null);
         return;
@@ -240,11 +252,11 @@ export default function BioBlixUpload() {
       await withTimeout(
         syncFirebaseAuthFromClerk(() => getToken()),
         25_000,
-        'Firebase-innlogging'
+        t('upload.firebaseAuth')
       );
       if (!firebaseAuth.currentUser) {
         throw new Error(
-          'Firebase-innlogging feilet. Logg ut og inn igjen, så prøv på nytt.'
+          t('upload.firebaseAuthFail')
         );
       }
 
@@ -343,31 +355,31 @@ export default function BioBlixUpload() {
         {media ? (
           <Pressable onPress={pickMedia} style={styles.changeMedia}>
             <BioBlixText variant="caption" color={Colors.lime}>
-              Bytt medie
+              {t('upload.changeMedia')}
             </BioBlixText>
           </Pressable>
         ) : null}
 
         <BioBlixText variant="label" color={Colors.mistDim}>
-          Tittel
+          {t('upload.titleField')}
         </BioBlixText>
         <TextInput
           style={styles.input}
           value={title}
           onChangeText={setTitle}
-          placeholder="F.eks. PocketBudget for iOS"
+          placeholder={t('upload.titlePlaceholder')}
           placeholderTextColor={Colors.mistDim}
           maxLength={80}
         />
 
         <BioBlixText variant="label" color={Colors.mistDim}>
-          Beskrivelse
+          {t('upload.description')}
         </BioBlixText>
         <TextInput
           style={[styles.input, styles.textArea]}
           value={description}
           onChangeText={setDescription}
-          placeholder="Hva løser produktet — på én setning?"
+          placeholder={t('upload.descriptionPlaceholder')}
           placeholderTextColor={Colors.mistDim}
           multiline
           textAlignVertical="top"
@@ -376,11 +388,11 @@ export default function BioBlixUpload() {
 
         <View style={styles.tagsHeader}>
           <BioBlixText variant="label" color={Colors.mistDim}>
-            Tags (maks {MAX_TAGS_PER_POST})
+            {t('upload.tags', { max: MAX_TAGS_PER_POST })}
           </BioBlixText>
           <Link href="/tags">
             <BioBlixText variant="caption" color={Colors.lime}>
-              Alle tags
+              {t('upload.allTags')}
             </BioBlixText>
           </Link>
         </View>
@@ -388,7 +400,7 @@ export default function BioBlixUpload() {
           style={styles.input}
           value={tagDraft}
           onChangeText={setTagDraft}
-          placeholder="f.eks. app, ios, produktivitet"
+          placeholder={t('upload.tagsPlaceholder')}
           placeholderTextColor={Colors.mistDim}
           autoCapitalize="none"
           autoCorrect={false}
@@ -398,7 +410,7 @@ export default function BioBlixUpload() {
         />
         <Pressable onPress={commitTagDraft} style={styles.addTagBtn}>
           <BioBlixText variant="caption" color={Colors.lime}>
-            Legg til tag
+            {t('upload.addTag')}
           </BioBlixText>
         </Pressable>
         <BioBlixTagChips tags={tags} onRemoveTag={removeTag} />
@@ -406,7 +418,7 @@ export default function BioBlixUpload() {
         {popular.length > 0 ? (
           <>
             <BioBlixText variant="label" color={Colors.mistDim}>
-              Populære
+              {t('upload.popular')}
             </BioBlixText>
             <BioBlixTagChips
               tags={popular.map((t) => t.name).filter((n) => !tags.includes(n))}
@@ -418,7 +430,7 @@ export default function BioBlixUpload() {
         ) : null}
 
         <BioBlixText variant="label" color={Colors.mistDim}>
-          Butikklenke · Pro
+          {t('edit.link')} · Pro
         </BioBlixText>
         <TextInput
           style={[
@@ -430,8 +442,8 @@ export default function BioBlixUpload() {
           onChangeText={onLinkChange}
           placeholder={
             isProYearly
-              ? 'https://apps.apple.com/… (ikke bit.ly)'
-              : 'Låst — krever Pro Årlig'
+              ? 'https://apps.apple.com/…'
+              : t('upload.linkLocked')
           }
           placeholderTextColor={Colors.mistDim}
           autoCapitalize="none"
@@ -456,8 +468,7 @@ export default function BioBlixUpload() {
               color={Colors.ink}
               style={styles.upgradeButtonText}
             >
-              Oppgrader til Pro Årlig for å legge til klikkbare lenker på dine
-              apper og produkter
+              {t('upload.upgradeHint')}
             </BioBlixText>
           </Pressable>
         ) : null}

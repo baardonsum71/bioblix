@@ -13,8 +13,8 @@ import {
 } from 'react-native';
 
 import { BioBlixEditPostModal } from '@/components/bioblix/BioBlixEditPostModal';
-import { BioBlixPostCard } from '@/components/bioblix/BioBlixPostCard';
 import { BioBlixText } from '@/components/bioblix/BioBlixText';
+import { BioBlixVerticalFeed } from '@/components/bioblix/BioBlixVerticalFeed';
 import { CountryPicker } from '@/components/bioblix/CountryPicker';
 import {
   BioBlixLogo,
@@ -33,16 +33,16 @@ import { syncFirebaseAuthFromClerk } from '@/lib/clerk/firebaseSession';
 import { useI18n } from '@/lib/i18n';
 import { formatPlanPricesFallback } from '@/lib/i18n/countryLocale';
 import {
-  NSFW_REJECT_MESSAGE,
+  NSFW_REJECT_CODE,
   assertMediaAllowed,
 } from '@/lib/moderation/nsfw';
-import { confirmAction, notify } from '@/lib/platform';
+import { notify } from '@/lib/platform';
 import { presentProYearlyPaywall } from '@/lib/revenuecat/paywall';
 import { syncProToFirestore } from '@/lib/revenuecat/web';
 import { shareProfile } from '@/lib/shareProfile';
 import { SUBSCRIPTION_PLANS } from '@/lib/subscription';
 import { countFollowers, countFollowing } from '@/services/follows';
-import { deletePost, listPostsByUser } from '@/services/posts';
+import { listPostsByUser } from '@/services/posts';
 import { uploadAvatarMedia } from '@/services/storage';
 import { updateUser } from '@/services/users';
 import type { Post } from '@/types';
@@ -180,8 +180,13 @@ function BioBlixAccountSigned() {
     try {
       await assertMediaAllowed(asset.uri, 'image');
     } catch (err) {
+      const code = err instanceof Error ? err.message : NSFW_REJECT_CODE;
       const message =
-        err instanceof Error ? err.message : NSFW_REJECT_MESSAGE;
+        code === NSFW_REJECT_CODE
+          ? t('moderation.nsfw')
+          : code === 'MODERATION_CHECK_FAIL'
+            ? t('moderation.checkFail')
+            : code;
       notify(t('common.notAllowed'), message);
       return;
     }
@@ -216,7 +221,11 @@ function BioBlixAccountSigned() {
       user?.primaryEmailAddress?.emailAddress ??
       'BioBlix';
     try {
-      await shareProfile({ userId, displayName: name });
+      await shareProfile({
+        userId,
+        displayName: name,
+        message: t('share.checkOut', { name }),
+      });
       notify(t('account.share'), t('account.shared'));
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return;
@@ -254,7 +263,11 @@ function BioBlixAccountSigned() {
     } catch (err) {
       notify(
         t('account.payment'),
-        err instanceof Error ? err.message : t('account.paymentFail')
+        err instanceof Error && err.message === 'PAYWALL_OPEN_FAIL'
+          ? t('paywall.openFail')
+          : err instanceof Error
+            ? err.message
+            : t('account.paymentFail')
       );
     } finally {
       setUpgrading(false);
@@ -271,28 +284,6 @@ function BioBlixAccountSigned() {
     t,
   ]);
 
-  const onDeletePost = useCallback(
-    async (post: Post) => {
-      const ok = await confirmAction(
-        'Slett blix?',
-        `«${post.title}» fjernes permanent.`,
-        { confirmLabel: 'Slett', destructive: true }
-      );
-      if (!ok) return;
-      try {
-        await syncFirebaseAuthFromClerk(() => getToken());
-        await deletePost(post.id);
-        setMyPosts((prev) => prev.filter((p) => p.id !== post.id));
-        notify('Slettet', 'Blixet er fjernet.');
-      } catch (err) {
-        notify(
-          'Feil',
-          err instanceof Error ? err.message : 'Kunne ikke slette'
-        );
-      }
-    },
-    [getToken]
-  );
 
   if (!isLoaded) {
     return (
@@ -313,7 +304,7 @@ function BioBlixAccountSigned() {
           <BioBlixLogo variant="wordmark" size={96} />
           <BioBlixText variant="display">{t('account.title')}</BioBlixText>
           <BioBlixText variant="body" color={Colors.mistDim} style={styles.lead}>
-            Opprett profil for å publisere blix og synce Pro-status.
+            {t('account.createProfileHint')}
           </BioBlixText>
           <Link href="/(auth)/sign-in" asChild>
             <Pressable style={styles.primaryWrap}>
@@ -325,7 +316,7 @@ function BioBlixAccountSigned() {
                 style={styles.primaryLink}
               >
                 <BioBlixText variant="label" color={Colors.ink}>
-                  Opprett profil / logg inn
+                  {t('auth.signUp')} / {t('auth.signIn')}
                 </BioBlixText>
               </LinearGradient>
             </Pressable>
@@ -345,9 +336,9 @@ function BioBlixAccountSigned() {
   const avatarUrl = profile?.imageUrl ?? user?.imageUrl ?? null;
 
   return (
-    <BioBlixScreenShell>
+    <BioBlixScreenShell style={styles.accountRoot}>
       <ScrollView
-        style={styles.scroll}
+        style={styles.accountTopScroll}
         contentContainerStyle={styles.accountScroll}
         keyboardShouldPersistTaps="handled"
         nestedScrollEnabled
@@ -374,7 +365,7 @@ function BioBlixAccountSigned() {
               <ActivityIndicator color={Colors.lime} />
             ) : (
               <BioBlixText variant="caption" color={Colors.lime}>
-                Bytt bilde
+                {t('edit.changeMedia')}
               </BioBlixText>
             )}
           </Pressable>
@@ -384,13 +375,17 @@ function BioBlixAccountSigned() {
               {displayName}
             </BioBlixText>
             <BioBlixText variant="caption" color={Colors.mistDim}>
-              {followers} følgere · {following} følger
+              {t('profile.followersFollowing', { followers, following })}
             </BioBlixText>
             {profileLoading || entitlementLoading ? (
               <ActivityIndicator color={Colors.lime} />
             ) : (
               <BioBlixText variant="caption" color={Colors.mistDim}>
-                {isOwner ? 'Eier · Pro' : hasPro ? 'Pro' : 'Standard'}
+                {isOwner
+                  ? 'Owner · Pro'
+                  : hasPro
+                    ? 'Pro'
+                    : SUBSCRIPTION_PLANS.standard.label}
               </BioBlixText>
             )}
             {profileError ? (
@@ -410,13 +405,13 @@ function BioBlixAccountSigned() {
               }
             >
               <BioBlixText variant="caption" color={Colors.lime}>
-                Offentlig
+                {t('account.public')}
               </BioBlixText>
             </Pressable>
           ) : null}
           <Pressable style={styles.secondaryBtn} onPress={() => void onShare()}>
             <BioBlixText variant="caption" color={Colors.lime}>
-              Del
+              {t('account.share')}
             </BioBlixText>
           </Pressable>
           <Pressable
@@ -489,34 +484,6 @@ function BioBlixAccountSigned() {
           </BioBlixText>
         </View>
 
-        {postsLoading ? (
-          <ActivityIndicator
-            color={Colors.lime}
-            style={{ marginHorizontal: 16, alignSelf: 'flex-start' }}
-          />
-        ) : myPosts.length === 0 ? (
-          <BioBlixText
-            variant="body"
-            color={Colors.mistDim}
-            style={styles.emptyPosts}
-          >
-            {t('account.emptyPosts')}
-          </BioBlixText>
-        ) : (
-          <View style={styles.postsList}>
-            {myPosts.map((post) => (
-              <BioBlixPostCard
-                key={post.id}
-                post={post}
-                editLabel={t('account.edit')}
-                deleteLabel={t('account.delete')}
-                onEdit={() => setEditing(post)}
-                onDelete={() => void onDeletePost(post)}
-              />
-            ))}
-          </View>
-        )}
-
         <View style={styles.footerLinks}>
           <Link href="/privacy" asChild>
             <Pressable>
@@ -539,6 +506,21 @@ function BioBlixAccountSigned() {
         </View>
       </ScrollView>
 
+      <View style={styles.feedWrap}>
+        <BioBlixVerticalFeed
+          posts={myPosts}
+          loading={postsLoading}
+          viewerUserId={userId}
+          usernameFor={() => displayName}
+          emptyMessage={t('account.emptyPosts')}
+          onDeleted={(postId) =>
+            setMyPosts((prev) => prev.filter((p) => p.id !== postId))
+          }
+          onEdit={(post) => setEditing(post)}
+          requireFocus={false}
+        />
+      </View>
+
       <BioBlixEditPostModal
         post={editing}
         visible={Boolean(editing)}
@@ -555,12 +537,13 @@ function BioBlixAccountSigned() {
 }
 
 function PlansBlock({ priceSummary }: { priceSummary: string }) {
+  const { t } = useI18n();
   return (
     <>
       <View style={styles.planCard}>
         <BioBlixText variant="title">{SUBSCRIPTION_PLANS.standard.label}</BioBlixText>
         <BioBlixText variant="caption" color={Colors.mistDim}>
-          Månedlig · publiser video/bilde uten utgående lenke
+          {t('account.planStandard')}
         </BioBlixText>
       </View>
       <LinearGradient
@@ -574,7 +557,7 @@ function PlansBlock({ priceSummary }: { priceSummary: string }) {
           {SUBSCRIPTION_PLANS.pro.label} · {priceSummary}
         </BioBlixText>
         <BioBlixText variant="caption" color={Colors.inkElevated}>
-          Klikkbare butikklenker på hvert blix
+          {t('account.planProFeature')}
         </BioBlixText>
       </LinearGradient>
     </>
@@ -582,16 +565,17 @@ function PlansBlock({ priceSummary }: { priceSummary: string }) {
 }
 
 function AboutLinks() {
+  const { t } = useI18n();
   return (
     <>
       <Link href="/modal" style={styles.aboutLink}>
         <BioBlixText variant="label" color={Colors.lime}>
-          Om {Brand.name}
+          {t('account.about', { name: Brand.name })}
         </BioBlixText>
       </Link>
       <Link href="/privacy" style={styles.aboutLink}>
         <BioBlixText variant="label" color={Colors.lime}>
-          Personvernerklæring
+          {t('account.privacyPolicy')}
         </BioBlixText>
       </Link>
     </>
@@ -599,10 +583,21 @@ function AboutLinks() {
 }
 
 const styles = StyleSheet.create({
+  accountRoot: {
+    flex: 1,
+  },
+  accountTopScroll: {
+    flexGrow: 0,
+    flexShrink: 0,
+    maxHeight: '42%',
+  },
   accountScroll: {
     paddingTop: 48,
-    paddingBottom: 28,
-    flexGrow: 1,
+    paddingBottom: 12,
+  },
+  feedWrap: {
+    flex: 1,
+    minHeight: 360,
   },
   scroll: {
     flex: 1,
@@ -682,9 +677,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   postsList: {
-    paddingHorizontal: 16,
-    gap: 10,
-    marginBottom: 12,
+    width: '100%',
   },
   postCard: {
     flexDirection: 'row',

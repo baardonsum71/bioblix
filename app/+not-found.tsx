@@ -3,24 +3,26 @@ import { StyleSheet, View } from 'react-native';
 
 import { BioBlixText } from '@/components/bioblix/BioBlixText';
 import { BioBlixBrand, BioBlixPalette } from '@/constants/bioblixTheme';
+import { useI18n } from '@/lib/i18n';
 
 export default function BioBlixNotFoundScreen() {
+  const { t } = useI18n();
   return (
     <>
-      <Stack.Screen options={{ title: 'Ute av kurs' }} />
+      <Stack.Screen options={{ title: t('notFound.title') }} />
       <View style={styles.container}>
         <BioBlixText variant="display" color={BioBlixPalette.aurora}>
           404
         </BioBlixText>
         <BioBlixText variant="title" style={styles.title}>
-          Denne siden finnes ikke i {BioBlixBrand.name}
+          {t('notFound.title')} · {BioBlixBrand.name}
         </BioBlixText>
         <BioBlixText variant="body" color={BioBlixPalette.muted} style={styles.body}>
-          Gå tilbake til blix-strømmen og fortsett å utforske produkter.
+          {t('notFound.body')}
         </BioBlixText>
         <Link href="/" style={styles.link}>
           <BioBlixText variant="label" color={BioBlixPalette.night}>
-            Til blix-feeden
+            {t('tabs.blix')}
           </BioBlixText>
         </Link>
       </View>

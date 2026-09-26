@@ -2,6 +2,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { Alert, Linking, Platform } from 'react-native';
 
 import { Brand, Colors } from '@/constants/Colors';
+import { translate, type AppLocale, type MessageKey } from '@/lib/i18n';
 import { extractLinkDomain } from '@/lib/validation/proLink';
 
 function normalizeUrl(url: string): string {
@@ -21,20 +22,30 @@ async function openNormalized(href: string): Promise<void> {
   });
 }
 
+type LinkLabels = {
+  locale?: AppLocale;
+};
+
 /**
  * Show App Store / Play-required external-navigation disclaimer, then open.
  */
-export function confirmAndOpenBioBlixLink(url: string): void {
+export function confirmAndOpenBioBlixLink(
+  url: string,
+  options?: LinkLabels
+): void {
   const href = normalizeUrl(url);
   const domain = extractLinkDomain(href);
+  const locale = options?.locale ?? 'en';
+  const t = (key: MessageKey, vars?: Record<string, string | number>) =>
+    translate(locale, key, vars);
 
   Alert.alert(
-    `Du forlater nå ${Brand.name}`,
-    `Vær oppmerksom på at ${Brand.name} ikke er ansvarlig for innholdet på eksterne nettsteder. Vil du fortsette til ${domain}?`,
+    t('link.leaveTitle', { name: Brand.name }),
+    t('link.leaveBody', { name: Brand.name, domain }),
     [
-      { text: 'Avbryt', style: 'cancel' },
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Fortsett',
+        text: t('link.continue'),
         onPress: () => {
           void openNormalized(href);
         },
@@ -49,7 +60,11 @@ export async function openBioBlixLink(url: string): Promise<void> {
 }
 
 /** CTA label based on link destination — BioBlix product voice. */
-export function bioBlixLinkCtaLabel(url: string): string {
+export function bioBlixLinkCtaLabel(
+  url: string,
+  locale: AppLocale = 'en'
+): string {
+  const t = (key: MessageKey) => translate(locale, key);
   const lower = url.toLowerCase();
   if (
     lower.includes('apps.apple.com') ||
@@ -57,10 +72,10 @@ export function bioBlixLinkCtaLabel(url: string): string {
     lower.includes('appstore') ||
     lower.includes('/app')
   ) {
-    return 'Åpne appen';
+    return t('link.openApp');
   }
   if (lower.includes('shop') || lower.includes('buy') || lower.includes('cart')) {
-    return 'Kjøp her';
+    return t('link.buyHere');
   }
-  return 'Se produktet';
+  return t('link.seeProduct');
 }

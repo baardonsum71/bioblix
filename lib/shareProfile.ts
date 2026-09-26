@@ -14,9 +14,12 @@ export function profileShareUrl(userId: string): string {
 export async function shareProfile(params: {
   userId: string;
   displayName: string;
+  /** Localized share text, e.g. from t('share.checkOut', { name }). */
+  message?: string;
 }): Promise<void> {
   const url = profileShareUrl(params.userId);
-  const message = `Sjekk ${params.displayName} på BioBlix`;
+  const message =
+    params.message ?? `Check out ${params.displayName} on BioBlix`;
 
   if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.share) {
     await navigator.share({ title: 'BioBlix', text: message, url });

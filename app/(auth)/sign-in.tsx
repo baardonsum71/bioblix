@@ -40,7 +40,7 @@ type VerifyKind = 'sign-up' | 'sign-in';
 function clerkErrMessage(
   err: unknown,
   fields?: { code?: { message?: string } | null } | null,
-  fallback = 'Ugyldig kode. Prøv igjen.'
+  fallback = 'Invalid code. Try again.'
 ): string {
   if (fields?.code?.message) return fields.code.message;
   if (err && typeof err === 'object') {
@@ -66,17 +66,21 @@ function clerkErrMessage(
   return fallback;
 }
 
+function ClerkNotConfigured() {
+  const { t } = useI18n();
+  return (
+    <View style={styles.container}>
+      <BioBlixText variant="display">{t('auth.notReady')}</BioBlixText>
+      <BioBlixText variant="body" color={BioBlixPalette.muted}>
+        {t('auth.clerkKeyMissing')}
+      </BioBlixText>
+    </View>
+  );
+}
+
 export default function BioBlixSignInScreen() {
   if (!isClerkConfigured) {
-    return (
-      <View style={styles.container}>
-        <BioBlixText variant="display">Auth ikke klar</BioBlixText>
-        <BioBlixText variant="body" color={BioBlixPalette.muted}>
-          Sett EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY i .env (og CLERK_SECRET_KEY på
-          server) for å opprette profil.
-        </BioBlixText>
-      </View>
-    );
+    return <ClerkNotConfigured />;
   }
 
   return <BioBlixSignInForm />;
@@ -174,11 +178,11 @@ function BioBlixSignInForm() {
 
   const requireLegal = useCallback(() => {
     if (!acceptedLegal) {
-      setFormError('Du må godta vilkår og personvernerklæring først.');
+      setFormError(t('auth.acceptLegal'));
       return false;
     }
     return true;
-  }, [acceptedLegal]);
+  }, [acceptedLegal, t]);
 
   const finishAppleSignUp = useCallback(
     async (
@@ -229,7 +233,7 @@ function BioBlixSignInForm() {
         // No session yet — do not clear ref; ask user to restart Apple (web uses redirect flow).
         return (
           clerkErrMessage(finError, null) +
-          ' Start på nytt og prøv Apple igjen (eller logg inn med e-post).'
+           t('auth.appleRetry')
         );
       }
 
@@ -262,7 +266,7 @@ function BioBlixSignInForm() {
       if (Object.keys(patch).length > 0) {
         const { error } = await active.update(patch);
         if (error) {
-          return clerkErrMessage(error, null, 'Kunne ikke oppdatere Apple-profil.');
+          return clerkErrMessage(error, null, t('auth.appleUpdateFail'));
         }
       }
 
@@ -288,13 +292,13 @@ function BioBlixSignInForm() {
           return clerkErrMessage(
             userError,
             null,
-            'Brukernavn avvist. Hold Username av i Clerk.'
+            t('auth.usernameRejected')
           );
         }
       }
 
       if (missing().has('password')) {
-        return 'Clerk krever passord etter Apple. Slå av Passord som påkrevd, eller bruk e-post.';
+        return t('auth.clerkPasswordRequired');
       }
 
       setAppleMissingFields(missingList());
@@ -308,7 +312,7 @@ function BioBlixSignInForm() {
           navigate: navigateAfterAuth,
         });
         if (finError) {
-          return clerkErrMessage(finError, null, 'Kunne ikke fullføre sesjon.');
+          return clerkErrMessage(finError, null, t('auth.sessionFail'));
         }
         if (opts?.nickname) {
           // Metadata after session exists is best-effort via profile sync.
@@ -317,15 +321,21 @@ function BioBlixSignInForm() {
       }
 
       return (
-        `Mangler fortsatt: ${missingList().join(', ') || String(active.status)}.`
+        t('auth.stillMissing', { fields: missingList().join(', ') || String(active.status) })
       );
     },
-    [navigateAfterAuth]
+    [navigateAfterAuth, t]
   );
 
   const onAppleSignIn = useCallback(async () => {
     setFormError(null);
     if (!requireLegal()) return;
+    if (mode === 'sign-up') {
+      if (!countryCode || !isAllowedCountry(countryCode)) {
+        setFormError(t('auth.countryRequired'));
+        return;
+      }
+    }
 
     setAppleBusy(true);
     appleSignUpRef.current = null;
@@ -347,7 +357,7 @@ function BioBlixSignInForm() {
             clerkErrMessage(
               error,
               signInErrors.fields,
-              'Apple-innlogging feilet.'
+              t('auth.appleFail')
             )
           );
         }
@@ -360,6 +370,7 @@ function BioBlixSignInForm() {
         strategy: 'oauth_apple',
         unsafeMetadata: {
           acceptedPrivacyAt: new Date().toISOString(),
+          ...(countryCode ? { countryCode } : {}),
         },
       });
 
@@ -383,6 +394,7 @@ function BioBlixSignInForm() {
         if (!needsName) {
           const err = await finishAppleSignUp(activeSignUp, {
             nickname: nick.trim().toLowerCase().replace(/\s+/g, '') || undefined,
+            countryCode: countryCode ?? undefined,
           });
           if (err) {
             setFormError(err);
@@ -397,13 +409,16 @@ function BioBlixSignInForm() {
       }
     } catch (err) {
       setFormError(
-        clerkErrMessage(err, null, 'Apple-innlogging feilet. Sjekk at Apple er på i Clerk.')
+        clerkErrMessage(err, null, t('auth.appleFail'))
       );
     } finally {
       setAppleBusy(false);
     }
   }, [
     requireLegal,
+    mode,
+    countryCode,
+    t,
     startSSOFlow,
     navigateAfterAuth,
     signUp,
@@ -420,7 +435,11 @@ function BioBlixSignInForm() {
     const nickname = nick.trim().toLowerCase().replace(/\s+/g, '');
     const ageCheck = isAtLeastAge(birthDate);
     if (!ageCheck.ok) {
-      setFormError(ageCheck.message);
+      setFormError(
+        ageCheck.code === 'auth.ageTooYoung'
+          ? t(ageCheck.code, { age: ageCheck.age ?? MIN_AGE })
+          : t(ageCheck.code)
+      );
       return;
     }
     if (!countryCode || !isAllowedCountry(countryCode)) {
@@ -435,13 +454,13 @@ function BioBlixSignInForm() {
       missing.has('first_name') || missing.has('last_name');
 
     if (needsName && (!first || !last)) {
-      setFormError('Fyll inn fornavn og etternavn for å fullføre Apple-innlogging.');
+      setFormError(t('auth.fillName'));
       return;
     }
 
     if (!active) {
       setFormError(
-        'Apple-sesjonen mangler. Trykk «Start på nytt» og prøv igjen.'
+        t('auth.appleSessionMissing')
       );
       return;
     }
@@ -449,7 +468,7 @@ function BioBlixSignInForm() {
     const statusBefore = String(active.status);
     if (statusBefore !== 'missing_requirements' && statusBefore !== 'complete') {
       setFormError(
-        `Apple-sesjonen er ugyldig (${statusBefore}). Trykk «Start på nytt» og prøv igjen.`
+        t('auth.appleSessionInvalid', { status: statusBefore })
       );
       return;
     }
@@ -489,30 +508,36 @@ function BioBlixSignInForm() {
     const username = nick.trim().toLowerCase().replace(/\s+/g, '');
     const first = firstName.trim();
     const last = lastName.trim();
-    const ageCheck = isAtLeastAge(birthDate);
-    if (!ageCheck.ok) {
-      setFormError(ageCheck.message);
-      return;
-    }
+
     if (!countryCode || !isAllowedCountry(countryCode)) {
       setFormError(t('auth.countryRequired'));
       return;
     }
 
+    const ageCheck = isAtLeastAge(birthDate);
+    if (!ageCheck.ok) {
+      setFormError(
+        ageCheck.code === 'auth.ageTooYoung'
+          ? t(ageCheck.code, { age: ageCheck.age ?? MIN_AGE })
+          : t(ageCheck.code)
+      );
+      return;
+    }
+
     if (!username || username.length < 3) {
-      setFormError('Kallenavn må være minst 3 tegn (uten mellomrom).');
+      setFormError(t('auth.nicknameShort'));
       return;
     }
     if (!first || !last) {
-      setFormError('Fyll inn fornavn og etternavn.');
+      setFormError(t('auth.fillNames'));
       return;
     }
     if (!emailAddress || !password) {
-      setFormError('Skriv inn e-post og passord.');
+      setFormError(t('auth.fillEmailPassword'));
       return;
     }
     if (password.length < 8) {
-      setFormError('Passord må være minst 8 tegn.');
+      setFormError(t('auth.passwordShort'));
       return;
     }
 
@@ -591,8 +616,8 @@ function BioBlixSignInForm() {
       const detail = clerkErrMessage(signUpError, signUpErrors.fields);
       setFormError(
         param
-          ? `Clerk godtar ikke feltet «${param}». Slå det på under User & authentication → Email/Username/Name, eller prøv igjen.`
-          : detail || 'Kunne ikke opprette konto.'
+          ? t('auth.clerkField', { param })
+          : detail || t('auth.createFail')
       );
       return;
     }
@@ -628,7 +653,7 @@ function BioBlixSignInForm() {
 
     const emailAddress = email.trim().toLowerCase();
     if (!emailAddress || !password) {
-      setFormError('Skriv inn e-post og passord.');
+      setFormError(t('auth.fillEmailPassword'));
       return;
     }
 
@@ -658,7 +683,7 @@ function BioBlixSignInForm() {
       }
     } else {
       setFormError(
-        `Innlogging stoppet (status: ${String(signIn.status)}). Prøv Start på nytt.`
+        t('auth.loginStopped', { status: String(signIn.status) })
       );
     }
   }, [
@@ -675,7 +700,7 @@ function BioBlixSignInForm() {
     setFormError(null);
     const trimmed = code.trim().replace(/\s+/g, '');
     if (!trimmed) {
-      setFormError('Skriv inn koden fra e-posten.');
+      setFormError(t('auth.enterCode'));
       return;
     }
 
@@ -696,7 +721,7 @@ function BioBlixSignInForm() {
     });
     if (mfaError) {
       setFormError(
-        `${clerkErrMessage(mfaError, signInErrors.fields)} Bruk den nyeste koden, eller trykk «Send ny kode».`
+        `${clerkErrMessage(mfaError, signInErrors.fields)} ${t('auth.useLatestCode')}`
       );
       return;
     }
@@ -704,7 +729,7 @@ function BioBlixSignInForm() {
       await signIn.finalize({ navigate: navigateAfterAuth });
     } else {
       setFormError(
-        `Bekreftelse ikke fullført (status: ${String(signIn.status)}). Send ny kode.`
+        t('auth.verifyIncomplete', { status: String(signIn.status) })
       );
     }
   }, [
@@ -768,25 +793,25 @@ function BioBlixSignInForm() {
           <BioBlixLogo variant="wordmark" size={108} style={styles.logo} />
           <BioBlixText variant="display">
             {step === 'verify'
-              ? 'Bekreft e-post'
+              ? t('auth.verifyEmailTitle')
               : step === 'apple-continue'
-                ? 'Fullfør Apple-konto'
+                ? t('auth.appleCompleteTitle')
                 : mode === 'sign-up'
-                  ? 'Opprett konto'
-                  : 'Logg inn'}
+                  ? t('auth.createAccount')
+                  : t('auth.signIn')}
           </BioBlixText>
           <BioBlixText variant="body" color={BioBlixPalette.muted} style={styles.copy}>
             {step === 'verify'
-              ? 'Vi sendte en kode til e-posten din.'
+              ? t('auth.codeSent')
               : step === 'apple-continue'
                 ? appleMissingFields.some((f) =>
                       f === 'first_name' || f === 'last_name'
                     )
-                  ? 'Apple delte ikke navn. Fyll inn fornavn og etternavn for å fortsette.'
-                  : 'Ett steg igjen for å aktivere Apple-kontoen. Trykk Fullfør.'
+                  ? t('auth.appleNameMissing')
+                  : t('auth.appleOneStep')
                 : mode === 'sign-up'
-                  ? 'Velg kallenavn og fyll inn navn for å komme i gang.'
-                  : 'Logg inn med e-post og passord.'}
+                  ? t('auth.countryHint')
+                  : t('auth.signInHint')}
           </BioBlixText>
 
           <View nativeID="clerk-captcha" />
@@ -840,6 +865,21 @@ function BioBlixSignInForm() {
 
               {mode === 'sign-up' ? (
                 <>
+                  <CountryPicker
+                    label={t('auth.country')}
+                    value={countryCode}
+                    onChange={(code) => {
+                      setCountryCode(code);
+                      setI18nCountry(code);
+                    }}
+                  />
+                  <BioBlixText
+                    variant="caption"
+                    color={BioBlixPalette.muted}
+                    style={{ marginTop: -4, marginBottom: 4 }}
+                  >
+                    {t('auth.countryHint')}
+                  </BioBlixText>
                   <Field label={t('auth.nickname')}>
                     <TextInput
                       autoCapitalize="none"
@@ -883,14 +923,6 @@ function BioBlixSignInForm() {
                       keyboardType="numbers-and-punctuation"
                     />
                   </Field>
-                  <CountryPicker
-                    label={t('auth.country')}
-                    value={countryCode}
-                    onChange={(code) => {
-                      setCountryCode(code);
-                      setI18nCountry(code);
-                    }}
-                  />
                 </>
               ) : null}
 
@@ -925,11 +957,11 @@ function BioBlixSignInForm() {
                     onPress={() => setShowPassword((v) => !v)}
                     style={styles.eyeBtn}
                     accessibilityLabel={
-                      showPassword ? 'Skjul passord' : 'Vis passord'
+                      showPassword ? t('auth.hidePassword') : t('auth.showPassword')
                     }
                   >
                     <BioBlixText variant="caption" color={BioBlixPalette.cyan}>
-                      {showPassword ? 'Skjul' : 'Vis'}
+                      {showPassword ? t('auth.hide') : t('auth.show')}
                     </BioBlixText>
                   </Pressable>
                 </View>
@@ -962,7 +994,7 @@ function BioBlixSignInForm() {
                 </View>
                 <View style={styles.legalTextWrap}>
                   <BioBlixText variant="caption" color={BioBlixPalette.fog}>
-                    Jeg godtar{' '}
+                    {t('auth.acceptPrefix')}{' '}
                   </BioBlixText>
                   <Link href="/privacy">
                     <BioBlixText
@@ -970,12 +1002,12 @@ function BioBlixSignInForm() {
                       color={BioBlixPalette.cyan}
                       style={styles.legalLink}
                     >
-                      personvernerklæringen
+                      {t('account.privacyPolicy')}
                     </BioBlixText>
                   </Link>
                   <BioBlixText variant="caption" color={BioBlixPalette.fog}>
                     {' '}
-                    og vilkårene for bruk
+                    {t('auth.termsAnd')}
                   </BioBlixText>
                 </View>
               </Pressable>
@@ -988,13 +1020,13 @@ function BioBlixSignInForm() {
                   !canSubmit && styles.appleBtnDisabled,
                 ]}
                 accessibilityRole="button"
-                accessibilityLabel="Fortsett med Apple"
+                accessibilityLabel={t('auth.continueApple')}
               >
                 {appleBusy ? (
                   <ActivityIndicator color={BioBlixPalette.fog} />
                 ) : (
                   <BioBlixText variant="label" color={BioBlixPalette.fog}>
-                    Fortsett med Apple
+                    {t('auth.continueApple')}
                   </BioBlixText>
                 )}
               </Pressable>
@@ -1002,7 +1034,7 @@ function BioBlixSignInForm() {
               <View style={styles.orRow}>
                 <View style={styles.orLine} />
                 <BioBlixText variant="caption" color={BioBlixPalette.muted}>
-                  eller e-post
+                  {t('auth.orEmail')}
                 </BioBlixText>
                 <View style={styles.orLine} />
               </View>
@@ -1024,20 +1056,28 @@ function BioBlixSignInForm() {
                 color={BioBlixPalette.muted}
                 style={styles.legalFoot}
               >
-                Ved å fortsette bekrefter du at du har lest vår personvernpolicy.
+                {t('auth.continueConfirm')}
               </BioBlixText>
             </>
           ) : step === 'apple-continue' ? (
             <>
               {(appleMissingFields.length > 0 ? (
                 <BioBlixText variant="caption" color={BioBlixPalette.muted}>
-                  Clerk mangler: {appleMissingFields.join(', ')}
+                  {t('auth.clerkMissing', { fields: appleMissingFields.join(', ') })}
                 </BioBlixText>
               ) : (
                 <BioBlixText variant="caption" color={BioBlixPalette.muted}>
-                  Status: {String(appleSignUpRef.current?.status ?? 'ukjent')}
+                  {t('auth.status', { status: String(appleSignUpRef.current?.status ?? '—') })}
                 </BioBlixText>
               ))}
+              <CountryPicker
+                label={t('auth.country')}
+                value={countryCode}
+                onChange={(code) => {
+                  setCountryCode(code);
+                  setI18nCountry(code);
+                }}
+              />
               <Field label={t('auth.nickname')}>
                 <TextInput
                   autoCapitalize="none"
@@ -1083,14 +1123,6 @@ function BioBlixSignInForm() {
                   keyboardType="numbers-and-punctuation"
                 />
               </Field>
-              <CountryPicker
-                label={t('auth.country')}
-                value={countryCode}
-                onChange={(code) => {
-                  setCountryCode(code);
-                  setI18nCountry(code);
-                }}
-              />
               <BioBlixGradientButton
                 label={t('auth.completeContinue')}
                 disabled={busy}
@@ -1140,7 +1172,7 @@ function BioBlixSignInForm() {
                 style={styles.linkBtn}
               >
                 <BioBlixText variant="caption" color={BioBlixPalette.cyan}>
-                  Send ny kode
+                  {t('auth.sendNewCode')}
                 </BioBlixText>
               </Pressable>
               <Pressable
@@ -1156,7 +1188,7 @@ function BioBlixSignInForm() {
                 style={styles.linkBtn}
               >
                 <BioBlixText variant="caption" color={BioBlixPalette.cyan}>
-                  Start på nytt
+                  {t('auth.startOver')}
                 </BioBlixText>
               </Pressable>
               <BioBlixText variant="caption" color={BioBlixPalette.muted}>
