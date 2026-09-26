@@ -14,6 +14,7 @@ import {
 
 import { BioBlixEditPostModal } from '@/components/bioblix/BioBlixEditPostModal';
 import { BioBlixText } from '@/components/bioblix/BioBlixText';
+import { CountryPicker } from '@/components/bioblix/CountryPicker';
 import {
   BioBlixLogo,
   BioBlixScreenShell,
@@ -28,6 +29,12 @@ import { Brand, Colors } from '@/constants/Colors';
 import { useCurrentUserProfile } from '@/hooks/useCurrentUserProfile';
 import { useProYearlyEntitlement } from '@/hooks/useProYearlyEntitlement';
 import { syncFirebaseAuthFromClerk } from '@/lib/clerk/firebaseSession';
+import { useI18n } from '@/lib/i18n';
+import { formatPlanPricesFallback } from '@/lib/i18n/countryLocale';
+import {
+  NSFW_REJECT_MESSAGE,
+  assertMediaAllowed,
+} from '@/lib/moderation/nsfw';
 import { confirmAction, notify } from '@/lib/platform';
 import { presentProYearlyPaywall } from '@/lib/revenuecat/paywall';
 import { syncProToFirestore } from '@/lib/revenuecat/web';
@@ -62,6 +69,7 @@ function BioBlixAccountSigned() {
   const { user } = useUser();
   const { signOut } = useClerk();
   const router = useRouter();
+  const { t, setCountryCode, countryCode } = useI18n();
   const {
     user: profile,
     loading: profileLoading,
@@ -78,8 +86,45 @@ function BioBlixAccountSigned() {
   const [postsLoading, setPostsLoading] = useState(false);
   const [editing, setEditing] = useState<Post | null>(null);
   const [upgrading, setUpgrading] = useState(false);
+  const [savingCountry, setSavingCountry] = useState(false);
 
   const hasPro = Boolean(isOwner || isProYearly || profile?.isProYearly);
+  const priceSummary = formatPlanPricesFallback(
+    countryCode ?? profile?.countryCode
+  ).summary;
+
+  useEffect(() => {
+    const code = profile?.countryCode;
+    if (code) setCountryCode(code);
+  }, [profile?.countryCode, setCountryCode]);
+
+  const onChangeCountry = useCallback(
+    async (code: string) => {
+      if (!userId || !user) return;
+      setCountryCode(code);
+      setSavingCountry(true);
+      try {
+        await user.update({
+          unsafeMetadata: {
+            ...(typeof user.unsafeMetadata === 'object' && user.unsafeMetadata
+              ? user.unsafeMetadata
+              : {}),
+            countryCode: code,
+          },
+        });
+        await updateUser(userId, { countryCode: code });
+        await refresh();
+      } catch (err) {
+        notify(
+          t('common.error'),
+          err instanceof Error ? err.message : t('common.error')
+        );
+      } finally {
+        setSavingCountry(false);
+      }
+    },
+    [userId, user, setCountryCode, refresh, t]
+  );
 
   const loadMyPosts = useCallback(async () => {
     if (!userId || !isSignedIn) {
@@ -117,7 +162,7 @@ function BioBlixAccountSigned() {
     if (!userId) return;
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      notify('Tilgang', 'Gi tilgang til bilder for profilbilde.');
+      notify(t('common.error'), t('account.avatarPermission'));
       return;
     }
 
@@ -130,6 +175,15 @@ function BioBlixAccountSigned() {
     if (result.canceled || !result.assets?.[0]) return;
 
     const asset = result.assets[0];
+    try {
+      await assertMediaAllowed(asset.uri, 'image');
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : NSFW_REJECT_MESSAGE;
+      notify(t('common.notAllowed'), message);
+      return;
+    }
+
     setUploadingAvatar(true);
     try {
       await syncFirebaseAuthFromClerk(() => getToken());
@@ -141,16 +195,16 @@ function BioBlixAccountSigned() {
       });
       await updateUser(userId, { imageUrl: url });
       await refresh();
-      notify('Profilbilde', 'Bildet er oppdatert.');
+      notify(t('account.title'), t('account.avatarUpdated'));
     } catch (err) {
       notify(
-        'Feil',
-        err instanceof Error ? err.message : 'Kunne ikke laste opp bilde'
+        t('common.error'),
+        err instanceof Error ? err.message : t('account.avatarUploadFail')
       );
     } finally {
       setUploadingAvatar(false);
     }
-  }, [userId, getToken, refresh]);
+  }, [userId, getToken, refresh, t]);
 
   const onShare = useCallback(async () => {
     if (!userId) return;
@@ -161,19 +215,19 @@ function BioBlixAccountSigned() {
       'BioBlix';
     try {
       await shareProfile({ userId, displayName: name });
-      notify('Delt', 'Profillenken er delt eller kopiert.');
+      notify(t('account.share'), t('account.shared'));
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return;
       notify(
-        'Feil',
-        err instanceof Error ? err.message : 'Kunne ikke dele'
+        t('common.error'),
+        err instanceof Error ? err.message : t('account.shareFail')
       );
     }
-  }, [userId, profile?.displayName, user]);
+  }, [userId, profile?.displayName, user, t]);
 
   const onUpgrade = useCallback(async () => {
     if (hasPro) {
-      notify('Pro aktiv', 'Du har allerede Pro med klikkbare lenker.');
+      notify(t('account.proActive'), t('account.proAlready'));
       return;
     }
     setUpgrading(true);
@@ -181,6 +235,7 @@ function BioBlixAccountSigned() {
       const entitled = await presentProYearlyPaywall({
         appUserId: userId,
         customerEmail: user?.primaryEmailAddress?.emailAddress ?? null,
+        countryCode: countryCode ?? profile?.countryCode ?? null,
       });
       // Always try to mirror RC → Firestore (webhook may be missing).
       let mirrored = false;
@@ -192,25 +247,27 @@ function BioBlixAccountSigned() {
       await refreshEntitlement();
       await refresh();
       if (entitled || mirrored) {
-        notify(
-          'Pro aktiv',
-          'Du kan nå legge klikkbare butikklenker på blixene dine.'
-        );
-      } else {
-        notify(
-          'Betaling mottatt?',
-          'Hvis du nettopp betalte: vent noen sekunder og trykk Oppdater. Sjekk også at produktene er knyttet til entitlement «pro_yearly» i RevenueCat.'
-        );
+        notify(t('account.proActivated'), t('account.proActivatedBody'));
       }
     } catch (err) {
       notify(
-        'Betaling',
-        err instanceof Error ? err.message : 'Kunne ikke åpne betaling'
+        t('account.payment'),
+        err instanceof Error ? err.message : t('account.paymentFail')
       );
     } finally {
       setUpgrading(false);
     }
-  }, [hasPro, refreshEntitlement, refresh, userId, user, getToken]);
+  }, [
+    hasPro,
+    userId,
+    user,
+    getToken,
+    refresh,
+    refreshEntitlement,
+    countryCode,
+    profile?.countryCode,
+    t,
+  ]);
 
   const onDeletePost = useCallback(
     async (post: Post) => {
@@ -271,7 +328,7 @@ function BioBlixAccountSigned() {
               </LinearGradient>
             </Pressable>
           </Link>
-          <PlansBlock />
+          <PlansBlock priceSummary={priceSummary} />
           <AboutLinks />
         </ScrollView>
       </BioBlixScreenShell>
@@ -370,7 +427,7 @@ function BioBlixAccountSigned() {
           </Pressable>
           <Pressable onPress={() => void signOut()} style={styles.secondaryBtn}>
             <BioBlixText variant="caption" color={BioBlixPalette.magenta}>
-              Logg ut
+              {t('account.signOut')}
             </BioBlixText>
           </Pressable>
         </View>
@@ -393,10 +450,10 @@ function BioBlixAccountSigned() {
               ) : (
                 <>
                   <BioBlixText variant="label" color={Colors.ink}>
-                    Bli Pro — betal her
+                    {t('account.becomePro')}
                   </BioBlixText>
                   <BioBlixText variant="caption" color={Colors.inkElevated}>
-                    59 kr/mnd eller 399 kr/år · klikkbare lenker
+                    {t('account.becomeProSub', { prices: priceSummary })}
                   </BioBlixText>
                 </>
               )}
@@ -405,14 +462,25 @@ function BioBlixAccountSigned() {
         ) : (
           <View style={styles.proActiveBanner}>
             <BioBlixText variant="caption" color={Colors.lime}>
-              Pro aktiv · klikkbare lenker på blix
+              {t('account.proActive')} · {t('account.proActiveSub')}
             </BioBlixText>
           </View>
         )}
 
+        <View style={styles.countryBlock}>
+          <CountryPicker
+            label={t('account.country')}
+            value={countryCode ?? profile?.countryCode ?? null}
+            onChange={(code) => void onChangeCountry(code)}
+          />
+          {savingCountry ? (
+            <ActivityIndicator color={Colors.lime} style={{ marginTop: 8 }} />
+          ) : null}
+        </View>
+
         <View style={styles.postsHeader}>
           <BioBlixText variant="label" color={Colors.mistDim}>
-            Mine blix ({myPosts.length})
+            {t('account.myBlix')} ({myPosts.length})
           </BioBlixText>
           <BioBlixText variant="caption" color={Colors.mistDim}>
             Rediger · Slett
@@ -485,7 +553,7 @@ function BioBlixAccountSigned() {
           <Link href="/privacy" asChild>
             <Pressable>
               <BioBlixText variant="caption" color={Colors.lime}>
-                Personvern
+                {t('account.privacy')}
               </BioBlixText>
             </Pressable>
           </Link>
@@ -518,7 +586,7 @@ function BioBlixAccountSigned() {
   );
 }
 
-function PlansBlock() {
+function PlansBlock({ priceSummary }: { priceSummary: string }) {
   return (
     <>
       <View style={styles.planCard}>
@@ -535,7 +603,7 @@ function PlansBlock() {
         style={styles.planPro}
       >
         <BioBlixText variant="title" color={Colors.ink}>
-          {SUBSCRIPTION_PLANS.pro.label} · 59 kr/mnd · 399 kr/år
+          {SUBSCRIPTION_PLANS.pro.label} · {priceSummary}
         </BioBlixText>
         <BioBlixText variant="caption" color={Colors.inkElevated}>
           Klikkbare butikklenker på hvert blix
@@ -628,6 +696,10 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 7,
+  },
+  countryBlock: {
+    marginHorizontal: 16,
+    marginBottom: 12,
   },
   postsHeader: {
     flexDirection: 'row',

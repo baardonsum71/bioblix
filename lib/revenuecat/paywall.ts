@@ -9,6 +9,7 @@ import { isWeb } from '@/lib/platform';
 type PresentOptions = {
   appUserId?: string | null;
   customerEmail?: string | null;
+  countryCode?: string | null;
 };
 
 /**
@@ -22,7 +23,8 @@ export async function presentProYearlyPaywall(
     if (isWeb || Platform.OS === 'web') {
       const entitled = await presentWebPaywall(
         options?.appUserId,
-        options?.customerEmail
+        options?.customerEmail,
+        options?.countryCode
       );
       if (entitled) return true;
       return hasProYearlyEntitlement(options?.appUserId);

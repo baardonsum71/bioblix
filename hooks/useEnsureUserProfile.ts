@@ -46,6 +46,14 @@ export function useEnsureUserProfile() {
           typeof user.unsafeMetadata?.nickname === 'string'
             ? user.unsafeMetadata.nickname.trim()
             : '';
+        const birthDateRaw =
+          typeof user.unsafeMetadata?.birthDate === 'string'
+            ? user.unsafeMetadata.birthDate.trim()
+            : '';
+        const countryCodeRaw =
+          typeof user.unsafeMetadata?.countryCode === 'string'
+            ? user.unsafeMetadata.countryCode.trim().toUpperCase()
+            : '';
         const displayName =
           nickname ||
           user.username ||
@@ -58,6 +66,8 @@ export function useEnsureUserProfile() {
           email,
           displayName,
           imageUrl: user.imageUrl ?? null,
+          birthDate: birthDateRaw || null,
+          countryCode: countryCodeRaw || null,
         });
 
         // Best-effort owner Pro grant (requires FIREBASE_SERVICE_ACCOUNT_JSON).

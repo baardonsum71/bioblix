@@ -25,9 +25,13 @@ import {
   BioBlixRadii,
   BioBlixSpacing,
 } from '@/constants/bioblixTheme';
+import { CountryPicker } from '@/components/bioblix/CountryPicker';
+import { useI18n } from '@/lib/i18n';
+import { isAllowedCountry } from '@/lib/i18n/countries';
+import { MIN_AGE, isAtLeastAge } from '@/lib/validation/age';
 
 /** Bump when auth flow changes — visible on screen to confirm Vercel build. */
-const AUTH_BUILD = 'auth-v13-signup-unknown';
+const AUTH_BUILD = 'auth-v14-age-16';
 
 type Step = 'form' | 'verify' | 'apple-continue';
 type Mode = 'sign-up' | 'sign-in';
@@ -101,11 +105,14 @@ function BioBlixSignInForm() {
   const { signIn, errors: signInErrors, fetchStatus: signInStatus } = useSignIn();
   const { signUp, errors: signUpErrors, fetchStatus: signUpStatus } = useSignUp();
   const { startSSOFlow } = useSSO();
+  const { t, setCountryCode: setI18nCountry } = useI18n();
 
   const [mode, setMode] = useState<Mode>('sign-up');
   const [nick, setNick] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [birthDate, setBirthDate] = useState('');
+  const [countryCode, setCountryCode] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -176,7 +183,13 @@ function BioBlixSignInForm() {
   const finishAppleSignUp = useCallback(
     async (
       active: NonNullable<typeof appleSignUpRef.current>,
-      opts?: { first?: string; last?: string; nickname?: string }
+      opts?: {
+        first?: string;
+        last?: string;
+        nickname?: string;
+        birthDate?: string;
+        countryCode?: string;
+      }
     ): Promise<string | null> => {
       const missingList = () =>
         (active.missingFields ?? []).map((f) => String(f));
@@ -188,6 +201,24 @@ function BioBlixSignInForm() {
         String(active.status) === 'missing_requirements' &&
         missingList().length === 0
       ) {
+        if (opts?.birthDate || opts?.nickname || opts?.countryCode) {
+          await active.update({
+            unsafeMetadata: {
+              ...(typeof active.unsafeMetadata === 'object' &&
+              active.unsafeMetadata
+                ? active.unsafeMetadata
+                : {}),
+              ...(opts.nickname ? { nickname: opts.nickname } : {}),
+              ...(opts.birthDate
+                ? {
+                    birthDate: opts.birthDate,
+                    ageConfirmedAt: new Date().toISOString(),
+                  }
+                : {}),
+              ...(opts.countryCode ? { countryCode: opts.countryCode } : {}),
+            },
+          });
+        }
         const { error: finError } = await active.finalize({
           navigate: navigateAfterAuth,
         });
@@ -206,11 +237,27 @@ function BioBlixSignInForm() {
         firstName?: string;
         lastName?: string;
         legalAccepted?: boolean;
+        unsafeMetadata?: Record<string, unknown>;
       } = {};
       const m0 = missing();
       if (m0.has('first_name') && opts?.first) patch.firstName = opts.first;
       if (m0.has('last_name') && opts?.last) patch.lastName = opts.last;
       if (m0.has('legal_accepted')) patch.legalAccepted = true;
+      if (opts?.birthDate || opts?.nickname || opts?.countryCode) {
+        patch.unsafeMetadata = {
+          ...(typeof active.unsafeMetadata === 'object' && active.unsafeMetadata
+            ? (active.unsafeMetadata as Record<string, unknown>)
+            : {}),
+          ...(opts.nickname ? { nickname: opts.nickname } : {}),
+          ...(opts.birthDate
+            ? {
+                birthDate: opts.birthDate,
+                ageConfirmedAt: new Date().toISOString(),
+              }
+            : {}),
+          ...(opts.countryCode ? { countryCode: opts.countryCode } : {}),
+        };
+      }
 
       if (Object.keys(patch).length > 0) {
         const { error } = await active.update(patch);
@@ -371,6 +418,15 @@ function BioBlixSignInForm() {
     const first = firstName.trim();
     const last = lastName.trim();
     const nickname = nick.trim().toLowerCase().replace(/\s+/g, '');
+    const ageCheck = isAtLeastAge(birthDate);
+    if (!ageCheck.ok) {
+      setFormError(ageCheck.message);
+      return;
+    }
+    if (!countryCode || !isAllowedCountry(countryCode)) {
+      setFormError(t('auth.countryRequired'));
+      return;
+    }
     const active = appleSignUpRef.current;
     const missing = new Set(
       (active?.missingFields ?? appleMissingFields).map((f) => String(f))
@@ -404,6 +460,8 @@ function BioBlixSignInForm() {
         first: needsName ? first : undefined,
         last: needsName ? last : undefined,
         nickname: nickname || undefined,
+        birthDate: ageCheck.birthDate,
+        countryCode,
       });
       if (err) setFormError(err);
     } catch (err) {
@@ -415,6 +473,9 @@ function BioBlixSignInForm() {
     firstName,
     lastName,
     nick,
+    birthDate,
+    countryCode,
+    t,
     appleMissingFields,
     finishAppleSignUp,
   ]);
@@ -428,6 +489,15 @@ function BioBlixSignInForm() {
     const username = nick.trim().toLowerCase().replace(/\s+/g, '');
     const first = firstName.trim();
     const last = lastName.trim();
+    const ageCheck = isAtLeastAge(birthDate);
+    if (!ageCheck.ok) {
+      setFormError(ageCheck.message);
+      return;
+    }
+    if (!countryCode || !isAllowedCountry(countryCode)) {
+      setFormError(t('auth.countryRequired'));
+      return;
+    }
 
     if (!username || username.length < 3) {
       setFormError('Kallenavn må være minst 3 tegn (uten mellomrom).');
@@ -448,6 +518,9 @@ function BioBlixSignInForm() {
 
     const meta = {
       nickname: username,
+      birthDate: ageCheck.birthDate,
+      ageConfirmedAt: new Date().toISOString(),
+      countryCode,
       acceptedPrivacyAt: new Date().toISOString(),
     };
 
@@ -540,6 +613,9 @@ function BioBlixSignInForm() {
     nick,
     firstName,
     lastName,
+    birthDate,
+    countryCode,
+    t,
     signUp,
     signUpErrors,
     navigateAfterAuth,
@@ -736,7 +812,7 @@ function BioBlixSignInForm() {
                         : BioBlixPalette.muted
                     }
                   >
-                    Ny konto
+                    {t('auth.signUp')}
                   </BioBlixText>
                 </Pressable>
                 <Pressable
@@ -757,53 +833,73 @@ function BioBlixSignInForm() {
                         : BioBlixPalette.muted
                     }
                   >
-                    Logg inn
+                    {t('auth.signIn')}
                   </BioBlixText>
                 </Pressable>
               </View>
 
               {mode === 'sign-up' ? (
                 <>
-                  <Field label="Kallenavn / nick">
+                  <Field label={t('auth.nickname')}>
                     <TextInput
                       autoCapitalize="none"
                       autoComplete="username"
-                      placeholder="f.eks. blekkulf"
+                      placeholder="e.g. blekkulf"
                       placeholderTextColor={BioBlixPalette.muted}
                       style={styles.input}
                       value={nick}
                       onChangeText={setNick}
                     />
                   </Field>
-                  <Field label="Fornavn">
+                  <Field label={t('auth.firstName')}>
                     <TextInput
                       autoComplete="given-name"
-                      placeholder="Fornavn"
+                      placeholder={t('auth.firstName')}
                       placeholderTextColor={BioBlixPalette.muted}
                       style={styles.input}
                       value={firstName}
                       onChangeText={setFirstName}
                     />
                   </Field>
-                  <Field label="Etternavn">
+                  <Field label={t('auth.lastName')}>
                     <TextInput
                       autoComplete="family-name"
-                      placeholder="Etternavn"
+                      placeholder={t('auth.lastName')}
                       placeholderTextColor={BioBlixPalette.muted}
                       style={styles.input}
                       value={lastName}
                       onChangeText={setLastName}
                     />
                   </Field>
+                  <Field label={t('auth.birthDate', { age: MIN_AGE })}>
+                    <TextInput
+                      autoComplete="birthdate-full"
+                      placeholder={t('auth.birthDateHint')}
+                      placeholderTextColor={BioBlixPalette.muted}
+                      style={styles.input}
+                      value={birthDate}
+                      onChangeText={setBirthDate}
+                      autoCapitalize="none"
+                      keyboardType="numbers-and-punctuation"
+                    />
+                  </Field>
+                  <CountryPicker
+                    label={t('auth.country')}
+                    value={countryCode}
+                    onChange={(code) => {
+                      setCountryCode(code);
+                      setI18nCountry(code);
+                    }}
+                  />
                 </>
               ) : null}
 
-              <Field label="E-post">
+              <Field label={t('auth.email')}>
                 <TextInput
                   autoCapitalize="none"
                   autoComplete="email"
                   keyboardType="email-address"
-                  placeholder="deg@epost.no"
+                  placeholder="you@email.com"
                   placeholderTextColor={BioBlixPalette.muted}
                   style={styles.input}
                   value={email}
@@ -811,14 +907,14 @@ function BioBlixSignInForm() {
                 />
               </Field>
 
-              <Field label="Passord">
+              <Field label={t('auth.password')}>
                 <View style={styles.passwordRow}>
                   <TextInput
                     autoCapitalize="none"
                     autoComplete={
                       mode === 'sign-up' ? 'new-password' : 'password'
                     }
-                    placeholder="Passord"
+                    placeholder={t('auth.password')}
                     placeholderTextColor={BioBlixPalette.muted}
                     secureTextEntry={!showPassword}
                     style={[styles.input, styles.passwordInput]}
@@ -912,7 +1008,9 @@ function BioBlixSignInForm() {
               </View>
 
               <BioBlixGradientButton
-                label={mode === 'sign-up' ? 'Opprett konto' : 'Logg inn'}
+                label={
+                  mode === 'sign-up' ? t('auth.createAccount') : t('auth.signIn')
+                }
                 disabled={!canSubmit}
                 loading={busy && !appleBusy}
                 onPress={() =>
@@ -940,41 +1038,61 @@ function BioBlixSignInForm() {
                   Status: {String(appleSignUpRef.current?.status ?? 'ukjent')}
                 </BioBlixText>
               ))}
-              <Field label="Kallenavn / nick (valgfritt)">
+              <Field label={t('auth.nickname')}>
                 <TextInput
                   autoCapitalize="none"
                   autoComplete="off"
-                  placeholder="f.eks. blekkulf"
+                  placeholder="e.g. blekkulf"
                   placeholderTextColor={BioBlixPalette.muted}
                   style={styles.input}
                   value={nick}
                   onChangeText={setNick}
                 />
               </Field>
-              <Field label="Fornavn">
+              <Field label={t('auth.firstName')}>
                 <TextInput
                   autoComplete="given-name"
                   autoCapitalize="words"
-                  placeholder="Fornavn"
+                  placeholder={t('auth.firstName')}
                   placeholderTextColor={BioBlixPalette.muted}
                   style={styles.input}
                   value={firstName}
                   onChangeText={setFirstName}
                 />
               </Field>
-              <Field label="Etternavn">
+              <Field label={t('auth.lastName')}>
                 <TextInput
                   autoComplete="family-name"
                   autoCapitalize="words"
-                  placeholder="Etternavn"
+                  placeholder={t('auth.lastName')}
                   placeholderTextColor={BioBlixPalette.muted}
                   style={styles.input}
                   value={lastName}
                   onChangeText={setLastName}
                 />
               </Field>
+              <Field label={t('auth.birthDate', { age: MIN_AGE })}>
+                <TextInput
+                  autoComplete="birthdate-full"
+                  placeholder={t('auth.birthDateHint')}
+                  placeholderTextColor={BioBlixPalette.muted}
+                  style={styles.input}
+                  value={birthDate}
+                  onChangeText={setBirthDate}
+                  autoCapitalize="none"
+                  keyboardType="numbers-and-punctuation"
+                />
+              </Field>
+              <CountryPicker
+                label={t('auth.country')}
+                value={countryCode}
+                onChange={(code) => {
+                  setCountryCode(code);
+                  setI18nCountry(code);
+                }}
+              />
               <BioBlixGradientButton
-                label="Fullfør og fortsett"
+                label={t('auth.completeContinue')}
                 disabled={busy}
                 loading={appleBusy}
                 onPress={() => void onCompleteAppleProfile()}
@@ -992,17 +1110,17 @@ function BioBlixSignInForm() {
                 style={styles.linkBtn}
               >
                 <BioBlixText variant="caption" color={BioBlixPalette.cyan}>
-                  Start på nytt
+                  {t('auth.startOver')}
                 </BioBlixText>
               </Pressable>
             </>
           ) : (
             <>
-              <Field label="Kode fra e-post">
+              <Field label={t('auth.codeFromEmail')}>
                 <TextInput
                   autoCapitalize="none"
                   keyboardType="number-pad"
-                  placeholder="6-sifret kode"
+                  placeholder="123456"
                   placeholderTextColor={BioBlixPalette.muted}
                   style={styles.input}
                   value={code}

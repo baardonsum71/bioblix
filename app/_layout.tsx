@@ -13,6 +13,7 @@ import 'react-native-reanimated';
 
 import { BioBlixProviders } from '@/components/bioblix/BioBlixProviders';
 import { BioBlixPalette } from '@/constants/bioblixTheme';
+import { I18nProvider } from '@/lib/i18n';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -44,16 +45,17 @@ export default function BioBlixRootLayout() {
   }
 
   return (
-    <BioBlixProviders>
-      <StatusBar style="light" />
-      <Stack
-        screenOptions={{
-          contentStyle: { backgroundColor: BioBlixPalette.night },
-          headerStyle: { backgroundColor: BioBlixPalette.night },
-          headerTintColor: BioBlixPalette.fog,
-          headerTitleStyle: { fontFamily: 'Syne_700Bold' },
-        }}
-      >
+    <I18nProvider>
+      <BioBlixProviders>
+        <StatusBar style="light" />
+        <Stack
+          screenOptions={{
+            contentStyle: { backgroundColor: BioBlixPalette.night },
+            headerStyle: { backgroundColor: BioBlixPalette.night },
+            headerTintColor: BioBlixPalette.fog,
+            headerTitleStyle: { fontFamily: 'Syne_700Bold' },
+          }}
+        >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen
@@ -92,6 +94,7 @@ export default function BioBlixRootLayout() {
           }}
         />
       </Stack>
-    </BioBlixProviders>
+      </BioBlixProviders>
+    </I18nProvider>
   );
 }
