@@ -19,7 +19,6 @@ import {
   BioBlixScreenShell,
 } from '@/components/bioblix/BioBlixLogo';
 import { isClerkConfigured } from '@/components/bioblix/BioBlixProviders';
-import { BioBlixVerticalFeed } from '@/components/bioblix/BioBlixVerticalFeed';
 import {
   BioBlixGradient,
   BioBlixPalette,
@@ -29,13 +28,13 @@ import { Brand, Colors } from '@/constants/Colors';
 import { useCurrentUserProfile } from '@/hooks/useCurrentUserProfile';
 import { useProYearlyEntitlement } from '@/hooks/useProYearlyEntitlement';
 import { syncFirebaseAuthFromClerk } from '@/lib/clerk/firebaseSession';
-import { notify } from '@/lib/platform';
+import { confirmAction, notify } from '@/lib/platform';
 import { presentProYearlyPaywall } from '@/lib/revenuecat/paywall';
 import { syncProToFirestore } from '@/lib/revenuecat/web';
 import { shareProfile } from '@/lib/shareProfile';
 import { SUBSCRIPTION_PLANS } from '@/lib/subscription';
 import { countFollowers, countFollowing } from '@/services/follows';
-import { listPostsByUser } from '@/services/posts';
+import { deletePost, listPostsByUser } from '@/services/posts';
 import { uploadAvatarMedia } from '@/services/storage';
 import { updateUser } from '@/services/users';
 import type { Post } from '@/types';
@@ -213,6 +212,29 @@ function BioBlixAccountSigned() {
     }
   }, [hasPro, refreshEntitlement, refresh, userId, user, getToken]);
 
+  const onDeletePost = useCallback(
+    async (post: Post) => {
+      const ok = await confirmAction(
+        'Slett blix?',
+        `«${post.title}» fjernes permanent.`,
+        { confirmLabel: 'Slett', destructive: true }
+      );
+      if (!ok) return;
+      try {
+        await syncFirebaseAuthFromClerk(() => getToken());
+        await deletePost(post.id);
+        setMyPosts((prev) => prev.filter((p) => p.id !== post.id));
+        notify('Slettet', 'Blixet er fjernet.');
+      } catch (err) {
+        notify(
+          'Feil',
+          err instanceof Error ? err.message : 'Kunne ikke slette'
+        );
+      }
+    },
+    [getToken]
+  );
+
   if (!isLoaded) {
     return (
       <BioBlixScreenShell style={styles.shellCenter}>
@@ -265,7 +287,12 @@ function BioBlixAccountSigned() {
 
   return (
     <BioBlixScreenShell>
-      <View style={styles.accountRoot}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.accountScroll}
+        keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled
+      >
         <View style={styles.profileHeader}>
           <Pressable
             onPress={() => void onPickAvatar()}
@@ -304,11 +331,7 @@ function BioBlixAccountSigned() {
               <ActivityIndicator color={Colors.lime} />
             ) : (
               <BioBlixText variant="caption" color={Colors.mistDim}>
-                {isOwner
-                  ? 'Eier · Pro'
-                  : hasPro
-                    ? 'Pro'
-                    : 'Standard'}
+                {isOwner ? 'Eier · Pro' : hasPro ? 'Pro' : 'Standard'}
               </BioBlixText>
             )}
             {profileError ? (
@@ -392,24 +415,71 @@ function BioBlixAccountSigned() {
             Mine blix ({myPosts.length})
           </BioBlixText>
           <BioBlixText variant="caption" color={Colors.mistDim}>
-            Sveip · Rediger / ···
+            Rediger · Slett
           </BioBlixText>
         </View>
 
-        <View style={styles.feedWrap}>
-          <BioBlixVerticalFeed
-            posts={myPosts}
-            loading={postsLoading}
-            viewerUserId={userId}
-            usernameFor={() => displayName}
-            emptyMessage="Ingen blix ennå. Publiser fra Publiser-fanen."
-            onDeleted={(id) =>
-              setMyPosts((prev) => prev.filter((p) => p.id !== id))
-            }
-            onEdit={(post) => setEditing(post)}
-            requireFocus
+        {postsLoading ? (
+          <ActivityIndicator
+            color={Colors.lime}
+            style={{ marginHorizontal: 16, alignSelf: 'flex-start' }}
           />
-        </View>
+        ) : myPosts.length === 0 ? (
+          <BioBlixText
+            variant="body"
+            color={Colors.mistDim}
+            style={styles.emptyPosts}
+          >
+            Ingen blix ennå. Publiser fra Publiser-fanen.
+          </BioBlixText>
+        ) : (
+          <View style={styles.postsList}>
+            {myPosts.map((post) => (
+              <View key={post.id} style={styles.postCard}>
+                <Image
+                  source={{ uri: post.mediaUrl }}
+                  style={styles.postThumb}
+                  contentFit="cover"
+                />
+                <View style={styles.postMeta}>
+                  <BioBlixText variant="body" numberOfLines={2}>
+                    {post.title}
+                  </BioBlixText>
+                  <BioBlixText
+                    variant="caption"
+                    color={Colors.mistDim}
+                    numberOfLines={1}
+                  >
+                    {post.description || post.mediaType}
+                  </BioBlixText>
+                  <View style={styles.postActions}>
+                    <Pressable
+                      onPress={() => setEditing(post)}
+                      hitSlop={8}
+                      style={styles.postActionBtn}
+                    >
+                      <BioBlixText variant="caption" color={Colors.lime}>
+                        Rediger
+                      </BioBlixText>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => void onDeletePost(post)}
+                      hitSlop={8}
+                      style={styles.postActionBtn}
+                    >
+                      <BioBlixText
+                        variant="caption"
+                        color={BioBlixPalette.magenta}
+                      >
+                        Slett
+                      </BioBlixText>
+                    </Pressable>
+                  </View>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
 
         <View style={styles.footerLinks}>
           <Link href="/privacy" asChild>
@@ -431,7 +501,7 @@ function BioBlixAccountSigned() {
             </BioBlixText>
           )}
         </View>
-      </View>
+      </ScrollView>
 
       <BioBlixEditPostModal
         post={editing}
@@ -493,9 +563,10 @@ function AboutLinks() {
 }
 
 const styles = StyleSheet.create({
-  accountRoot: {
-    flex: 1,
+  accountScroll: {
     paddingTop: 48,
+    paddingBottom: 28,
+    flexGrow: 1,
   },
   scroll: {
     flex: 1,
@@ -563,11 +634,45 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    marginBottom: 6,
+    marginBottom: 8,
+    marginTop: 4,
   },
-  feedWrap: {
+  emptyPosts: {
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  postsList: {
+    paddingHorizontal: 16,
+    gap: 10,
+    marginBottom: 12,
+  },
+  postCard: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: Colors.surfaceMuted,
+    paddingRight: 10,
+  },
+  postThumb: {
+    width: 72,
+    height: 72,
+  },
+  postMeta: {
     flex: 1,
-    minHeight: 320,
+    gap: 2,
+    paddingVertical: 8,
+  },
+  postActions: {
+    flexDirection: 'row',
+    gap: 14,
+    marginTop: 4,
+  },
+  postActionBtn: {
+    paddingVertical: 2,
   },
   footerLinks: {
     flexDirection: 'row',
