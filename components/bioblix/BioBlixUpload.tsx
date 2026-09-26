@@ -23,6 +23,7 @@ import { syncFirebaseAuthFromClerk } from '@/lib/clerk/firebaseSession';
 import { firebaseAuth } from '@/lib/firebase/auth';
 import { notify } from '@/lib/platform';
 import { presentProYearlyPaywall } from '@/lib/revenuecat/paywall';
+import { syncProToFirestore } from '@/lib/revenuecat/web';
 import { withTimeout } from '@/lib/withTimeout';
 import { validateProLinkUrl } from '@/lib/validation/proLink';
 import {
@@ -156,8 +157,14 @@ export default function BioBlixUpload() {
       const entitled = await presentProYearlyPaywall({
         appUserId: userId,
       });
+      let mirrored = false;
+      try {
+        mirrored = await syncProToFirestore(() => getToken());
+      } catch {
+        mirrored = false;
+      }
       await refresh();
-      if (entitled) {
+      if (entitled || mirrored) {
         notify(
           'Pro Årlig aktiv',
           'Du kan nå legge klikkbare butikklenker på BioBlix-innleggene dine.'
@@ -169,7 +176,7 @@ export default function BioBlixUpload() {
         err instanceof Error ? err.message : 'Kunne ikke åpne betaling'
       );
     }
-  }, [refresh, userId]);
+  }, [refresh, userId, getToken]);
 
   const onPublish = useCallback(async () => {
     if (!userId || !media) {

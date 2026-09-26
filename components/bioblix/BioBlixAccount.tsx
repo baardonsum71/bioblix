@@ -31,6 +31,7 @@ import { useProYearlyEntitlement } from '@/hooks/useProYearlyEntitlement';
 import { syncFirebaseAuthFromClerk } from '@/lib/clerk/firebaseSession';
 import { notify } from '@/lib/platform';
 import { presentProYearlyPaywall } from '@/lib/revenuecat/paywall';
+import { syncProToFirestore } from '@/lib/revenuecat/web';
 import { shareProfile } from '@/lib/shareProfile';
 import { SUBSCRIPTION_PLANS } from '@/lib/subscription';
 import { countFollowers, countFollowing } from '@/services/follows';
@@ -182,11 +183,24 @@ function BioBlixAccountSigned() {
         appUserId: userId,
         customerEmail: user?.primaryEmailAddress?.emailAddress ?? null,
       });
+      // Always try to mirror RC → Firestore (webhook may be missing).
+      let mirrored = false;
+      try {
+        mirrored = await syncProToFirestore(() => getToken());
+      } catch {
+        mirrored = false;
+      }
       await refreshEntitlement();
-      if (entitled) {
+      await refresh();
+      if (entitled || mirrored) {
         notify(
           'Pro aktiv',
           'Du kan nå legge klikkbare butikklenker på blixene dine.'
+        );
+      } else {
+        notify(
+          'Betaling mottatt?',
+          'Hvis du nettopp betalte: vent noen sekunder og trykk Oppdater. Sjekk også at produktene er knyttet til entitlement «pro_yearly» i RevenueCat.'
         );
       }
     } catch (err) {
@@ -197,7 +211,7 @@ function BioBlixAccountSigned() {
     } finally {
       setUpgrading(false);
     }
-  }, [hasPro, refreshEntitlement, userId, user]);
+  }, [hasPro, refreshEntitlement, refresh, userId, user, getToken]);
 
   if (!isLoaded) {
     return (
