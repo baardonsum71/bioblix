@@ -23,6 +23,7 @@ import { syncFirebaseAuthFromClerk } from '@/lib/clerk/firebaseSession';
 import { firebaseAuth } from '@/lib/firebase/auth';
 import { notify } from '@/lib/platform';
 import { presentProYearlyPaywall } from '@/lib/revenuecat/paywall';
+import { withTimeout } from '@/lib/withTimeout';
 import { validateProLinkUrl } from '@/lib/validation/proLink';
 import {
   MAX_TAGS_PER_POST,
@@ -55,6 +56,7 @@ export default function BioBlixUpload() {
   const [popular, setPopular] = useState<Tag[]>([]);
   const [media, setMedia] = useState<PickedMedia | null>(null);
   const [publishing, setPublishing] = useState(false);
+  const [publishStatus, setPublishStatus] = useState<string | null>(null);
 
   useEffect(() => {
     void listPopularTags(12)
@@ -199,32 +201,47 @@ export default function BioBlixUpload() {
       : tags;
 
     setPublishing(true);
+    setPublishStatus('Kobler til Firebase…');
     try {
-      if (!firebaseAuth.currentUser) {
-        await syncFirebaseAuthFromClerk(() => getToken());
-      }
+      // Always refresh Clerk→Firebase so we don't hang on a stale session.
+      await withTimeout(
+        syncFirebaseAuthFromClerk(() => getToken()),
+        25_000,
+        'Firebase-innlogging'
+      );
       if (!firebaseAuth.currentUser) {
         throw new Error(
           'Firebase-innlogging feilet. Logg ut og inn igjen, så prøv på nytt.'
         );
       }
 
-      const mediaUrl = await uploadPostMedia({
-        userId,
-        uri: media.uri,
-        mediaType: media.mediaType,
-        mimeType: media.mimeType,
-      });
+      setPublishStatus('Laster opp media…');
+      const mediaUrl = await withTimeout(
+        uploadPostMedia({
+          userId,
+          uri: media.uri,
+          mediaType: media.mediaType,
+          mimeType: media.mimeType,
+          getClerkToken: () => getToken(),
+        }),
+        90_000,
+        'Mediaopplasting'
+      );
 
-      await createPost({
-        userId,
-        mediaUrl,
-        mediaType: media.mediaType,
-        title: title.trim(),
-        description: description.trim(),
-        tags: finalTags,
-        linkUrl: safeLink,
-      });
+      setPublishStatus('Lagrer blix…');
+      await withTimeout(
+        createPost({
+          userId,
+          mediaUrl,
+          mediaType: media.mediaType,
+          title: title.trim(),
+          description: description.trim(),
+          tags: finalTags,
+          linkUrl: safeLink,
+        }),
+        25_000,
+        'Lagring'
+      );
 
       setTitle('');
       setDescription('');
@@ -241,6 +258,7 @@ export default function BioBlixUpload() {
       notify('Feil', message);
     } finally {
       setPublishing(false);
+      setPublishStatus(null);
     }
   }, [
     userId,
@@ -431,6 +449,15 @@ export default function BioBlixUpload() {
             </BioBlixText>
           )}
         </Pressable>
+        {publishStatus ? (
+          <BioBlixText
+            variant="caption"
+            color={Colors.mistDim}
+            style={styles.publishStatus}
+          >
+            {publishStatus}
+          </BioBlixText>
+        ) : null}
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -533,5 +560,9 @@ const styles = StyleSheet.create({
   },
   publishButtonDisabled: {
     opacity: 0.4,
+  },
+  publishStatus: {
+    marginTop: 10,
+    textAlign: 'center',
   },
 });

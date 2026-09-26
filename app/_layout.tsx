@@ -84,6 +84,13 @@ export default function BioBlixRootLayout() {
             headerBackTitle: 'Tags',
           }}
         />
+        <Stack.Screen
+          name="u/[userId]"
+          options={{
+            title: 'Profil',
+            headerBackTitle: 'Tilbake',
+          }}
+        />
       </Stack>
     </BioBlixProviders>
   );

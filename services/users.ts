@@ -49,12 +49,16 @@ export async function upsertUser(
   const existing = await getDoc(ref);
 
   if (existing.exists()) {
-    await updateDoc(ref, {
+    const patch: Record<string, unknown> = {
       email: input.email,
       displayName: input.displayName,
-      imageUrl: input.imageUrl ?? null,
       updatedAt: serverTimestamp(),
-    });
+    };
+    // Don't wipe a custom avatar when Clerk sync has no imageUrl.
+    if (input.imageUrl) {
+      patch.imageUrl = input.imageUrl;
+    }
+    await updateDoc(ref, patch);
     return;
   }
 
