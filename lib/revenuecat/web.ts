@@ -233,10 +233,13 @@ async function purchaseViaPackagePicker(
   const locale = localeFromCountry(countryCode);
   const fallback = formatPlanPricesFallback(countryCode);
 
-  const offerings = await purchases
-    .getOfferings({ currency })
-    .catch(() => purchases.getOfferings());
-  const current = offerings.current;
+  // Prefer offerings in the user's currency. Do NOT fall back to default (often NOK)
+  // for display — that mixes English UI with Norwegian prices.
+  let offerings = await purchases.getOfferings({ currency }).catch(() => null);
+  if (!offerings?.current?.availablePackages.length) {
+    offerings = await purchases.getOfferings().catch(() => null);
+  }
+  const current = offerings?.current;
   if (!current || current.availablePackages.length === 0) {
     throw new Error(translate(locale, 'paywall.noPackages'));
   }
@@ -252,20 +255,28 @@ async function purchaseViaPackagePicker(
       /month|måned/i.test(p.identifier + (p.webBillingProduct?.title ?? ''))
     );
 
+  const priceLabel = (
+    pkg: NonNullable<typeof monthly> | undefined,
+    fallbackLabel: string
+  ): string => {
+    const price = pkg?.webBillingProduct?.currentPrice;
+    if (!price) return fallbackLabel;
+    const code = (price.currency || '').toUpperCase();
+    // Only show RC price when it matches the country currency.
+    if (code && code !== currency.toUpperCase()) return fallbackLabel;
+    return price.formattedPrice || fallbackLabel;
+  };
+
   const lines = [
     translate(locale, 'paywall.selectPlan'),
     monthly
       ? translate(locale, 'paywall.monthly', {
-          price:
-            monthly.webBillingProduct?.currentPrice?.formattedPrice ??
-            fallback.monthly,
+          price: priceLabel(monthly, fallback.monthly),
         })
       : null,
     yearly
       ? translate(locale, 'paywall.yearly', {
-          price:
-            yearly.webBillingProduct?.currentPrice?.formattedPrice ??
-            fallback.yearly,
+          price: priceLabel(yearly, fallback.yearly),
         })
       : null,
     translate(locale, 'paywall.cancel'),
