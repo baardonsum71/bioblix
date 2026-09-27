@@ -44,3 +44,13 @@ export function liveKitApiKey(): string {
 export function liveKitApiSecret(): string {
   return cleanEnv(process.env.LIVEKIT_API_SECRET);
 }
+
+/** Safe diagnostics for errors (never includes secret). */
+export function liveKitDiag(): { host: string; keyPrefix: string; wsUrl: string } {
+  const key = liveKitApiKey();
+  return {
+    host: liveKitHttpHost(),
+    wsUrl: liveKitWsUrl(),
+    keyPrefix: key ? `${key.slice(0, 6)}…` : '(empty)',
+  };
+}

@@ -1,6 +1,5 @@
 import { verifyToken } from '@clerk/backend';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { RoomServiceClient } from 'livekit-server-sdk';
 import { FieldValue } from 'firebase-admin/firestore';
 import * as jose from 'jose';
 
@@ -23,23 +22,11 @@ type Body = {
   displayName?: string;
 };
 
-function roomClient(): RoomServiceClient {
-  return new RoomServiceClient(
-    liveKitHttpHost(),
-    liveKitApiKey(),
-    liveKitApiSecret()
-  );
-}
-
-/**
- * Mint LiveKit JWT with jose directly.
- * Avoid AccessToken.toJwt()'s setNotBefore(now) — clock skew → "invalid token".
- */
-async function mintToken(params: {
+async function signLiveKitJwt(claims: {
   identity: string;
-  name: string;
-  roomName: string;
-  canPublish: boolean;
+  name?: string;
+  video: Record<string, unknown>;
+  ttl?: string;
 }): Promise<string> {
   const apiKey = liveKitApiKey();
   const apiSecret = liveKitApiSecret();
@@ -47,35 +34,78 @@ async function mintToken(params: {
     throw new Error('LiveKit API key/secret missing');
   }
 
-  const token = await new jose.SignJWT({
-    name: params.name,
-    video: {
-      roomJoin: true,
-      room: params.roomName,
-      canPublish: params.canPublish,
-      canSubscribe: true,
-      canPublishData: false,
-    },
+  // Match livekit-server-sdk shape, but omit nbf (SDK setNotBefore(now) causes
+  // clock-skew "invalid token"; nbf:0 is also rejected by some validators).
+  const builder = new jose.SignJWT({
+    ...(claims.name ? { name: claims.name } : {}),
+    video: claims.video,
   })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuer(apiKey)
-    .setSubject(params.identity)
-    .setExpirationTime('6h')
-    .setNotBefore(0)
-    .sign(new TextEncoder().encode(apiSecret));
+    .setSubject(claims.identity)
+    .setJti(claims.identity)
+    .setExpirationTime(claims.ttl ?? '6h');
 
+  const token = await builder.sign(new TextEncoder().encode(apiSecret));
   if (typeof token !== 'string' || token.split('.').length !== 3) {
     throw new Error('LiveKit mint produced a non-JWT token');
   }
   return token;
 }
 
+async function mintParticipantToken(params: {
+  identity: string;
+  name: string;
+  roomName: string;
+  canPublish: boolean;
+}): Promise<string> {
+  return signLiveKitJwt({
+    identity: params.identity,
+    name: params.name,
+    video: {
+      roomJoin: true,
+      room: params.roomName,
+      // Hosts may auto-create the room on first join.
+      ...(params.canPublish ? { roomCreate: true } : {}),
+      canPublish: params.canPublish,
+      canSubscribe: true,
+      canPublishData: false,
+    },
+  });
+}
+
+/** Probe that URL + key + secret belong to the same LiveKit project. */
+async function assertLiveKitCredentials(): Promise<void> {
+  const host = liveKitHttpHost();
+  const apiKey = liveKitApiKey();
+  const keyHint = apiKey.slice(0, 6);
+
+  const token = await signLiveKitJwt({
+    identity: 'bioblix_cred_check',
+    video: { roomList: true },
+    ttl: '2m',
+  });
+
+  const res = await fetch(`${host}/twirp/livekit.RoomService/ListRooms`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: '{}',
+  });
+
+  if (res.ok) return;
+
+  const body = await res.text().catch(() => '');
+  throw new Error(
+    `LiveKit rejected credentials (HTTP ${res.status}) for host ${host} / key ${keyHint}… — paste LIVEKIT_URL, LIVEKIT_API_KEY and LIVEKIT_API_SECRET from the same project Keys page (no quotes). ${body.slice(0, 120)}`
+  );
+}
+
 /**
  * Clerk JWT → LiveKit access token + Firestore live session.
  * Body: { action: 'start' | 'watch' | 'end', liveId?, title?, displayName? }
- *
- * Rooms are auto-created on first join (no RoomService createRoom) to avoid
- * SDK AccessToken nbf clock-skew failures.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
@@ -128,6 +158,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
+    if (action === 'start' || action === 'watch') {
+      await assertLiveKitCredentials();
+    }
+
     if (action === 'start') {
       const title =
         typeof body.title === 'string' && body.title.trim()
@@ -152,7 +186,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         endedAt: null,
       });
 
-      const token = await mintToken({
+      const token = await mintParticipantToken({
         identity: userId,
         name: displayName,
         roomName,
@@ -191,7 +225,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         typeof body.displayName === 'string' && body.displayName.trim()
           ? body.displayName.trim().slice(0, 60)
           : `viewer_${userId.slice(0, 8)}`;
-      const token = await mintToken({
+      const token = await mintParticipantToken({
         identity: `viewer_${userId}`,
         name: displayName,
         roomName,
@@ -210,8 +244,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       endedAt: FieldValue.serverTimestamp(),
     });
 
+    // Best-effort room delete via Twirp (jose token — no SDK AccessToken nbf).
     try {
-      await roomClient().deleteRoom(roomName);
+      const delToken = await signLiveKitJwt({
+        identity: 'bioblix_room_delete',
+        video: { roomCreate: true },
+        ttl: '2m',
+      });
+      await fetch(
+        `${liveKitHttpHost()}/twirp/livekit.RoomService/DeleteRoom`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${delToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ room: roomName }),
+        }
+      );
     } catch (err) {
       console.warn('[live-token] deleteRoom failed', err);
     }
