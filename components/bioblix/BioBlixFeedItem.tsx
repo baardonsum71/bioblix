@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
 
@@ -21,7 +21,37 @@ type BioBlixFeedItemProps = {
   onEdit?: () => void;
 };
 
-function FeedVideo({
+/** Web: raw <video> — expo-video VideoView ignores fill sizing in Safari. */
+function FeedVideoWeb({ uri, isActive }: { uri: string; isActive: boolean }) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el) return;
+    if (isActive) {
+      el.muted = false;
+      void el.play().catch(() => {
+        el.muted = true;
+        void el.play().catch(() => undefined);
+      });
+    } else {
+      el.pause();
+      el.muted = true;
+    }
+  }, [isActive, uri]);
+
+  return (
+    <video
+      ref={videoRef}
+      src={uri}
+      loop
+      playsInline
+      style={webVideoStyle}
+    />
+  );
+}
+
+function FeedVideoNative({
   uri,
   isActive,
 }: {
@@ -50,8 +80,16 @@ function FeedVideo({
       contentFit="cover"
       nativeControls={false}
       allowsPictureInPicture={false}
+      playsInline
     />
   );
+}
+
+function FeedVideo({ uri, isActive }: { uri: string; isActive: boolean }) {
+  if (Platform.OS === 'web') {
+    return <FeedVideoWeb uri={uri} isActive={isActive} />;
+  }
+  return <FeedVideoNative uri={uri} isActive={isActive} />;
 }
 
 export function BioBlixFeedItem({
@@ -115,14 +153,29 @@ export function BioBlixFeedItem({
   );
 }
 
+const webVideoStyle = {
+  position: 'absolute' as const,
+  top: 0,
+  left: 0,
+  width: '100%',
+  height: '100%',
+  objectFit: 'cover' as const,
+  backgroundColor: '#050B12',
+};
+
 const styles = StyleSheet.create({
   item: {
+    position: 'relative',
     width: '100%',
     backgroundColor: '#050B12',
     overflow: 'hidden',
   },
   media: {
-    ...StyleSheet.absoluteFill,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
   },
   editBtn: {
     position: 'absolute',
