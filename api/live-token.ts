@@ -48,7 +48,7 @@ async function mintToken(params: {
     canSubscribe: true,
     canPublishData: false,
   });
-  return at.toJwt();
+  return await at.toJwt();
 }
 
 /**
