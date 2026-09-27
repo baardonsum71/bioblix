@@ -465,7 +465,7 @@ export const en: Dictionary = {
   'live.nsfwEnded': 'Live ended',
   'live.nsfwEndedBody': 'Nudity or sexual content is not allowed. Your live was stopped.',
   'live.cameraDenied':
-    'Camera or microphone access was denied. Allow camera and mic for BioBlix, then try again.',
+    'Camera/mic blocked. On iPhone: open in Safari → allow camera & mic. If you tapped Don’t Allow before: Settings → Safari → Camera/Microphone → Allow, then reload.',
   'live.openInSafari':
     'Go live needs Safari (or Chrome). Open this page in Safari — in-app browsers block the camera.',
   'privacy.title': 'Privacy policy',
@@ -741,7 +741,7 @@ export const nb: Dictionary = {
   'live.nsfwEnded': 'Live avsluttet',
   'live.nsfwEndedBody': 'Nakenhet eller seksuelt innhold er ikke tillatt. Live-sendingen ble stoppet.',
   'live.cameraDenied':
-    'Kamera eller mikrofon ble nektet. Tillat kamera og mic for BioBlix, og prøv igjen.',
+    'Kamera/mic blokkert. På iPhone: åpne i Safari → tillat kamera og mic. Hvis du trykket Ikke tillat før: Innstillinger → Safari → Kamera/Mikrofon → Tillat, last siden på nytt.',
   'live.openInSafari':
     'Gå live krever Safari (eller Chrome). Åpne siden i Safari — innebygde nettlesere blokkerer kamera.',
   'privacy.title': 'Personvernerklæring',

@@ -167,47 +167,68 @@ export function BioBlixGoLive({ onEnded }: { onEnded?: () => void }) {
       return;
     }
 
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+      notify(t('live.startFail'), t('live.cameraDenied'));
+      return;
+    }
+
     // In-app browsers (Instagram/Google/Facebook) block camera on iOS.
-    if (typeof navigator !== 'undefined') {
-      const ua = navigator.userAgent || '';
-      const isIOS = /iPhone|iPad|iPod/i.test(ua);
-      const isInApp =
-        /(FBAN|FBAV|Instagram|Line\/|Twitter|GSA\/|GoogleApp)/i.test(ua) ||
-        // iOS WebView without Safari marker
-        (isIOS && !/Safari/i.test(ua));
-      if (isInApp) {
-        notify(t('live.startFail'), t('live.openInSafari'));
+    const ua = navigator.userAgent || '';
+    const isIOS = /iPhone|iPad|iPod/i.test(ua);
+    const isInApp =
+      /(FBAN|FBAV|Instagram|Line\/|Twitter|GSA\/|GoogleApp)/i.test(ua) ||
+      (isIOS && !/Safari/i.test(ua));
+    if (isInApp) {
+      notify(t('live.startFail'), t('live.openInSafari'));
+      return;
+    }
+
+    endingRef.current = false;
+
+    // CRITICAL on iOS: getUserMedia must be the first await in the tap handler.
+    // No setState / dynamic import before this, or Safari kills the user gesture.
+    let mediaStream: MediaStream;
+    try {
+      mediaStream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: { facingMode: 'user' },
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (
+        /NotAllowedError|not allowed|permission|denied|SecurityError/i.test(msg) ||
+        (typeof DOMException !== 'undefined' &&
+          err instanceof DOMException &&
+          (err.name === 'NotAllowedError' || err.name === 'SecurityError'))
+      ) {
+        notify(t('live.startFail'), t('live.cameraDenied'));
         return;
       }
+      notify(t('live.startFail'), msg);
+      return;
+    }
+
+    if (videoRef.current) {
+      videoRef.current.srcObject = mediaStream;
+      void videoRef.current.play().catch(() => undefined);
     }
 
     setPhase('starting');
-    endingRef.current = false;
+
     try {
       const livekit = livekitRef.current ?? (await import('livekit-client'));
       livekitRef.current = livekit;
-      const { Room, createLocalTracks, Track } = livekit;
+      const { Room, LocalAudioTrack, LocalVideoTrack, Track } = livekit;
 
-      // iOS: getUserMedia must run before other awaits (user-gesture requirement).
-      let tracks: import('livekit-client').LocalTrack[];
-      try {
-        tracks = await createLocalTracks({
-          audio: true,
-          video: {
-            facingMode: 'user',
-          },
-        });
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if (
-          /NotAllowedError|not allowed|permission|denied/i.test(msg) ||
-          (err instanceof DOMException && err.name === 'NotAllowedError')
-        ) {
-          throw new Error(t('live.cameraDenied'));
-        }
-        throw err;
+      const tracks: import('livekit-client').LocalTrack[] = [];
+      for (const mediaTrack of mediaStream.getAudioTracks()) {
+        tracks.push(new LocalAudioTrack(mediaTrack, undefined, true));
+      }
+      for (const mediaTrack of mediaStream.getVideoTracks()) {
+        tracks.push(new LocalVideoTrack(mediaTrack, undefined, true));
       }
       localTracksRef.current = tracks;
+
       for (const track of tracks) {
         if (track.kind === Track.Kind.Video && videoRef.current) {
           track.attach(videoRef.current);
@@ -254,7 +275,6 @@ export function BioBlixGoLive({ onEnded }: { onEnded?: () => void }) {
         await room.localParticipant.publishTrack(track);
       }
 
-      // Pre-flight frame check before marking live in UI (room already created).
       await new Promise((r) => setTimeout(r, 600));
       if (videoRef.current) {
         try {
@@ -282,6 +302,16 @@ export function BioBlixGoLive({ onEnded }: { onEnded?: () => void }) {
       setLiveId(session.liveId);
       setPhase('live');
     } catch (err) {
+      for (const track of mediaStream.getTracks()) {
+        try {
+          track.stop();
+        } catch {
+          /* ignore */
+        }
+      }
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
       await cleanup();
       setPhase('idle');
       setLiveId(null);
