@@ -192,6 +192,8 @@ export type MessageKey =
   | 'live.watching'
   | 'live.nsfwEnded'
   | 'live.nsfwEndedBody'
+  | 'live.cameraDenied'
+  | 'live.openInSafari'
   | 'privacy.title'
   | 'privacy.updated'
   | 'privacy.intro'
@@ -462,6 +464,10 @@ export const en: Dictionary = {
   'live.watching': 'Watching live',
   'live.nsfwEnded': 'Live ended',
   'live.nsfwEndedBody': 'Nudity or sexual content is not allowed. Your live was stopped.',
+  'live.cameraDenied':
+    'Camera or microphone access was denied. Allow camera and mic for BioBlix, then try again.',
+  'live.openInSafari':
+    'Go live needs Safari (or Chrome). Open this page in Safari — in-app browsers block the camera.',
   'privacy.title': 'Privacy policy',
   'privacy.updated': 'Last updated: {date}',
   'privacy.intro':
@@ -734,6 +740,10 @@ export const nb: Dictionary = {
   'live.watching': 'Ser live',
   'live.nsfwEnded': 'Live avsluttet',
   'live.nsfwEndedBody': 'Nakenhet eller seksuelt innhold er ikke tillatt. Live-sendingen ble stoppet.',
+  'live.cameraDenied':
+    'Kamera eller mikrofon ble nektet. Tillat kamera og mic for BioBlix, og prøv igjen.',
+  'live.openInSafari':
+    'Gå live krever Safari (eller Chrome). Åpne siden i Safari — innebygde nettlesere blokkerer kamera.',
   'privacy.title': 'Personvernerklæring',
   'privacy.updated': 'Sist oppdatert: {date}',
   'privacy.intro':
