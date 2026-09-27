@@ -77,7 +77,7 @@ function FeedVideoNative({
     <VideoView
       player={player}
       style={styles.media}
-      contentFit="cover"
+      contentFit="contain"
       nativeControls={false}
       allowsPictureInPicture={false}
       playsInline
@@ -159,7 +159,7 @@ const webVideoStyle = {
   left: 0,
   width: '100%',
   height: '100%',
-  objectFit: 'cover' as const,
+  objectFit: 'contain' as const,
   backgroundColor: '#050B12',
 };
 

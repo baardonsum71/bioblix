@@ -63,7 +63,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (!isLiveKitConfigured()) {
-      return res.status(503).json({ error: 'LiveKit is not configured' });
+      return res.status(503).json({
+        error:
+          'LiveKit is not configured. Set LIVEKIT_URL, LIVEKIT_API_KEY and LIVEKIT_API_SECRET on the server.',
+      });
     }
 
     const secretKey = process.env.CLERK_SECRET_KEY;

@@ -19,7 +19,6 @@ import { BioBlixTagSuggestList } from '@/components/bioblix/BioBlixTagSuggestLis
 import { BioBlixText } from '@/components/bioblix/BioBlixText';
 import { Brand, Colors } from '@/constants/Colors';
 import { isWeb, notify } from '@/lib/platform';
-import { isLiveKitClientConfigured } from '@/lib/live/api';
 import { useAppUserId } from '@/hooks/useAppUserId';
 import { useProYearlyEntitlement } from '@/hooks/useProYearlyEntitlement';
 import { syncFirebaseAuthFromClerk } from '@/lib/clerk/firebaseSession';
@@ -376,9 +375,9 @@ export default function BioBlixUpload() {
             <BioBlixText variant="label" color={Colors.ink}>
               {t('live.goLive')}
             </BioBlixText>
-            {!isWeb || !isLiveKitClientConfigured() ? (
+            {!isWeb ? (
               <BioBlixText variant="caption" color={Colors.inkElevated}>
-                {isWeb ? t('live.notConfigured') : t('live.webOnly')}
+                {t('live.webOnly')}
               </BioBlixText>
             ) : null}
           </Pressable>

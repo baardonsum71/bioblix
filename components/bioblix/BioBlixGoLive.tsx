@@ -13,11 +13,7 @@ import { BioBlixText } from '@/components/bioblix/BioBlixText';
 import { BioBlixPalette } from '@/constants/bioblixTheme';
 import { Colors } from '@/constants/Colors';
 import { useI18n } from '@/lib/i18n';
-import {
-  endLiveSession,
-  isLiveKitClientConfigured,
-  startLiveSession,
-} from '@/lib/live/api';
+import { endLiveSession, startLiveSession } from '@/lib/live/api';
 import {
   LIVE_NSFW_INTERVAL_MS,
   NSFW_REJECT_CODE,
@@ -157,10 +153,6 @@ export function BioBlixGoLive({ onEnded }: { onEnded?: () => void }) {
   const onStart = useCallback(async () => {
     if (!isWeb) {
       notify(t('live.webOnly'), t('live.webOnlyBody'));
-      return;
-    }
-    if (!isLiveKitClientConfigured()) {
-      notify(t('common.error'), t('live.notConfigured'));
       return;
     }
 

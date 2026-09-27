@@ -453,7 +453,8 @@ export const en: Dictionary = {
   'live.connecting': 'Connecting…',
   'live.webOnly': 'Live on web',
   'live.webOnlyBody': 'Go live from BioBlix in the browser for now. Native broadcast is coming later.',
-  'live.notConfigured': 'Live streaming is not configured yet.',
+  'live.notConfigured':
+    'LiveKit is not set up. Add LIVEKIT_URL, LIVEKIT_API_KEY and LIVEKIT_API_SECRET in Vercel, then redeploy.',
   'live.startFail': 'Could not start live.',
   'live.watchFail': 'Could not join live.',
   'live.ended': 'This live has ended.',
@@ -724,7 +725,8 @@ export const nb: Dictionary = {
   'live.connecting': 'Kobler til…',
   'live.webOnly': 'Live på web',
   'live.webOnlyBody': 'Gå live fra BioBlix i nettleseren foreløpig. Native sending kommer senere.',
-  'live.notConfigured': 'Live streaming er ikke satt opp ennå.',
+  'live.notConfigured':
+    'LiveKit er ikke satt opp. Legg til LIVEKIT_URL, LIVEKIT_API_KEY og LIVEKIT_API_SECRET i Vercel, og redeploy.',
   'live.startFail': 'Kunne ikke starte live.',
   'live.watchFail': 'Kunne ikke bli med i live.',
   'live.ended': 'Denne live-sendingen er avsluttet.',
