@@ -1,7 +1,8 @@
 import { verifyToken } from '@clerk/backend';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { AccessToken, RoomServiceClient } from 'livekit-server-sdk';
+import { RoomServiceClient } from 'livekit-server-sdk';
 import { FieldValue } from 'firebase-admin/firestore';
+import * as jose from 'jose';
 
 import { COLLECTIONS } from '../lib/firebase/collections';
 import { getAdminDb } from '../lib/server/firebaseAdmin';
@@ -30,30 +31,51 @@ function roomClient(): RoomServiceClient {
   );
 }
 
+/**
+ * Mint LiveKit JWT with jose directly.
+ * Avoid AccessToken.toJwt()'s setNotBefore(now) — clock skew → "invalid token".
+ */
 async function mintToken(params: {
   identity: string;
   name: string;
   roomName: string;
   canPublish: boolean;
 }): Promise<string> {
-  const at = new AccessToken(liveKitApiKey(), liveKitApiSecret(), {
-    identity: params.identity,
+  const apiKey = liveKitApiKey();
+  const apiSecret = liveKitApiSecret();
+  if (!apiKey || !apiSecret) {
+    throw new Error('LiveKit API key/secret missing');
+  }
+
+  const token = await new jose.SignJWT({
     name: params.name,
-    ttl: '6h',
-  });
-  at.addGrant({
-    roomJoin: true,
-    room: params.roomName,
-    canPublish: params.canPublish,
-    canSubscribe: true,
-    canPublishData: false,
-  });
-  return await at.toJwt();
+    video: {
+      roomJoin: true,
+      room: params.roomName,
+      canPublish: params.canPublish,
+      canSubscribe: true,
+      canPublishData: false,
+    },
+  })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuer(apiKey)
+    .setSubject(params.identity)
+    .setExpirationTime('6h')
+    .setNotBefore(0)
+    .sign(new TextEncoder().encode(apiSecret));
+
+  if (typeof token !== 'string' || token.split('.').length !== 3) {
+    throw new Error('LiveKit mint produced a non-JWT token');
+  }
+  return token;
 }
 
 /**
  * Clerk JWT → LiveKit access token + Firestore live session.
  * Body: { action: 'start' | 'watch' | 'end', liveId?, title?, displayName? }
+ *
+ * Rooms are auto-created on first join (no RoomService createRoom) to avoid
+ * SDK AccessToken nbf clock-skew failures.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
@@ -80,10 +102,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const jwt = authHeader.slice('Bearer '.length).trim();
-    const payload = await verifyToken(jwt, { secretKey });
-    const userId = payload.sub;
-    if (!userId) {
-      return res.status(401).json({ error: 'Invalid Clerk token (no sub)' });
+    let userId: string;
+    try {
+      const payload = await verifyToken(jwt, { secretKey });
+      if (!payload.sub) {
+        return res.status(401).json({ error: 'Invalid Clerk token (no sub)' });
+      }
+      userId = payload.sub;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Clerk auth failed';
+      return res.status(401).json({ error: `Clerk: ${message}` });
     }
 
     const body = (req.body ?? {}) as Body;
@@ -94,6 +122,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const db = getAdminDb();
     const url = liveKitWsUrl();
+    if (!url.startsWith('wss://') && !url.startsWith('ws://')) {
+      return res.status(500).json({
+        error: `LIVEKIT_URL must be a wss:// URL (got ${url.slice(0, 32)})`,
+      });
+    }
 
     if (action === 'start') {
       const title =
@@ -108,13 +141,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const liveRef = db.collection(COLLECTIONS.lives).doc();
       const liveId = liveRef.id;
       const roomName = liveId;
-
-      const client = roomClient();
-      await client.createRoom({
-        name: roomName,
-        emptyTimeout: 60 * 10,
-        maxParticipants: 500,
-      });
 
       await liveRef.set({
         hostUserId: userId,
