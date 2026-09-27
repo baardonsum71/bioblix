@@ -174,6 +174,24 @@ export type MessageKey =
   | 'feed.swipeHintShort'
   | 'tags.invalid'
   | 'tags.noPosts'
+  | 'tags.postCount'
+  | 'live.badge'
+  | 'live.goLive'
+  | 'live.endLive'
+  | 'live.title'
+  | 'live.titlePlaceholder'
+  | 'live.starting'
+  | 'live.connecting'
+  | 'live.webOnly'
+  | 'live.webOnlyBody'
+  | 'live.notConfigured'
+  | 'live.startFail'
+  | 'live.watchFail'
+  | 'live.ended'
+  | 'live.hosting'
+  | 'live.watching'
+  | 'live.nsfwEnded'
+  | 'live.nsfwEndedBody'
   | 'privacy.title'
   | 'privacy.updated'
   | 'privacy.intro'
@@ -425,6 +443,24 @@ export const en: Dictionary = {
   'feed.swipeHintShort': 'Swipe to change blix',
   'tags.invalid': 'Invalid tag.',
   'tags.noPosts': 'No blix with this tag yet.',
+  'tags.postCount': '{count} posts',
+  'live.badge': 'LIVE',
+  'live.goLive': 'Go live',
+  'live.endLive': 'End live',
+  'live.title': 'Live title',
+  'live.titlePlaceholder': 'What are you showcasing?',
+  'live.starting': 'Starting live…',
+  'live.connecting': 'Connecting…',
+  'live.webOnly': 'Live on web',
+  'live.webOnlyBody': 'Go live from BioBlix in the browser for now. Native broadcast is coming later.',
+  'live.notConfigured': 'Live streaming is not configured yet.',
+  'live.startFail': 'Could not start live.',
+  'live.watchFail': 'Could not join live.',
+  'live.ended': 'This live has ended.',
+  'live.hosting': 'You are live',
+  'live.watching': 'Watching live',
+  'live.nsfwEnded': 'Live ended',
+  'live.nsfwEndedBody': 'Nudity or sexual content is not allowed. Your live was stopped.',
   'privacy.title': 'Privacy policy',
   'privacy.updated': 'Last updated: {date}',
   'privacy.intro':
@@ -678,6 +714,24 @@ export const nb: Dictionary = {
   'feed.swipeHintShort': 'Sveip for å bytte blix',
   'tags.invalid': 'Ugyldig tag.',
   'tags.noPosts': 'Ingen blix med denne taggen ennå.',
+  'tags.postCount': '{count} innlegg',
+  'live.badge': 'LIVE',
+  'live.goLive': 'Gå live',
+  'live.endLive': 'Avslutt live',
+  'live.title': 'Live-tittel',
+  'live.titlePlaceholder': 'Hva viser du frem?',
+  'live.starting': 'Starter live…',
+  'live.connecting': 'Kobler til…',
+  'live.webOnly': 'Live på web',
+  'live.webOnlyBody': 'Gå live fra BioBlix i nettleseren foreløpig. Native sending kommer senere.',
+  'live.notConfigured': 'Live streaming er ikke satt opp ennå.',
+  'live.startFail': 'Kunne ikke starte live.',
+  'live.watchFail': 'Kunne ikke bli med i live.',
+  'live.ended': 'Denne live-sendingen er avsluttet.',
+  'live.hosting': 'Du er live',
+  'live.watching': 'Ser live',
+  'live.nsfwEnded': 'Live avsluttet',
+  'live.nsfwEndedBody': 'Nakenhet eller seksuelt innhold er ikke tillatt. Live-sendingen ble stoppet.',
   'privacy.title': 'Personvernerklæring',
   'privacy.updated': 'Sist oppdatert: {date}',
   'privacy.intro':

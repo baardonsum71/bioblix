@@ -36,14 +36,15 @@ function CardVideo({ uri, active }: { uri: string; active: boolean }) {
     <VideoView
       player={player}
       style={styles.media}
-      contentFit="contain"
+      contentFit="cover"
       nativeControls={false}
     />
   );
 }
 
 /**
- * Same framing as the Blix feed item: full-width vertical 9:16 frame, contain media.
+ * Same framing as the Blix feed item: full-width vertical frame.
+ * Images use contain (full picture); videos use cover (fill frame).
  */
 export function BioBlixPostCard({
   post,

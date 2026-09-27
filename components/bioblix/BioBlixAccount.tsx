@@ -416,6 +416,14 @@ function BioBlixAccountSigned() {
           </Pressable>
           <Pressable
             style={styles.secondaryBtn}
+            onPress={() => router.push('/live/go' as Href)}
+          >
+            <BioBlixText variant="caption" color={Colors.lime}>
+              {t('live.goLive')}
+            </BioBlixText>
+          </Pressable>
+          <Pressable
+            style={styles.secondaryBtn}
             onPress={() => void loadMyPosts()}
           >
             <BioBlixText variant="caption" color={Colors.lime}>

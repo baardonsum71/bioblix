@@ -2,6 +2,8 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { BioBlixText } from '@/components/bioblix/BioBlixText';
 import { BioBlixPalette, BioBlixRadii, Colors } from '@/constants/bioblixTheme';
+import { useI18n } from '@/lib/i18n';
+import { formatTagPostCount } from '@/lib/i18n/formatTagCount';
 
 type BioBlixTagChipsProps = {
   tags: string[];
@@ -19,6 +21,7 @@ export function BioBlixTagChips({
   counts,
   compact,
 }: BioBlixTagChipsProps) {
+  const { t, locale } = useI18n();
   if (!tags.length) return null;
 
   return (
@@ -26,7 +29,11 @@ export function BioBlixTagChips({
       {tags.map((tag) => {
         const count = counts?.[tag];
         const label =
-          count != null ? `#${tag} · ${count}` : `#${tag}`;
+          count != null
+            ? `#${tag} · ${t('tags.postCount', {
+                count: formatTagPostCount(count, locale),
+              })}`
+            : `#${tag}`;
         return (
           <Pressable
             key={tag}
@@ -51,7 +58,7 @@ export function BioBlixTagChips({
               <Pressable
                 onPress={() => onRemoveTag(tag)}
                 hitSlop={8}
-                accessibilityLabel={`Fjern ${tag}`}
+                accessibilityLabel={t('account.delete')}
               >
                 <BioBlixText variant="caption" color={BioBlixPalette.muted}>
                   {' '}

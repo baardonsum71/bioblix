@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -11,15 +11,22 @@ import {
 import { useIsFocused } from 'expo-router';
 
 import { BioBlixFeedItem } from '@/components/bioblix/BioBlixFeedItem';
+import { BioBlixLivePlayer } from '@/components/bioblix/BioBlixLivePlayer';
 import { BioBlixText } from '@/components/bioblix/BioBlixText';
 import { Colors } from '@/constants/Colors';
 import { useBioBlixFeedNavigation } from '@/hooks/useBioBlixFeedNavigation';
 import { useI18n } from '@/lib/i18n';
 import { isWeb } from '@/lib/platform';
-import type { Post } from '@/types';
+import type { LiveSession, Post } from '@/types';
+
+type FeedRow =
+  | { kind: 'live'; id: string; live: LiveSession }
+  | { kind: 'post'; id: string; post: Post };
 
 type BioBlixVerticalFeedProps = {
   posts: Post[];
+  /** Active live sessions shown above posts. */
+  lives?: LiveSession[];
   usernameFor: (post: Post) => string;
   viewerUserId: string | null;
   loading?: boolean;
@@ -38,6 +45,7 @@ type BioBlixVerticalFeedProps = {
  */
 export function BioBlixVerticalFeed({
   posts,
+  lives = [],
   usernameFor,
   viewerUserId,
   loading = false,
@@ -54,9 +62,21 @@ export function BioBlixVerticalFeed({
   const active = requireFocus ? isFocused : true;
   const [viewportHeight, setViewportHeight] = useState(0);
   const [activeIndex, setActiveIndex] = useState(0);
-  const listRef = useRef<FlatList<Post>>(null);
+  const listRef = useRef<FlatList<FeedRow>>(null);
 
-  const activePostId = posts[activeIndex]?.id ?? null;
+  const rows = useMemo<FeedRow[]>(() => {
+    const liveRows: FeedRow[] = lives.map((live) => ({
+      kind: 'live',
+      id: `live:${live.id}`,
+      live,
+    }));
+    const postRows: FeedRow[] = posts.map((post) => ({
+      kind: 'post',
+      id: post.id,
+      post,
+    }));
+    return [...liveRows, ...postRows];
+  }, [lives, posts]);
 
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
@@ -73,26 +93,26 @@ export function BioBlixVerticalFeed({
 
   const scrollToIndex = useCallback(
     (index: number) => {
-      if (!viewportHeight || posts.length === 0) return;
-      const clamped = Math.max(0, Math.min(posts.length - 1, index));
+      if (!viewportHeight || rows.length === 0) return;
+      const clamped = Math.max(0, Math.min(rows.length - 1, index));
       setActiveIndex(clamped);
       listRef.current?.scrollToOffset({
         offset: clamped * viewportHeight,
         animated: true,
       });
     },
-    [posts.length, viewportHeight]
+    [rows.length, viewportHeight]
   );
 
   useBioBlixFeedNavigation({
-    enabled: active && isWeb && viewportHeight > 0 && posts.length > 0,
-    itemCount: posts.length,
+    enabled: active && isWeb && viewportHeight > 0 && rows.length > 0,
+    itemCount: rows.length,
     activeIndex,
     onIndexChange: scrollToIndex,
   });
 
   const getItemLayout = useCallback(
-    (_: ArrayLike<Post> | null | undefined, index: number) => ({
+    (_: ArrayLike<FeedRow> | null | undefined, index: number) => ({
       length: viewportHeight,
       offset: viewportHeight * index,
       index,
@@ -106,16 +126,16 @@ export function BioBlixVerticalFeed({
       const index = Math.round(
         event.nativeEvent.contentOffset.y / viewportHeight
       );
-      setActiveIndex(Math.max(0, Math.min(posts.length - 1, index)));
+      setActiveIndex(Math.max(0, Math.min(rows.length - 1, index)));
     },
-    [viewportHeight, posts.length]
+    [viewportHeight, rows.length]
   );
 
   useEffect(() => {
-    if (activeIndex >= posts.length && posts.length > 0) {
-      setActiveIndex(posts.length - 1);
+    if (activeIndex >= rows.length && rows.length > 0) {
+      setActiveIndex(rows.length - 1);
     }
-  }, [posts.length, activeIndex]);
+  }, [rows.length, activeIndex]);
 
   return (
     <View
@@ -130,24 +150,38 @@ export function BioBlixVerticalFeed({
       {viewportHeight > 0 ? (
         <FlatList
           ref={listRef}
-          data={posts}
+          data={rows}
           keyExtractor={(item) => item.id}
-          renderItem={({ item, index }) => (
-            <BioBlixFeedItem
-              post={item}
-              height={viewportHeight}
-              isActive={item.id === activePostId && index === activeIndex}
-              username={usernameFor(item)}
-              viewerUserId={viewerUserId}
-              onAuthorBlocked={
-                onAuthorBlocked
-                  ? () => onAuthorBlocked(item.userId)
-                  : undefined
-              }
-              onDeleted={onDeleted ? () => onDeleted(item.id) : undefined}
-              onEdit={onEdit ? () => onEdit(item) : undefined}
-            />
-          )}
+          renderItem={({ item, index }) => {
+            const isActive = index === activeIndex && active;
+            if (item.kind === 'live') {
+              return (
+                <View style={{ height: viewportHeight, width: '100%' }}>
+                  <BioBlixLivePlayer
+                    live={item.live}
+                    active={isActive}
+                    height={viewportHeight}
+                  />
+                </View>
+              );
+            }
+            return (
+              <BioBlixFeedItem
+                post={item.post}
+                height={viewportHeight}
+                isActive={isActive}
+                username={usernameFor(item.post)}
+                viewerUserId={viewerUserId}
+                onAuthorBlocked={
+                  onAuthorBlocked
+                    ? () => onAuthorBlocked(item.post.userId)
+                    : undefined
+                }
+                onDeleted={onDeleted ? () => onDeleted(item.post.id) : undefined}
+                onEdit={onEdit ? () => onEdit(item.post) : undefined}
+              />
+            );
+          }}
           pagingEnabled
           snapToInterval={viewportHeight}
           snapToAlignment="start"
@@ -187,7 +221,7 @@ export function BioBlixVerticalFeed({
         </View>
       )}
 
-      {showNavHint && active && posts.length > 1 ? (
+      {showNavHint && active && rows.length > 1 ? (
         <BioBlixText
           variant="caption"
           color={Colors.mistDim}

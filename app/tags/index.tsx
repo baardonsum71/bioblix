@@ -12,11 +12,12 @@ import { BioBlixText } from '@/components/bioblix/BioBlixText';
 import { BioBlixScreenShell } from '@/components/bioblix/BioBlixLogo';
 import { BioBlixPalette, Colors } from '@/constants/bioblixTheme';
 import { useI18n } from '@/lib/i18n';
+import { formatTagPostCount } from '@/lib/i18n/formatTagCount';
 import { listAllTags } from '@/services/tags';
 import type { Tag } from '@/types';
 
 export default function TagsScreen() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [tags, setTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +71,9 @@ export default function TagsScreen() {
                 #{item.name}
               </BioBlixText>
               <BioBlixText variant="caption" color={Colors.mistDim}>
-                {item.postCount}
+                {t('tags.postCount', {
+                  count: formatTagPostCount(item.postCount, locale),
+                })}
               </BioBlixText>
             </Pressable>
           </Link>

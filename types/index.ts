@@ -7,3 +7,4 @@ export type {
 } from './post';
 export type { Tag } from './tag';
 export type { Report, CreateReportInput } from './report';
+export type { LiveSession, LiveStatus } from './live';

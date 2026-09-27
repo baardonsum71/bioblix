@@ -144,3 +144,42 @@ export async function assertMediaAllowed(
     throw new Error(NSFW_REJECT_MESSAGE);
   }
 }
+
+const LIVE_FRAME_MAX = 320;
+
+/**
+ * Sample the current frame of a playing HTMLVideoElement and classify.
+ * Used for periodic live-stream moderation on web.
+ */
+export async function assertLiveVideoFrameAllowed(
+  video: HTMLVideoElement
+): Promise<void> {
+  if (Platform.OS !== 'web' || typeof document === 'undefined') {
+    return;
+  }
+  const width = video.videoWidth || 0;
+  const height = video.videoHeight || 0;
+  if (width < 8 || height < 8) {
+    return; // not ready yet — skip this tick
+  }
+
+  const scale = Math.min(1, LIVE_FRAME_MAX / Math.max(width, height));
+  const w = Math.max(8, Math.round(width * scale));
+  const h = Math.max(8, Math.round(height * scale));
+
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('MODERATION_CHECK_FAIL');
+  ctx.drawImage(video, 0, 0, w, h);
+
+  const model = await loadModel();
+  const predictions = await model.classify(canvas);
+  if (exceedsThreshold(predictions)) {
+    throw new Error(NSFW_REJECT_MESSAGE);
+  }
+}
+
+/** Interval for host-side live frame moderation (ms). */
+export const LIVE_NSFW_INTERVAL_MS = 4000;
