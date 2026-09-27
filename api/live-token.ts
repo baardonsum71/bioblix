@@ -6,6 +6,7 @@ import * as jose from 'jose';
 import { COLLECTIONS } from '../lib/firebase/collections';
 import { getAdminDb } from '../lib/server/firebaseAdmin';
 import {
+  assertLiveKitEnvShape,
   isLiveKitConfigured,
   liveKitApiKey,
   liveKitApiSecret,
@@ -27,6 +28,8 @@ async function signLiveKitJwt(claims: {
   name?: string;
   video: Record<string, unknown>;
   ttl?: string;
+  /** Service API tokens omit sub/jti (RoomServiceClient style). */
+  service?: boolean;
 }): Promise<string> {
   const apiKey = liveKitApiKey();
   const apiSecret = liveKitApiSecret();
@@ -34,17 +37,20 @@ async function signLiveKitJwt(claims: {
     throw new Error('LiveKit API key/secret missing');
   }
 
-  // Match livekit-server-sdk shape, but omit nbf (SDK setNotBefore(now) causes
-  // clock-skew "invalid token"; nbf:0 is also rejected by some validators).
   const builder = new jose.SignJWT({
     ...(claims.name ? { name: claims.name } : {}),
     video: claims.video,
   })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuer(apiKey)
-    .setSubject(claims.identity)
-    .setJti(claims.identity)
     .setExpirationTime(claims.ttl ?? '6h');
+
+  if (!claims.service) {
+    if (!claims.identity) {
+      throw new Error('identity is required for participant tokens');
+    }
+    builder.setSubject(claims.identity).setJti(claims.identity);
+  }
 
   const token = await builder.sign(new TextEncoder().encode(apiSecret));
   if (typeof token !== 'string' || token.split('.').length !== 3) {
@@ -76,14 +82,18 @@ async function mintParticipantToken(params: {
 
 /** Probe that URL + key + secret belong to the same LiveKit project. */
 async function assertLiveKitCredentials(): Promise<void> {
+  assertLiveKitEnvShape();
+
   const host = liveKitHttpHost();
   const apiKey = liveKitApiKey();
   const keyHint = apiKey.slice(0, 6);
 
+  // Service tokens: no sub/jti (same as livekit-server-sdk RoomServiceClient).
   const token = await signLiveKitJwt({
-    identity: 'bioblix_cred_check',
+    identity: '',
     video: { roomList: true },
     ttl: '2m',
+    service: true,
   });
 
   const res = await fetch(`${host}/twirp/livekit.RoomService/ListRooms`, {
@@ -99,7 +109,7 @@ async function assertLiveKitCredentials(): Promise<void> {
 
   const body = await res.text().catch(() => '');
   throw new Error(
-    `LiveKit rejected credentials (HTTP ${res.status}) for host ${host} / key ${keyHint}… — paste LIVEKIT_URL, LIVEKIT_API_KEY and LIVEKIT_API_SECRET from the same project Keys page (no quotes). ${body.slice(0, 120)}`
+    `LiveKit 401 for ${host} / key ${keyHint}… — API Secret does not match this API Key. In LiveKit → Settings → Keys: create a new key, copy Key + Secret + WebSocket URL into Vercel (all three), then Redeploy. (${body.slice(0, 80)})`
   );
 }
 
