@@ -49,7 +49,15 @@ export async function startLiveSession(
     }),
   });
   const data = (await res.json()) as LiveTokenResponse & { error?: string };
-  if (!res.ok) throw new Error(data.error || 'Could not start live');
+  if (!res.ok) {
+    if (res.status === 503) {
+      throw new Error(
+        data.error ||
+          'LiveKit is not configured (set LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET on Vercel)'
+      );
+    }
+    throw new Error(data.error || 'Could not start live');
+  }
   return data;
 }
 

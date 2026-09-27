@@ -11,10 +11,7 @@ import { BioBlixText } from '@/components/bioblix/BioBlixText';
 import { BioBlixPalette } from '@/constants/bioblixTheme';
 import { Colors } from '@/constants/Colors';
 import { useI18n } from '@/lib/i18n';
-import {
-  isLiveKitClientConfigured,
-  watchLiveSession,
-} from '@/lib/live/api';
+import { watchLiveSession } from '@/lib/live/api';
 import { isWeb } from '@/lib/platform';
 import type { LiveSession } from '@/types';
 
@@ -44,7 +41,7 @@ export function BioBlixLivePlayer({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!active || !isWeb || !isLiveKitClientConfigured()) {
+    if (!active || !isWeb) {
       return;
     }
     if (!isSignedIn) {

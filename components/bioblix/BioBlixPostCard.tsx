@@ -36,7 +36,7 @@ function CardVideo({ uri, active }: { uri: string; active: boolean }) {
     <VideoView
       player={player}
       style={styles.media}
-      contentFit="cover"
+      contentFit="contain"
       nativeControls={false}
       playsInline
     />

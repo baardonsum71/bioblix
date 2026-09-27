@@ -30,7 +30,7 @@ function VideoPreview({ uri }: { uri: string }) {
       <VideoView
         player={player}
         style={styles.preview}
-        contentFit="cover"
+        contentFit="contain"
         nativeControls={false}
         playsInline
       />
