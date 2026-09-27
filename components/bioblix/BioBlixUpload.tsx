@@ -15,8 +15,11 @@ import { useAuth } from '@clerk/expo';
 
 import { BioBlixMediaPreview } from '@/components/bioblix/BioBlixMediaPreview';
 import { BioBlixTagChips } from '@/components/bioblix/BioBlixTagChips';
+import { BioBlixTagSuggestList } from '@/components/bioblix/BioBlixTagSuggestList';
 import { BioBlixText } from '@/components/bioblix/BioBlixText';
 import { Brand, Colors } from '@/constants/Colors';
+import { isWeb, notify } from '@/lib/platform';
+import { isLiveKitClientConfigured } from '@/lib/live/api';
 import { useAppUserId } from '@/hooks/useAppUserId';
 import { useProYearlyEntitlement } from '@/hooks/useProYearlyEntitlement';
 import { syncFirebaseAuthFromClerk } from '@/lib/clerk/firebaseSession';
@@ -26,7 +29,6 @@ import {
   NSFW_REJECT_CODE,
   assertMediaAllowed,
 } from '@/lib/moderation/nsfw';
-import { notify } from '@/lib/platform';
 import { presentProYearlyPaywall } from '@/lib/revenuecat/paywall';
 import { syncProToFirestore } from '@/lib/revenuecat/web';
 import { withTimeout } from '@/lib/withTimeout';
@@ -37,7 +39,7 @@ import {
   parseTagInput,
 } from '@/lib/validation/tags';
 import { createPost } from '@/services/posts';
-import { listPopularTags } from '@/services/tags';
+import { listPopularTags, searchTags } from '@/services/tags';
 import { uploadPostMedia } from '@/services/storage';
 import type { MediaType, Tag } from '@/types';
 
@@ -61,6 +63,7 @@ export default function BioBlixUpload() {
   const [tagDraft, setTagDraft] = useState('');
   const [tags, setTags] = useState<string[]>([]);
   const [popular, setPopular] = useState<Tag[]>([]);
+  const [suggestions, setSuggestions] = useState<Tag[]>([]);
   const [media, setMedia] = useState<PickedMedia | null>(null);
   const [publishing, setPublishing] = useState(false);
   const [publishStatus, setPublishStatus] = useState<string | null>(null);
@@ -71,11 +74,39 @@ export default function BioBlixUpload() {
       .catch(() => setPopular([]));
   }, []);
 
+  const tagQuery = useMemo(() => {
+    const parts = tagDraft.trim().split(/[,;\s]+/);
+    const last = parts[parts.length - 1] ?? '';
+    return last.replace(/^#+/, '').toLowerCase();
+  }, [tagDraft]);
+
+  useEffect(() => {
+    if (!tagQuery) {
+      setSuggestions([]);
+      return;
+    }
+    let cancelled = false;
+    const handle = setTimeout(() => {
+      void searchTags(tagQuery, 8)
+        .then((rows) => {
+          if (!cancelled) setSuggestions(rows);
+        })
+        .catch(() => {
+          if (!cancelled) setSuggestions([]);
+        });
+    }, 180);
+    return () => {
+      cancelled = true;
+      clearTimeout(handle);
+    };
+  }, [tagQuery]);
+
   const popularCounts = useMemo(() => {
     const map: Record<string, number> = {};
-    for (const t of popular) map[t.name] = t.postCount;
+    for (const row of popular) map[row.name] = row.postCount;
+    for (const row of suggestions) map[row.name] = row.postCount;
     return map;
-  }, [popular]);
+  }, [popular, suggestions]);
 
   const onLinkChange = useCallback(
     (value: string) => {
@@ -98,6 +129,7 @@ export default function BioBlixUpload() {
     if (!tagDraft.trim()) return;
     setTags((prev) => parseTagInput(tagDraft, prev));
     setTagDraft('');
+    setSuggestions([]);
   }, [tagDraft]);
 
   const addSuggestedTag = useCallback((slug: string) => {
@@ -109,6 +141,8 @@ export default function BioBlixUpload() {
       }
       return [...prev, normalized];
     });
+    setTagDraft('');
+    setSuggestions([]);
   }, []);
 
   const removeTag = useCallback((slug: string) => {
@@ -337,6 +371,19 @@ export default function BioBlixUpload() {
           {t('upload.hint')}
         </BioBlixText>
 
+        <Link href="/live/go" asChild>
+          <Pressable style={styles.goLiveBtn}>
+            <BioBlixText variant="label" color={Colors.ink}>
+              {t('live.goLive')}
+            </BioBlixText>
+            {!isWeb || !isLiveKitClientConfigured() ? (
+              <BioBlixText variant="caption" color={Colors.inkElevated}>
+                {isWeb ? t('live.notConfigured') : t('live.webOnly')}
+              </BioBlixText>
+            ) : null}
+          </Pressable>
+        </Link>
+
         <Pressable style={styles.mediaButton} onPress={pickMedia}>
           {media ? (
             <BioBlixMediaPreview uri={media.uri} mediaType={media.mediaType} />
@@ -408,6 +455,13 @@ export default function BioBlixUpload() {
           returnKeyType="done"
           blurOnSubmit={false}
         />
+        {tagQuery.length > 0 ? (
+          <BioBlixTagSuggestList
+            suggestions={suggestions}
+            exclude={tags}
+            onSelect={addSuggestedTag}
+          />
+        ) : null}
         <Pressable onPress={commitTagDraft} style={styles.addTagBtn}>
           <BioBlixText variant="caption" color={Colors.lime}>
             {t('upload.addTag')}
@@ -415,13 +469,13 @@ export default function BioBlixUpload() {
         </Pressable>
         <BioBlixTagChips tags={tags} onRemoveTag={removeTag} />
 
-        {popular.length > 0 ? (
+        {tagQuery.length === 0 && popular.length > 0 ? (
           <>
             <BioBlixText variant="label" color={Colors.mistDim}>
               {t('upload.popular')}
             </BioBlixText>
             <BioBlixTagChips
-              tags={popular.map((t) => t.name).filter((n) => !tags.includes(n))}
+              tags={popular.map((row) => row.name).filter((n) => !tags.includes(n))}
               counts={popularCounts}
               onPressTag={addSuggestedTag}
               compact
@@ -523,6 +577,15 @@ const styles = StyleSheet.create({
   hint: {
     marginBottom: 12,
     maxWidth: 420,
+  },
+  goLiveBtn: {
+    backgroundColor: Colors.lime,
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 4,
   },
   mediaButton: {
     borderRadius: 18,

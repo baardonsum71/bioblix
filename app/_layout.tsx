@@ -71,6 +71,13 @@ function RootStack() {
           headerBackTitle: t('nav.back'),
         }}
       />
+      <Stack.Screen
+        name="live/go"
+        options={{
+          title: t('live.goLive'),
+          headerBackTitle: t('nav.back'),
+        }}
+      />
     </Stack>
   );
 }

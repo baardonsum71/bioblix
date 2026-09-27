@@ -47,7 +47,7 @@ function FeedVideo({
     <VideoView
       player={player}
       style={styles.media}
-      contentFit="contain"
+      contentFit="cover"
       nativeControls={false}
       allowsPictureInPicture={false}
     />

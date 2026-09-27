@@ -60,6 +60,46 @@ export async function listPopularTags(max = 20): Promise<Tag[]> {
   return snap.docs.map((d) => mapTag(d.id, d.data()));
 }
 
+/**
+ * Suggest tags matching a typed prefix (Instagram-style).
+ * Prefer starts-with, then includes; fall back to popular when empty.
+ */
+export async function searchTags(
+  rawPrefix: string,
+  max = 8
+): Promise<Tag[]> {
+  const prefix = rawPrefix
+    .trim()
+    .replace(/^#+/, '')
+    .toLowerCase()
+    .replace(/\s+/g, '_');
+
+  const pool = await listPopularTags(200);
+
+  if (!prefix) {
+    return pool.slice(0, max);
+  }
+
+  const starts: Tag[] = [];
+  const includes: Tag[] = [];
+  for (const tag of pool) {
+    if (tag.name.startsWith(prefix)) starts.push(tag);
+    else if (tag.name.includes(prefix)) includes.push(tag);
+  }
+
+  const merged = [...starts, ...includes];
+  // Exact / new prefix always shown first if not in catalog yet
+  if (!merged.some((t) => t.name === prefix) && prefix.length >= 2) {
+    merged.unshift({
+      id: prefix,
+      name: prefix,
+      postCount: 0,
+    });
+  }
+
+  return merged.slice(0, max);
+}
+
 /** All tags sorted by popularity. */
 export async function listAllTags(max = 200): Promise<Tag[]> {
   return listPopularTags(max);

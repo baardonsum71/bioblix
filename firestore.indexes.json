@@ -17,6 +17,14 @@
       ]
     },
     {
+      "collectionGroup": "lives",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "startedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "follows",
       "queryScope": "COLLECTION",
       "fields": [

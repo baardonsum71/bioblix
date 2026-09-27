@@ -1,6 +1,6 @@
 import { useAuth } from '@clerk/expo';
 import * as ImagePicker from 'expo-image-picker';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 
 import { BioBlixMediaPreview } from '@/components/bioblix/BioBlixMediaPreview';
+import { BioBlixTagSuggestList } from '@/components/bioblix/BioBlixTagSuggestList';
 import { BioBlixText } from '@/components/bioblix/BioBlixText';
 import { Colors } from '@/constants/Colors';
 import { syncFirebaseAuthFromClerk } from '@/lib/clerk/firebaseSession';
@@ -26,11 +27,13 @@ import { notify } from '@/lib/platform';
 import { validateProLinkUrl } from '@/lib/validation/proLink';
 import {
   MAX_TAGS_PER_POST,
+  normalizeTag,
   parseTagInput,
 } from '@/lib/validation/tags';
 import { updatePost } from '@/services/posts';
+import { searchTags } from '@/services/tags';
 import { uploadPostMedia } from '@/services/storage';
-import type { MediaType, Post } from '@/types';
+import type { MediaType, Post, Tag } from '@/types';
 
 type BioBlixEditPostModalProps = {
   post: Post | null;
@@ -61,6 +64,7 @@ export function BioBlixEditPostModal({
   const [linkError, setLinkError] = useState<string | null>(null);
   const [tagDraft, setTagDraft] = useState('');
   const [tags, setTags] = useState<string[]>([]);
+  const [suggestions, setSuggestions] = useState<Tag[]>([]);
   const [saving, setSaving] = useState(false);
   const [media, setMedia] = useState<PickedMedia | null>(null);
 
@@ -71,12 +75,40 @@ export function BioBlixEditPostModal({
     setLinkUrl(post.linkUrl ?? '');
     setTags(post.tags ?? []);
     setTagDraft('');
+    setSuggestions([]);
     setLinkError(null);
     setMedia({
       uri: post.mediaUrl,
       mediaType: post.mediaType,
     });
   }, [post, visible]);
+
+  const tagQuery = useMemo(() => {
+    const parts = tagDraft.trim().split(/[,;\s]+/);
+    const last = parts[parts.length - 1] ?? '';
+    return last.replace(/^#+/, '').toLowerCase();
+  }, [tagDraft]);
+
+  useEffect(() => {
+    if (!visible || !tagQuery) {
+      setSuggestions([]);
+      return;
+    }
+    let cancelled = false;
+    const handle = setTimeout(() => {
+      void searchTags(tagQuery, 8)
+        .then((rows) => {
+          if (!cancelled) setSuggestions(rows);
+        })
+        .catch(() => {
+          if (!cancelled) setSuggestions([]);
+        });
+    }, 180);
+    return () => {
+      cancelled = true;
+      clearTimeout(handle);
+    };
+  }, [tagQuery, visible]);
 
   const onLinkChange = (value: string) => {
     setLinkUrl(value);
@@ -92,6 +124,20 @@ export function BioBlixEditPostModal({
     if (!tagDraft.trim()) return;
     setTags((prev) => parseTagInput(tagDraft, prev));
     setTagDraft('');
+    setSuggestions([]);
+  };
+
+  const addSuggestedTag = (slug: string) => {
+    const normalized = normalizeTag(slug);
+    if (!normalized) return;
+    setTags((prev) => {
+      if (prev.includes(normalized) || prev.length >= MAX_TAGS_PER_POST) {
+        return prev;
+      }
+      return [...prev, normalized];
+    });
+    setTagDraft('');
+    setSuggestions([]);
   };
 
   const removeTag = (slug: string) => {
@@ -281,17 +327,26 @@ export function BioBlixEditPostModal({
             ))}
           </View>
           {tags.length < MAX_TAGS_PER_POST ? (
-            <TextInput
-              value={tagDraft}
-              onChangeText={setTagDraft}
-              onSubmitEditing={commitTagDraft}
-              onBlur={commitTagDraft}
-              style={styles.input}
-              placeholderTextColor={Colors.mistDim}
-              placeholder={t('edit.addTag')}
-              autoCapitalize="none"
-              returnKeyType="done"
-            />
+            <>
+              <TextInput
+                value={tagDraft}
+                onChangeText={setTagDraft}
+                onSubmitEditing={commitTagDraft}
+                style={styles.input}
+                placeholderTextColor={Colors.mistDim}
+                placeholder={t('edit.addTag')}
+                autoCapitalize="none"
+                returnKeyType="done"
+                blurOnSubmit={false}
+              />
+              {tagQuery.length > 0 ? (
+                <BioBlixTagSuggestList
+                  suggestions={suggestions}
+                  exclude={tags}
+                  onSelect={addSuggestedTag}
+                />
+              ) : null}
+            </>
           ) : null}
 
           <BioBlixText variant="caption" color={Colors.mistDim}>

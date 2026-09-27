@@ -30,7 +30,7 @@ function VideoPreview({ uri }: { uri: string }) {
       <VideoView
         player={player}
         style={styles.preview}
-        contentFit="contain"
+        contentFit="cover"
         nativeControls={false}
       />
     </View>

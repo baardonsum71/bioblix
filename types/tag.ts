@@ -7,5 +7,5 @@ export interface Tag {
   name: string;
   /** Number of posts that include this tag. */
   postCount: number;
-  updatedAt: Timestamp;
+  updatedAt?: Timestamp;
 }

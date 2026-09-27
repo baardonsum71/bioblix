@@ -16,7 +16,8 @@ import { useBioBlixFeed } from '@/hooks/useBioBlixFeed';
 import { useProYearlyEntitlement } from '@/hooks/useProYearlyEntitlement';
 import { useI18n } from '@/lib/i18n';
 import { getUserById } from '@/services/users';
-import type { Post } from '@/types';
+import { subscribeActiveLives } from '@/services/lives';
+import type { LiveSession, Post } from '@/types';
 
 function displayNameFor(
   userId: string,
@@ -40,6 +41,7 @@ export default function BioBlixFeed() {
   );
   const [editing, setEditing] = useState<Post | null>(null);
   const [localPosts, setLocalPosts] = useState<Post[] | null>(null);
+  const [lives, setLives] = useState<LiveSession[]>([]);
 
   const displayPosts = localPosts ?? posts;
 
@@ -48,10 +50,24 @@ export default function BioBlixFeed() {
   }, [posts]);
 
   useEffect(() => {
+    const unsub = subscribeActiveLives(
+      setLives,
+      () => setLives([]),
+      20
+    );
+    return unsub;
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
 
     async function loadAuthors() {
-      const ids = [...new Set(displayPosts.map((p) => p.userId))];
+      const ids = [
+        ...new Set([
+          ...displayPosts.map((p) => p.userId),
+          ...lives.map((l) => l.hostUserId),
+        ]),
+      ];
       if (ids.length === 0) return;
 
       const entries = await Promise.all(
@@ -78,7 +94,7 @@ export default function BioBlixFeed() {
     return () => {
       cancelled = true;
     };
-  }, [displayPosts]);
+  }, [displayPosts, lives]);
 
   const empty = useMemo(() => {
     if (loading) return null;
@@ -113,15 +129,17 @@ export default function BioBlixFeed() {
     });
   }, [posts]);
 
-  if (!isFocused && displayPosts.length === 0 && !loading) {
+  const hasContent = displayPosts.length > 0 || lives.length > 0;
+
+  if (!isFocused && !hasContent && !loading) {
     return <View style={styles.root} />;
   }
 
-  if (empty && displayPosts.length === 0) {
+  if (empty && !hasContent) {
     return <View style={styles.root}>{empty}</View>;
   }
 
-  if (!loading && !error && displayPosts.length === 0) {
+  if (!loading && !error && !hasContent) {
     return (
       <View style={styles.root}>
         <View style={styles.center}>
@@ -147,6 +165,7 @@ export default function BioBlixFeed() {
     <View style={styles.root}>
       <BioBlixVerticalFeed
         posts={displayPosts}
+        lives={lives}
         loading={loading}
         viewerUserId={viewerUserId}
         usernameFor={(p) => displayNameFor(p.userId, authors)}
