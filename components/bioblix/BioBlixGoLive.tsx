@@ -170,10 +170,31 @@ export function BioBlixGoLive({ onEnded }: { onEnded?: () => void }) {
         displayName,
       });
 
+      if (
+        typeof session.token !== 'string' ||
+        session.token.split('.').length !== 3
+      ) {
+        throw new Error(
+          'Server returned a bad LiveKit token — check LIVEKIT_API_KEY / LIVEKIT_API_SECRET on Vercel'
+        );
+      }
+      if (!session.url?.startsWith('wss://') && !session.url?.startsWith('ws://')) {
+        throw new Error(
+          `Bad LiveKit URL from server: ${String(session.url).slice(0, 48)}`
+        );
+      }
+
       const { Room, createLocalTracks, Track } = await import('livekit-client');
       const room = new Room({ adaptiveStream: true, dynacast: true });
       roomRef.current = room;
-      await room.connect(session.url, session.token);
+      try {
+        await room.connect(session.url, session.token);
+      } catch (err) {
+        const detail = err instanceof Error ? err.message : String(err);
+        throw new Error(
+          `LiveKit connect failed (${detail}). Confirm LIVEKIT_URL matches the same project as API key/secret.`
+        );
+      }
 
       const tracks = await createLocalTracks({
         audio: true,
