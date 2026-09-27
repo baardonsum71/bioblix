@@ -38,6 +38,7 @@ function CardVideo({ uri, active }: { uri: string; active: boolean }) {
       style={styles.media}
       contentFit="cover"
       nativeControls={false}
+      playsInline
     />
   );
 }
@@ -116,7 +117,13 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   media: {
-    ...StyleSheet.absoluteFill,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
   },
   scrim: {
     ...StyleSheet.absoluteFill,

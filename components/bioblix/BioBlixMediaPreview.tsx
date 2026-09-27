@@ -32,6 +32,7 @@ function VideoPreview({ uri }: { uri: string }) {
         style={styles.preview}
         contentFit="cover"
         nativeControls={false}
+        playsInline
       />
     </View>
   );
