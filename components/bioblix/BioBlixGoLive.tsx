@@ -40,6 +40,17 @@ export function BioBlixGoLive({ onEnded }: { onEnded?: () => void }) {
   const liveIdRef = useRef<string | null>(null);
   const endingRef = useRef(false);
   const phaseRef = useRef<Phase>('idle');
+  const livekitRef = useRef<typeof import('livekit-client') | null>(null);
+
+  // Preload LiveKit so getUserMedia can run in the same user-gesture turn on iOS.
+  useEffect(() => {
+    if (!isWeb) return;
+    void import('livekit-client')
+      .then((mod) => {
+        livekitRef.current = mod;
+      })
+      .catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     liveIdRef.current = liveId;
@@ -156,9 +167,53 @@ export function BioBlixGoLive({ onEnded }: { onEnded?: () => void }) {
       return;
     }
 
+    // In-app browsers (Instagram/Google/Facebook) block camera on iOS.
+    if (typeof navigator !== 'undefined') {
+      const ua = navigator.userAgent || '';
+      const isIOS = /iPhone|iPad|iPod/i.test(ua);
+      const isInApp =
+        /(FBAN|FBAV|Instagram|Line\/|Twitter|GSA\/|GoogleApp)/i.test(ua) ||
+        // iOS WebView without Safari marker
+        (isIOS && !/Safari/i.test(ua));
+      if (isInApp) {
+        notify(t('live.startFail'), t('live.openInSafari'));
+        return;
+      }
+    }
+
     setPhase('starting');
     endingRef.current = false;
     try {
+      const livekit = livekitRef.current ?? (await import('livekit-client'));
+      livekitRef.current = livekit;
+      const { Room, createLocalTracks, Track } = livekit;
+
+      // iOS: getUserMedia must run before other awaits (user-gesture requirement).
+      let tracks: import('livekit-client').LocalTrack[];
+      try {
+        tracks = await createLocalTracks({
+          audio: true,
+          video: {
+            facingMode: 'user',
+          },
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (
+          /NotAllowedError|not allowed|permission|denied/i.test(msg) ||
+          (err instanceof DOMException && err.name === 'NotAllowedError')
+        ) {
+          throw new Error(t('live.cameraDenied'));
+        }
+        throw err;
+      }
+      localTracksRef.current = tracks;
+      for (const track of tracks) {
+        if (track.kind === Track.Kind.Video && videoRef.current) {
+          track.attach(videoRef.current);
+        }
+      }
+
       const displayName =
         user?.fullName ??
         user?.username ??
@@ -184,7 +239,6 @@ export function BioBlixGoLive({ onEnded }: { onEnded?: () => void }) {
         );
       }
 
-      const { Room, createLocalTracks, Track } = await import('livekit-client');
       const room = new Room({ adaptiveStream: true, dynacast: true });
       roomRef.current = room;
       try {
@@ -196,20 +250,8 @@ export function BioBlixGoLive({ onEnded }: { onEnded?: () => void }) {
         );
       }
 
-      const tracks = await createLocalTracks({
-        audio: true,
-        video: {
-          resolution: { width: 720, height: 1280 },
-          facingMode: 'user',
-        },
-      });
-      localTracksRef.current = tracks;
-
       for (const track of tracks) {
         await room.localParticipant.publishTrack(track);
-        if (track.kind === Track.Kind.Video && videoRef.current) {
-          track.attach(videoRef.current);
-        }
       }
 
       // Pre-flight frame check before marking live in UI (room already created).
