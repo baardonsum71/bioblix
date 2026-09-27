@@ -67,13 +67,24 @@ export async function uploadToR2(params: {
     throw new Error('Mediafilen er tom — velg på nytt.');
   }
 
-  const putRes = await fetch(signed.uploadUrl, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': params.contentType,
-    },
-    body: blob,
-  });
+  let putRes: Response;
+  try {
+    putRes = await fetch(signed.uploadUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': params.contentType,
+      },
+      body: blob,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/Load failed|Failed to fetch|NetworkError/i.test(msg)) {
+      throw new Error(
+        'Upload blocked by R2 CORS. In Cloudflare R2 → bucket → Settings → CORS, allow https://www.bioblix.com and https://bioblix.com with PUT + Content-Type.'
+      );
+    }
+    throw err;
+  }
 
   if (!putRes.ok) {
     throw new Error(`R2-opplasting feilet (${putRes.status})`);
