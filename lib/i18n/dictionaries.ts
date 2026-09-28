@@ -17,6 +17,14 @@ export type MessageKey =
   | 'auth.countrySearch'
   | 'auth.countryRequired'
   | 'auth.createAccount'
+  | 'auth.createFreeProfile'
+  | 'auth.freeStandardNote'
+  | 'auth.reason.like'
+  | 'auth.reason.comment'
+  | 'auth.reason.follow'
+  | 'auth.reason.publish'
+  | 'auth.reason.live'
+  | 'auth.reason.watchLive'
   | 'auth.continue'
   | 'auth.completeContinue'
   | 'auth.startOver'
@@ -73,6 +81,12 @@ export type MessageKey =
   | 'upload.invalidLink'
   | 'upload.publishFail'
   | 'upload.nsfwTitle'
+  | 'upload.gateTitle'
+  | 'upload.gateLiveTitle'
+  | 'upload.afterFirstProTitle'
+  | 'upload.afterFirstProBody'
+  | 'upload.afterFirstProConfirm'
+  | 'upload.afterFirstProCancel'
   | 'paywall.selectPlan'
   | 'paywall.monthly'
   | 'paywall.yearly'
@@ -108,6 +122,9 @@ export type MessageKey =
   | 'social.send'
   | 'social.signInRequired'
   | 'social.signInRequiredBody'
+  | 'social.signInToLike'
+  | 'social.signInToComment'
+  | 'social.signInToFollow'
   | 'social.edit'
   | 'profile.noBlix'
   | 'profile.followersFollowing'
@@ -155,6 +172,16 @@ export type MessageKey =
   | 'account.planProFeature'
   | 'account.privacyPolicy'
   | 'account.about'
+  | 'coins.balance'
+  | 'coins.earnHint'
+  | 'coins.redeemMonth'
+  | 'coins.redeemYear'
+  | 'coins.notEnoughTitle'
+  | 'coins.notEnoughBody'
+  | 'coins.redeemedTitle'
+  | 'coins.redeemedBody'
+  | 'coins.redeemFail'
+  | 'upload.liveBodyCoins'
   | 'link.leaveTitle'
   | 'link.leaveBody'
   | 'link.continue'
@@ -278,6 +305,16 @@ export const en: Dictionary = {
   'auth.countrySearch': 'Search country…',
   'auth.countryRequired': 'Select the country you are from.',
   'auth.createAccount': 'Create account',
+  'auth.createFreeProfile': 'Create free profile',
+  'auth.freeStandardNote':
+    'Standard is free — publish blix and show up in the feed. Pro adds clickable store links.',
+  'auth.reason.like': 'Create a free profile to like blix.',
+  'auth.reason.comment': 'Create a free profile to comment.',
+  'auth.reason.follow': 'Create a free profile to follow creators.',
+  'auth.reason.publish':
+    'Create a free profile to publish your product blix. Store links are optional with Pro.',
+  'auth.reason.live': 'Create a free profile to go live on BioBlix.',
+  'auth.reason.watchLive': 'Create a free profile to watch live.',
   'auth.continue': 'Continue',
   'auth.completeContinue': 'Complete and continue',
   'auth.startOver': 'Start over',
@@ -338,6 +375,13 @@ export const en: Dictionary = {
   'upload.invalidLink': 'Invalid link',
   'upload.publishFail': 'Could not publish.',
   'upload.nsfwTitle': 'Not allowed',
+  'upload.gateTitle': 'Publish your product',
+  'upload.gateLiveTitle': 'Go live',
+  'upload.afterFirstProTitle': 'Add a store link?',
+  'upload.afterFirstProBody':
+    'Your blix is live. Upgrade to Pro for a clickable store link on every blix.',
+  'upload.afterFirstProConfirm': 'See Pro',
+  'upload.afterFirstProCancel': 'Not now',
   'paywall.selectPlan': 'Choose a Pro plan:',
   'paywall.monthly': '1 = Monthly ({price})',
   'paywall.yearly': '2 = Yearly ({price})',
@@ -373,8 +417,11 @@ export const en: Dictionary = {
   'social.noComments': 'No comments yet.',
   'social.commentPlaceholder': 'Write a comment…',
   'social.send': 'Send',
-  'social.signInRequired': 'Sign in',
-  'social.signInRequiredBody': 'Sign in to like or comment.',
+  'social.signInRequired': 'Create free profile',
+  'social.signInRequiredBody': 'Create a free profile to like or comment.',
+  'social.signInToLike': 'Create a free profile to like this blix.',
+  'social.signInToComment': 'Create a free profile to leave a comment.',
+  'social.signInToFollow': 'Create a free profile to follow creators.',
   'social.edit': 'Edit',
   'profile.noBlix': 'No blix yet.',
   'profile.followersFollowing': '{followers} followers · {following} following',
@@ -420,11 +467,23 @@ export const en: Dictionary = {
   'upload.firebaseAuthFail':
     'Firebase sign-in failed. Sign out and back in, then try again.',
   'account.createProfileHint':
-    'Create a profile to publish blix and sync Pro status.',
+    'Create a free profile to publish blix. Pro is optional — add store links when you are ready.',
   'account.planStandard': 'Monthly · publish video/image without outbound link',
   'account.planProFeature': 'Clickable store links on every blix',
   'account.privacyPolicy': 'Privacy policy',
   'account.about': 'About {name}',
+  'coins.balance': '{coins} coins',
+  'coins.earnHint':
+    '+{signup} for creating a profile · +{publish} per blix you publish. Redeem for Pro — no cash-out.',
+  'coins.redeemMonth': '{cost} → 1 month Pro',
+  'coins.redeemYear': '{cost} → 1 year Pro',
+  'coins.notEnoughTitle': 'Not enough coins',
+  'coins.notEnoughBody': 'You need {need} coins (you have {have}). Publish more blix to earn.',
+  'coins.redeemedTitle': 'Pro unlocked with coins',
+  'coins.redeemedBody': 'Spent {cost} coins · Pro store links for {days} days.',
+  'coins.redeemFail': 'Could not redeem coins',
+  'upload.liveBodyCoins':
+    'Your blix is visible in the feed. +{coins} coins earned.',
   'link.leaveTitle': 'You are leaving {name}',
   'link.leaveBody':
     '{name} is not responsible for content on external sites. Continue to {domain}?',
@@ -531,7 +590,7 @@ export const en: Dictionary = {
   'auth.countryHint': 'Choose your country first — the form switches to your language.',
   'auth.verifyEmailTitle': 'Confirm email',
   'auth.codeSent': 'We sent a code to your email.',
-  'auth.signInHint': 'Sign in with email and password.',
+  'auth.signInHint': 'Sign in with Apple or email — it only takes a moment.',
 };
 
 export const nb: Dictionary = {
@@ -553,6 +612,16 @@ export const nb: Dictionary = {
   'auth.countrySearch': 'Søk land…',
   'auth.countryRequired': 'Velg landet du kommer fra.',
   'auth.createAccount': 'Opprett konto',
+  'auth.createFreeProfile': 'Lag gratis profil',
+  'auth.freeStandardNote':
+    'Standard er gratis — publiser blix og bli synlig i strømmen. Pro gir klikkbare butikklenker.',
+  'auth.reason.like': 'Lag en gratis profil for å like blix.',
+  'auth.reason.comment': 'Lag en gratis profil for å kommentere.',
+  'auth.reason.follow': 'Lag en gratis profil for å følge skapere.',
+  'auth.reason.publish':
+    'Lag en gratis profil for å publisere produkt-blix. Butikklenker er valgfritt med Pro.',
+  'auth.reason.live': 'Lag en gratis profil for å gå live på BioBlix.',
+  'auth.reason.watchLive': 'Lag en gratis profil for å se live.',
   'auth.continue': 'Fortsett',
   'auth.completeContinue': 'Fullfør og fortsett',
   'auth.startOver': 'Start på nytt',
@@ -614,6 +683,13 @@ export const nb: Dictionary = {
   'upload.invalidLink': 'Ugyldig lenke',
   'upload.publishFail': 'Kunne ikke publisere.',
   'upload.nsfwTitle': 'Ikke tillatt',
+  'upload.gateTitle': 'Publiser produktet ditt',
+  'upload.gateLiveTitle': 'Gå live',
+  'upload.afterFirstProTitle': 'Legge til butikklenke?',
+  'upload.afterFirstProBody':
+    'Blixet ditt er live. Oppgrader til Pro for klikkbar butikklenke på hvert blix.',
+  'upload.afterFirstProConfirm': 'Se Pro',
+  'upload.afterFirstProCancel': 'Ikke nå',
   'paywall.selectPlan': 'Velg Pro-plan:',
   'paywall.monthly': '1 = Månedlig ({price})',
   'paywall.yearly': '2 = Årlig ({price})',
@@ -649,8 +725,11 @@ export const nb: Dictionary = {
   'social.noComments': 'Ingen kommentarer ennå.',
   'social.commentPlaceholder': 'Skriv en kommentar…',
   'social.send': 'Send',
-  'social.signInRequired': 'Logg inn',
-  'social.signInRequiredBody': 'Logg inn for å like eller kommentere.',
+  'social.signInRequired': 'Lag gratis profil',
+  'social.signInRequiredBody': 'Lag en gratis profil for å like eller kommentere.',
+  'social.signInToLike': 'Lag en gratis profil for å like dette blixet.',
+  'social.signInToComment': 'Lag en gratis profil for å kommentere.',
+  'social.signInToFollow': 'Lag en gratis profil for å følge skapere.',
   'social.edit': 'Rediger',
   'profile.noBlix': 'Ingen blix ennå.',
   'profile.followersFollowing': '{followers} følgere · {following} følger',
@@ -696,11 +775,24 @@ export const nb: Dictionary = {
   'upload.firebaseAuthFail':
     'Firebase-innlogging feilet. Logg ut og inn igjen, så prøv på nytt.',
   'account.createProfileHint':
-    'Opprett profil for å publisere blix og synce Pro-status.',
+    'Lag en gratis profil for å publisere blix. Pro er valgfritt — legg til butikklenker når du er klar.',
   'account.planStandard': 'Månedlig · publiser video/bilde uten utgående lenke',
   'account.planProFeature': 'Klikkbare butikklenker på hvert blix',
   'account.privacyPolicy': 'Personvernerklæring',
   'account.about': 'Om {name}',
+  'coins.balance': '{coins} coins',
+  'coins.earnHint':
+    '+{signup} for å lage profil · +{publish} per blix du publiserer. Bruk coins til Pro — ingen utbetaling.',
+  'coins.redeemMonth': '{cost} → 1 mnd Pro',
+  'coins.redeemYear': '{cost} → 1 år Pro',
+  'coins.notEnoughTitle': 'Ikke nok coins',
+  'coins.notEnoughBody':
+    'Du trenger {need} coins (du har {have}). Publiser flere blix for å tjene.',
+  'coins.redeemedTitle': 'Pro låst opp med coins',
+  'coins.redeemedBody': 'Brukte {cost} coins · Pro-butikklenker i {days} dager.',
+  'coins.redeemFail': 'Kunne ikke løse inn coins',
+  'upload.liveBodyCoins':
+    'Blixet ditt er synlig i strømmen. +{coins} coins tjent.',
   'link.leaveTitle': 'Du forlater nå {name}',
   'link.leaveBody':
     '{name} er ikke ansvarlig for innholdet på eksterne nettsteder. Vil du fortsette til {domain}?',
@@ -794,18 +886,20 @@ export const nb: Dictionary = {
   'auth.continueConfirm': 'Ved å fortsette bekrefter du at du har lest vår personvernpolicy.',
   'auth.clerkMissing': 'Clerk mangler: {fields}',
   'auth.status': 'Status: {status}',
-  'about.diffTitle': 'What makes BioBlix different',
-  'about.diffFeed': 'Vertical product blix made for apps and physical goods — not generic social scrolling.',
-  'about.diffPro': 'Pro Yearly unlocks clickable store links, mirrored securely via RevenueCat → Firestore.',
-  'about.readPrivacy': 'Read the privacy policy',
-  'auth.useLatestCode': 'Use the latest code, or tap “Send new code”.',
-  'brand.tagline': 'Showcase apps and products in short blix',
+  'about.diffTitle': 'Det som skiller BioBlix',
+  'about.diffFeed':
+    'Vertikale produkt-blix laget for apper og fysiske varer — ikke generisk sosial scrolling.',
+  'about.diffPro':
+    'Pro Årlig låser opp klikkbare butikklenker, speilet sikkert via RevenueCat → Firestore.',
+  'about.readPrivacy': 'Les personvernerklæringen',
+  'auth.useLatestCode': 'Bruk nyeste kode, eller trykk «Send ny kode».',
+  'brand.tagline': 'Vis frem apper og produkter i korte blix',
   'brand.shortDescription':
-    'BioBlix is a vertical showcase where creators share short videos and images of their apps and products — with an optional Pro link straight to a store or landing page.',
-  'auth.sendNewCode': 'Send new code',
-  'auth.stillMissing': 'Still missing: {fields}.',
-  'auth.countryHint': 'Choose your country first — the form switches to your language.',
-  'auth.verifyEmailTitle': 'Confirm email',
-  'auth.codeSent': 'We sent a code to your email.',
-  'auth.signInHint': 'Sign in with email and password.',
+    'BioBlix er en vertikal showcase der skapere deler korte videoer og bilder av apper og produkter — med valgfri Pro-lenke rett til butikk eller landingsside.',
+  'auth.sendNewCode': 'Send ny kode',
+  'auth.stillMissing': 'Mangler fortsatt: {fields}.',
+  'auth.countryHint': 'Velg land først — skjemaet bytter til språket ditt.',
+  'auth.verifyEmailTitle': 'Bekreft e-post',
+  'auth.codeSent': 'Vi sendte en kode til e-posten din.',
+  'auth.signInHint': 'Logg inn med Apple eller e-post — det tar bare et øyeblikk.',
 };

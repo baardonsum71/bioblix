@@ -18,7 +18,12 @@ import { BioBlixTagChips } from '@/components/bioblix/BioBlixTagChips';
 import { BioBlixText } from '@/components/bioblix/BioBlixText';
 import { BioBlixPalette, BioBlixRadii } from '@/constants/bioblixTheme';
 import { Colors } from '@/constants/Colors';
+import {
+  signInHref,
+  type SignInReason,
+} from '@/lib/auth/signInGate';
 import { useI18n } from '@/lib/i18n';
+import type { MessageKey } from '@/lib/i18n/dictionaries';
 import { notify } from '@/lib/platform';
 import { addComment, listComments, type PostComment } from '@/services/comments';
 import { hasLikedPost, toggleLikePost } from '@/services/likes';
@@ -33,6 +38,11 @@ type BioBlixFeedOverlayProps = {
   tags?: string[];
   linkUrl?: string | null;
   viewerUserId: string | null;
+};
+
+const SIGN_IN_BODY: Record<'like' | 'comment', MessageKey> = {
+  like: 'social.signInToLike',
+  comment: 'social.signInToComment',
 };
 
 export function BioBlixFeedOverlay({
@@ -82,14 +92,17 @@ export function BioBlixFeedOverlay({
     };
   }, [post.id, viewerUserId]);
 
-  const requireSignIn = useCallback(() => {
-    notify(t('social.signInRequired'), t('social.signInRequiredBody'));
-    router.push('/(auth)/sign-in' as Href);
-  }, [router, t]);
+  const requireSignIn = useCallback(
+    (reason: Extract<SignInReason, 'like' | 'comment'>) => {
+      notify(t('auth.createFreeProfile'), t(SIGN_IN_BODY[reason]));
+      router.push(signInHref(reason) as Href);
+    },
+    [router, t]
+  );
 
   const onToggleLike = useCallback(async () => {
     if (!viewerUserId) {
-      requireSignIn();
+      requireSignIn('like');
       return;
     }
     if (likeBusy) return;
@@ -136,7 +149,7 @@ export function BioBlixFeedOverlay({
 
   const onSendComment = useCallback(async () => {
     if (!viewerUserId) {
-      requireSignIn();
+      requireSignIn('comment');
       return;
     }
     const text = draft.trim();

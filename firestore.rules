@@ -21,6 +21,19 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isProYearly', false) == true;
     }
 
+    /** Time-limited Pro from coin redeem (Admin SDK sets coinProUntil). */
+    function callerHasCoinPro() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.keys().hasAny(['coinProUntil'])
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.coinProUntil is timestamp
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.coinProUntil > request.time;
+    }
+
+    function callerCanUseLinks() {
+      return callerIsProYearly() || callerHasCoinPro();
+    }
+
     function hasNonEmptyLinkUrl() {
       return request.resource.data.keys().hasAll(['linkUrl'])
         && request.resource.data.linkUrl is string
@@ -28,7 +41,7 @@ service cloud.firestore {
     }
 
     function linkUrlAllowedOnWrite() {
-      return !hasNonEmptyLinkUrl() || callerIsProYearly();
+      return !hasNonEmptyLinkUrl() || callerCanUseLinks();
     }
 
     match /users/{userId} {
@@ -38,15 +51,30 @@ service cloud.firestore {
         && request.auth.uid == userId
         && request.resource.data.clerkId == userId
         && request.resource.data.get('isProYearly', false) == false
-        && request.resource.data.get('subscriptionTier', 'standard') == 'standard';
+        && request.resource.data.get('subscriptionTier', 'standard') == 'standard'
+        && request.resource.data.get('coins', 0) == 0
+        && request.resource.data.get('coinsSignupBonusGranted', false) == false
+        && !('coinProUntil' in request.resource.data
+          && request.resource.data.coinProUntil != null);
 
-      // Clients may update profile + blockedUsers, but never flip Pro flags themselves.
+      // Clients may update profile + blockedUsers, but never flip Pro/coins themselves.
       allow update: if signedIn()
         && request.auth.uid == userId
         && request.resource.data.isProYearly == resource.data.get('isProYearly', false)
-        && request.resource.data.subscriptionTier == resource.data.get('subscriptionTier', 'standard');
+        && request.resource.data.subscriptionTier == resource.data.get('subscriptionTier', 'standard')
+        && request.resource.data.get('coins', 0) == resource.data.get('coins', 0)
+        && request.resource.data.get('coinsSignupBonusGranted', false)
+          == resource.data.get('coinsSignupBonusGranted', false)
+        && request.resource.data.get('coinProUntil', null)
+          == resource.data.get('coinProUntil', null);
 
       allow delete: if false;
+    }
+
+    match /coin_ledger/{entryId} {
+      allow read: if signedIn()
+        && resource.data.userId == request.auth.uid;
+      allow create, update, delete: if false;
     }
 
     match /posts/{postId} {

@@ -22,10 +22,19 @@ export interface User {
   subscriptionTier: SubscriptionTier;
   /**
    * Server-mirrored Pro Yearly flag from RevenueCat entitlement `pro_yearly`.
-   * Enforced by Firestore security rules for `posts.linkUrl`.
+   * Enforced by Firestore security rules for `posts.linkUrl` (with coinProUntil).
    * Only writable via Admin SDK (webhook) — never trust the client.
    */
   isProYearly: boolean;
+  /** Closed-loop coins balance (Admin SDK only). */
+  coins: number;
+  /** One-time signup bonus already granted. */
+  coinsSignupBonusGranted: boolean;
+  /**
+   * Pro from coin redeem until this time (Admin SDK only).
+   * Gives store-link access independent of RevenueCat.
+   */
+  coinProUntil: Timestamp | null;
   /** Clerk/user ids this viewer has blocked (hidden from their feed). */
   blockedUsers: string[];
   /** RevenueCat / Stripe customer identifiers when linked */
@@ -42,6 +51,9 @@ export type CreateUserInput = Omit<
   | 'updatedAt'
   | 'subscriptionTier'
   | 'isProYearly'
+  | 'coins'
+  | 'coinsSignupBonusGranted'
+  | 'coinProUntil'
   | 'blockedUsers'
 > & {
   subscriptionTier?: SubscriptionTier;

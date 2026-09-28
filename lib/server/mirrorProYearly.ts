@@ -90,24 +90,37 @@ export async function fetchIsProYearlyFromRevenueCat(
 
 /**
  * Mirror RevenueCat → Firestore `users/{appUserId}.isProYearly`.
- * Admin SDK bypasses client security rules (only this path may flip Pro).
+ * Admin SDK bypasses client security rules (only this path may flip RC Pro).
+ * Does not clear active coin-redeemed Pro (`coinProUntil`).
  */
 export async function mirrorProYearlyToFirestore(appUserId: string): Promise<{
   isProYearly: boolean;
 }> {
-  const isProYearly = await fetchIsProYearlyFromRevenueCat(appUserId);
+  const fromRc = await fetchIsProYearlyFromRevenueCat(appUserId);
   const db = getAdminDb();
   const ref = db.collection('users').doc(appUserId);
+  const snap = await ref.get();
+  const data = snap.data() as Record<string, unknown> | undefined;
+
+  let coinActive = false;
+  const until = data?.coinProUntil;
+  if (until && typeof until === 'object' && 'toDate' in until) {
+    coinActive =
+      (until as { toDate: () => Date }).toDate().getTime() > Date.now();
+  }
+
+  const isProYearly = fromRc;
+  const tier = fromRc || coinActive ? 'pro' : 'standard';
 
   await ref.set(
     {
       isProYearly,
-      subscriptionTier: isProYearly ? 'pro' : 'standard',
+      subscriptionTier: tier,
       revenueCatAppUserId: appUserId,
       updatedAt: FieldValue.serverTimestamp(),
     },
     { merge: true }
   );
 
-  return { isProYearly };
+  return { isProYearly: fromRc || coinActive };
 }

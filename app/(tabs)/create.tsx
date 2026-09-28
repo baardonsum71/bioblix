@@ -1,8 +1,8 @@
 import { useAuth } from '@clerk/expo';
-import { Redirect } from 'expo-router';
 import { ActivityIndicator, View } from 'react-native';
 
 import BioBlixUpload from '@/components/bioblix/BioBlixUpload';
+import { BioBlixCreateProfileGate } from '@/components/bioblix/BioBlixCreateProfileGate';
 import { isClerkConfigured } from '@/components/bioblix/BioBlixProviders';
 import { BioBlixPalette } from '@/constants/bioblixTheme';
 
@@ -32,7 +32,7 @@ function BioBlixUploadGuarded() {
   }
 
   if (!isSignedIn) {
-    return <Redirect href="/(auth)/sign-in" />;
+    return <BioBlixCreateProfileGate reason="publish" />;
   }
 
   return <BioBlixUpload />;

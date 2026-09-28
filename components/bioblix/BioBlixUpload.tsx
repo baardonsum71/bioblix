@@ -18,7 +18,8 @@ import { BioBlixTagChips } from '@/components/bioblix/BioBlixTagChips';
 import { BioBlixTagSuggestList } from '@/components/bioblix/BioBlixTagSuggestList';
 import { BioBlixText } from '@/components/bioblix/BioBlixText';
 import { Brand, Colors } from '@/constants/Colors';
-import { isWeb, notify } from '@/lib/platform';
+import { COIN_REWARDS } from '@/constants/coins';
+import { confirmAction, isWeb, notify } from '@/lib/platform';
 import { useAppUserId } from '@/hooks/useAppUserId';
 import { useProYearlyEntitlement } from '@/hooks/useProYearlyEntitlement';
 import { syncFirebaseAuthFromClerk } from '@/lib/clerk/firebaseSession';
@@ -37,7 +38,8 @@ import {
   normalizeTag,
   parseTagInput,
 } from '@/lib/validation/tags';
-import { createPost } from '@/services/posts';
+import { createPost, listPostsByUser } from '@/services/posts';
+import { awardPublishCoins } from '@/services/coins';
 import { listPopularTags, searchTags } from '@/services/tags';
 import { uploadPostMedia } from '@/services/storage';
 import type { MediaType, Tag } from '@/types';
@@ -307,7 +309,7 @@ export default function BioBlixUpload() {
       );
 
       setPublishStatus(t('upload.saving'));
-      await withTimeout(
+      const postId = await withTimeout(
         createPost({
           userId,
           mediaUrl,
@@ -329,7 +331,42 @@ export default function BioBlixUpload() {
       setTags([]);
       setMedia(null);
       void listPopularTags(12).then(setPopular).catch(() => undefined);
-      notify(t('upload.live'), t('upload.liveBody'));
+
+      let publishCoins = 0;
+      try {
+        const awarded = await awardPublishCoins(() => getToken(), postId);
+        if (awarded.awarded) publishCoins = COIN_REWARDS.publishBlix;
+      } catch {
+        publishCoins = 0;
+      }
+
+      notify(
+        t('upload.live'),
+        publishCoins > 0
+          ? t('upload.liveBodyCoins', { coins: publishCoins })
+          : t('upload.liveBody')
+      );
+
+      if (!isProYearly && userId) {
+        try {
+          const posts = await listPostsByUser(userId, 2);
+          if (posts.length === 1) {
+            const wantPro = await confirmAction(
+              t('upload.afterFirstProTitle'),
+              t('upload.afterFirstProBody'),
+              {
+                confirmLabel: t('upload.afterFirstProConfirm'),
+                cancelLabel: t('upload.afterFirstProCancel'),
+              }
+            );
+            if (wantPro) {
+              await onUpgradePress();
+            }
+          }
+        } catch {
+          // Soft upsell — ignore failures after a successful publish.
+        }
+      }
     } catch (error) {
       const message =
         error instanceof Error ? error.message : t('upload.publishFail');
@@ -348,6 +385,7 @@ export default function BioBlixUpload() {
     tags,
     tagDraft,
     getToken,
+    onUpgradePress,
     t,
   ]);
 

@@ -27,6 +27,11 @@ import {
   BioBlixRadii,
 } from '@/constants/bioblixTheme';
 import { Brand, Colors } from '@/constants/Colors';
+import {
+  COIN_REDEEM,
+  COIN_REWARDS,
+  type CoinRedeemPlan,
+} from '@/constants/coins';
 import { useCurrentUserProfile } from '@/hooks/useCurrentUserProfile';
 import { useProYearlyEntitlement } from '@/hooks/useProYearlyEntitlement';
 import { syncFirebaseAuthFromClerk } from '@/lib/clerk/firebaseSession';
@@ -41,10 +46,11 @@ import { presentProYearlyPaywall } from '@/lib/revenuecat/paywall';
 import { syncProToFirestore } from '@/lib/revenuecat/web';
 import { shareProfile } from '@/lib/shareProfile';
 import { SUBSCRIPTION_PLANS } from '@/lib/subscription';
+import { redeemCoins } from '@/services/coins';
 import { countFollowers, countFollowing } from '@/services/follows';
 import { listPostsByUser } from '@/services/posts';
 import { uploadAvatarMedia } from '@/services/storage';
-import { updateUser } from '@/services/users';
+import { isCoinProActive, updateUser } from '@/services/users';
 import type { Post } from '@/types';
 
 export default function BioBlixAccount() {
@@ -89,8 +95,13 @@ function BioBlixAccountSigned() {
   const [editing, setEditing] = useState<Post | null>(null);
   const [upgrading, setUpgrading] = useState(false);
   const [savingCountry, setSavingCountry] = useState(false);
+  const [redeeming, setRedeeming] = useState<CoinRedeemPlan | null>(null);
 
-  const hasPro = Boolean(isOwner || isProYearly || profile?.isProYearly);
+  const coinPro = isCoinProActive(profile);
+  const hasPro = Boolean(
+    isOwner || isProYearly || profile?.isProYearly || coinPro
+  );
+  const coins = profile?.coins ?? 0;
   const priceSummary = formatPlanPricesFallback(
     countryCode ?? profile?.countryCode
   ).summary;
@@ -284,6 +295,40 @@ function BioBlixAccountSigned() {
     t,
   ]);
 
+  const onRedeemCoins = useCallback(
+    async (plan: CoinRedeemPlan) => {
+      if (!userId) return;
+      const offer = COIN_REDEEM[plan];
+      if (coins < offer.cost) {
+        notify(
+          t('coins.notEnoughTitle'),
+          t('coins.notEnoughBody', { need: offer.cost, have: coins })
+        );
+        return;
+      }
+      setRedeeming(plan);
+      try {
+        await redeemCoins(() => getToken(), plan);
+        await refresh();
+        await refreshEntitlement();
+        notify(
+          t('coins.redeemedTitle'),
+          t('coins.redeemedBody', {
+            days: offer.days,
+            cost: offer.cost,
+          })
+        );
+      } catch (err) {
+        notify(
+          t('common.error'),
+          err instanceof Error ? err.message : t('coins.redeemFail')
+        );
+      } finally {
+        setRedeeming(null);
+      }
+    },
+    [userId, coins, getToken, refresh, refreshEntitlement, t]
+  );
 
   if (!isLoaded) {
     return (
@@ -306,7 +351,7 @@ function BioBlixAccountSigned() {
           <BioBlixText variant="body" color={Colors.mistDim} style={styles.lead}>
             {t('account.createProfileHint')}
           </BioBlixText>
-          <Link href="/(auth)/sign-in" asChild>
+          <Link href="/(auth)/sign-in?reason=publish" asChild>
             <Pressable style={styles.primaryWrap}>
               <LinearGradient
                 colors={[...BioBlixGradient.colors]}
@@ -316,7 +361,7 @@ function BioBlixAccountSigned() {
                 style={styles.primaryLink}
               >
                 <BioBlixText variant="label" color={Colors.ink}>
-                  {t('auth.signUp')} / {t('auth.signIn')}
+                  {t('auth.createFreeProfile')}
                 </BioBlixText>
               </LinearGradient>
             </Pressable>
@@ -471,6 +516,52 @@ function BioBlixAccountSigned() {
             </BioBlixText>
           </View>
         )}
+
+        <View style={styles.coinsCard}>
+          <BioBlixText variant="label" color={Colors.lime}>
+            {t('coins.balance', { coins })}
+          </BioBlixText>
+          <BioBlixText variant="caption" color={Colors.mistDim}>
+            {t('coins.earnHint', {
+              signup: COIN_REWARDS.signup,
+              publish: COIN_REWARDS.publishBlix,
+            })}
+          </BioBlixText>
+          <View style={styles.coinsRow}>
+            <Pressable
+              style={[
+                styles.coinRedeemBtn,
+                coins < COIN_REDEEM.month.cost && styles.coinRedeemDisabled,
+              ]}
+              disabled={redeeming != null || coins < COIN_REDEEM.month.cost}
+              onPress={() => void onRedeemCoins('month')}
+            >
+              {redeeming === 'month' ? (
+                <ActivityIndicator color={Colors.ink} />
+              ) : (
+                <BioBlixText variant="caption" color={Colors.ink}>
+                  {t('coins.redeemMonth', { cost: COIN_REDEEM.month.cost })}
+                </BioBlixText>
+              )}
+            </Pressable>
+            <Pressable
+              style={[
+                styles.coinRedeemBtn,
+                coins < COIN_REDEEM.year.cost && styles.coinRedeemDisabled,
+              ]}
+              disabled={redeeming != null || coins < COIN_REDEEM.year.cost}
+              onPress={() => void onRedeemCoins('year')}
+            >
+              {redeeming === 'year' ? (
+                <ActivityIndicator color={Colors.ink} />
+              ) : (
+                <BioBlixText variant="caption" color={Colors.ink}>
+                  {t('coins.redeemYear', { cost: COIN_REDEEM.year.cost })}
+                </BioBlixText>
+              )}
+            </Pressable>
+          </View>
+        </View>
 
         <View style={styles.countryBlock}>
           <CountryPicker
@@ -742,6 +833,31 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: Colors.lime,
+  },
+  coinsCard: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    padding: 14,
+    gap: 8,
+    borderRadius: 14,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.surfaceMuted,
+  },
+  coinsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 4,
+  },
+  coinRedeemBtn: {
+    backgroundColor: Colors.lime,
+    borderRadius: BioBlixRadii.md,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  coinRedeemDisabled: {
+    opacity: 0.45,
   },
   planCard: {
     backgroundColor: Colors.surface,

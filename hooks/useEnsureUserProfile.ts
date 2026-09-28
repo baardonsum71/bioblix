@@ -7,6 +7,7 @@ import {
   syncFirebaseAuthFromClerk,
 } from '@/lib/clerk/firebaseSession';
 import { useI18n } from '@/lib/i18n';
+import { claimSignupCoins } from '@/services/coins';
 import { upsertUser } from '@/services/users';
 
 /**
@@ -71,6 +72,12 @@ export function useEnsureUserProfile() {
           birthDate: birthDateRaw || null,
           countryCode: countryCodeRaw || null,
         });
+
+        try {
+          await claimSignupCoins(() => getToken());
+        } catch (coinErr) {
+          console.warn('[coins-signup]', coinErr);
+        }
 
         if (countryCodeRaw) {
           setCountryCode(countryCodeRaw);

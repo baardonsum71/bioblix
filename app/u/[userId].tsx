@@ -1,6 +1,6 @@
 import { useAuth } from '@clerk/expo';
 import { Image } from 'expo-image';
-import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -14,6 +14,7 @@ import { BioBlixVerticalFeed } from '@/components/bioblix/BioBlixVerticalFeed';
 import { BioBlixScreenShell } from '@/components/bioblix/BioBlixLogo';
 import { BioBlixPalette } from '@/constants/bioblixTheme';
 import { Colors } from '@/constants/Colors';
+import { signInHref } from '@/lib/auth/signInGate';
 import { useI18n } from '@/lib/i18n';
 import { notify } from '@/lib/platform';
 import { shareProfile } from '@/lib/shareProfile';
@@ -93,8 +94,8 @@ export default function PublicProfileScreen() {
 
   const onToggleFollow = async () => {
     if (!isSignedIn || !viewerId) {
-      notify(t('social.signInRequired'), t('social.signInRequiredBody'));
-      router.push('/(auth)/sign-in' as Href);
+      notify(t('auth.createFreeProfile'), t('social.signInToFollow'));
+      router.push(signInHref('follow'));
       return;
     }
     if (viewerId === userId) return;

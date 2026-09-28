@@ -24,6 +24,12 @@ function userDoc(userId: string) {
   return doc(db, COLLECTIONS.users, userId);
 }
 
+function coinProUntilFromData(data: DocumentData): User['coinProUntil'] {
+  const raw = data.coinProUntil;
+  if (!raw) return null;
+  return raw as User['coinProUntil'];
+}
+
 function mapUser(id: string, data: DocumentData): User {
   return {
     id,
@@ -41,6 +47,9 @@ function mapUser(id: string, data: DocumentData): User {
         : null,
     subscriptionTier: data.subscriptionTier ?? 'standard',
     isProYearly: data.isProYearly === true,
+    coins: typeof data.coins === 'number' ? data.coins : 0,
+    coinsSignupBonusGranted: data.coinsSignupBonusGranted === true,
+    coinProUntil: coinProUntilFromData(data),
     blockedUsers: Array.isArray(data.blockedUsers) ? data.blockedUsers : [],
     revenueCatAppUserId: data.revenueCatAppUserId,
     createdAt: data.createdAt,
@@ -83,6 +92,9 @@ export async function upsertUser(
     countryCode: input.countryCode ?? null,
     subscriptionTier: input.subscriptionTier ?? 'standard',
     isProYearly: false,
+    coins: 0,
+    coinsSignupBonusGranted: false,
+    coinProUntil: null,
     blockedUsers: [],
     revenueCatAppUserId: input.revenueCatAppUserId ?? null,
     createdAt: serverTimestamp(),
@@ -106,10 +118,26 @@ export async function updateUser(
   });
 }
 
-/** Whether the user may attach `linkUrl` on posts (Firestore mirror of RC). */
+/** Whether the user may attach `linkUrl` on posts (RC Pro or active coin Pro). */
 export async function userCanAddLinks(userId: string): Promise<boolean> {
   const user = await getUserById(userId);
-  return user?.isProYearly === true;
+  if (!user) return false;
+  if (user.isProYearly) return true;
+  if (!user.coinProUntil) return false;
+  const until =
+    typeof user.coinProUntil.toDate === 'function'
+      ? user.coinProUntil.toDate()
+      : null;
+  return Boolean(until && until.getTime() > Date.now());
+}
+
+export function isCoinProActive(user: User | null | undefined): boolean {
+  if (!user?.coinProUntil) return false;
+  const until =
+    typeof user.coinProUntil.toDate === 'function'
+      ? user.coinProUntil.toDate()
+      : null;
+  return Boolean(until && until.getTime() > Date.now());
 }
 
 /** Persist a block so the author disappears from the viewer's feed. */
@@ -134,6 +162,9 @@ export async function blockUser(
         imageUrl: null,
         subscriptionTier: 'standard',
         isProYearly: false,
+        coins: 0,
+        coinsSignupBonusGranted: false,
+        coinProUntil: null,
         birthDate: null,
         countryCode: null,
         blockedUsers: [blockedUserId],

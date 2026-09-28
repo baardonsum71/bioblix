@@ -1,11 +1,45 @@
-import { ScrollView, StyleSheet } from 'react-native';
+import { useAuth } from '@clerk/expo';
+import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 
+import { BioBlixCreateProfileGate } from '@/components/bioblix/BioBlixCreateProfileGate';
 import { BioBlixGoLive } from '@/components/bioblix/BioBlixGoLive';
 import { BioBlixText } from '@/components/bioblix/BioBlixText';
+import { isClerkConfigured } from '@/components/bioblix/BioBlixProviders';
 import { BioBlixBrand, BioBlixPalette, BioBlixSpacing } from '@/constants/bioblixTheme';
 import { useI18n } from '@/lib/i18n';
 
 export default function GoLiveScreen() {
+  if (!isClerkConfigured) {
+    return <GoLiveBody />;
+  }
+
+  return <GoLiveGuarded />;
+}
+
+function GoLiveGuarded() {
+  const { isLoaded, isSignedIn } = useAuth();
+
+  if (!isLoaded) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator color={BioBlixPalette.aurora} />
+      </View>
+    );
+  }
+
+  if (!isSignedIn) {
+    return (
+      <BioBlixCreateProfileGate
+        reason="live"
+        titleKey="upload.gateLiveTitle"
+      />
+    );
+  }
+
+  return <GoLiveBody />;
+}
+
+function GoLiveBody() {
   const { t } = useI18n();
 
   return (
@@ -24,6 +58,12 @@ export default function GoLiveScreen() {
 }
 
 const styles = StyleSheet.create({
+  loading: {
+    flex: 1,
+    backgroundColor: BioBlixPalette.night,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   scroll: {
     flex: 1,
     backgroundColor: BioBlixPalette.night,

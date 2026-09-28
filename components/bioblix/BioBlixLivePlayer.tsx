@@ -1,8 +1,10 @@
 import { useAuth, useUser } from '@clerk/expo';
+import { useRouter, type Href } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Platform,
+  Pressable,
   StyleSheet,
   View,
 } from 'react-native';
@@ -10,6 +12,7 @@ import {
 import { BioBlixText } from '@/components/bioblix/BioBlixText';
 import { BioBlixPalette } from '@/constants/bioblixTheme';
 import { Colors } from '@/constants/Colors';
+import { signInHref } from '@/lib/auth/signInGate';
 import { useI18n } from '@/lib/i18n';
 import { watchLiveSession } from '@/lib/live/api';
 import { isWeb } from '@/lib/platform';
@@ -31,6 +34,7 @@ export function BioBlixLivePlayer({
   height,
 }: BioBlixLivePlayerProps) {
   const { t } = useI18n();
+  const router = useRouter();
   const { getToken, isSignedIn } = useAuth();
   const { user } = useUser();
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -46,7 +50,7 @@ export function BioBlixLivePlayer({
     }
     if (!isSignedIn) {
       setStatus('error');
-      setError(t('social.signInRequiredBody'));
+      setError(t('auth.reason.watchLive'));
       return;
     }
 
@@ -173,6 +177,16 @@ export function BioBlixLivePlayer({
           <BioBlixText variant="body" color={Colors.mistDim} style={styles.err}>
             {error ?? t('live.watchFail')}
           </BioBlixText>
+          {!isSignedIn ? (
+            <Pressable
+              style={styles.signInBtn}
+              onPress={() => router.push(signInHref('watchLive') as Href)}
+            >
+              <BioBlixText variant="label" color={Colors.ink}>
+                {t('auth.createFreeProfile')}
+              </BioBlixText>
+            </Pressable>
+          ) : null}
         </View>
       ) : null}
 
@@ -233,5 +247,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     maxWidth: 280,
     paddingHorizontal: 16,
+  },
+  signInBtn: {
+    marginTop: 12,
+    backgroundColor: Colors.lime,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
 });

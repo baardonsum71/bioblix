@@ -1,6 +1,6 @@
 import { useAuth, useSignIn, useSignUp } from '@clerk/expo';
 import { useSSO } from '@clerk/expo/experimental';
-import { Link, Redirect, type Href, useRouter } from 'expo-router';
+import { Link, Redirect, type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
@@ -26,12 +26,16 @@ import {
   BioBlixSpacing,
 } from '@/constants/bioblixTheme';
 import { CountryPicker } from '@/components/bioblix/CountryPicker';
+import {
+  isSignInReason,
+  signInReasonBodyKey,
+} from '@/lib/auth/signInGate';
 import { useI18n } from '@/lib/i18n';
 import { isAllowedCountry } from '@/lib/i18n/countries';
 import { MIN_AGE, isAtLeastAge } from '@/lib/validation/age';
 
 /** Bump when auth flow changes — visible on screen to confirm Vercel build. */
-const AUTH_BUILD = 'auth-v14-age-16';
+const AUTH_BUILD = 'auth-v15-free-profile';
 
 type Step = 'form' | 'verify' | 'apple-continue';
 type Mode = 'sign-up' | 'sign-in';
@@ -105,6 +109,8 @@ function Field({
 
 function BioBlixSignInForm() {
   const router = useRouter();
+  const { reason: reasonParam } = useLocalSearchParams<{ reason?: string }>();
+  const signInReason = isSignInReason(reasonParam) ? reasonParam : null;
   const { isLoaded: authLoaded, isSignedIn } = useAuth();
   const { signIn, errors: signInErrors, fetchStatus: signInStatus } = useSignIn();
   const { signUp, errors: signUpErrors, fetchStatus: signUpStatus } = useSignUp();
@@ -809,9 +815,11 @@ function BioBlixSignInForm() {
                     )
                   ? t('auth.appleNameMissing')
                   : t('auth.appleOneStep')
-                : mode === 'sign-up'
-                  ? t('auth.countryHint')
-                  : t('auth.signInHint')}
+                : signInReason
+                  ? t(signInReasonBodyKey(signInReason))
+                  : mode === 'sign-up'
+                    ? t('auth.countryHint')
+                    : t('auth.signInHint')}
           </BioBlixText>
 
           <View nativeID="clerk-captcha" />
