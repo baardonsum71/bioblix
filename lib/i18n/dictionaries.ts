@@ -236,6 +236,7 @@ export type MessageKey =
   | 'auth.appleUpdateFail'
   | 'auth.sessionFail'
   | 'auth.appleFail'
+  | 'auth.appleRedirectMissing'
   | 'auth.fillName'
   | 'auth.appleSessionMissing'
   | 'auth.appleSessionInvalid'
@@ -547,6 +548,8 @@ export const en: Dictionary = {
   'auth.appleUpdateFail': 'Could not update Apple profile.',
   'auth.sessionFail': 'Could not complete session.',
   'auth.appleFail': 'Apple sign-in failed. Check that Apple is enabled in Clerk.',
+  'auth.appleRedirectMissing':
+    'Apple sign-in did not start. Refresh the page and try again (or use email).',
   'auth.fillName': 'Enter first and last name to finish Apple sign-in.',
   'auth.appleSessionMissing': 'Apple session is missing. Tap “Start over” and try again.',
   'auth.appleSessionInvalid': 'Apple session is invalid ({status}). Tap “Start over” and try again.',
@@ -861,6 +864,8 @@ export const nb: Dictionary = {
   'auth.appleUpdateFail': 'Kunne ikke oppdatere Apple-profil.',
   'auth.sessionFail': 'Kunne ikke fullføre sesjon.',
   'auth.appleFail': 'Apple-innlogging feilet. Sjekk at Apple er på i Clerk.',
+  'auth.appleRedirectMissing':
+    'Apple-innlogging startet ikke. Oppdater siden og prøv igjen (eller bruk e-post).',
   'auth.fillName': 'Fyll inn fornavn og etternavn for å fullføre Apple-innlogging.',
   'auth.appleSessionMissing': 'Apple-sesjonen mangler. Trykk «Start på nytt» og prøv igjen.',
   'auth.appleSessionInvalid': 'Apple-sesjonen er ugyldig ({status}). Trykk «Start på nytt» og prøv igjen.',

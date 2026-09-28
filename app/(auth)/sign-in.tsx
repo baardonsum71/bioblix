@@ -1,4 +1,4 @@
-import { useAuth, useSignIn, useSignUp } from '@clerk/expo';
+import { useAuth, useClerk, useSignIn, useSignUp } from '@clerk/expo';
 import { useSSO } from '@clerk/expo/experimental';
 import { Link, Redirect, type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useRef, useState, type ReactNode } from 'react';
@@ -35,7 +35,7 @@ import { isAllowedCountry } from '@/lib/i18n/countries';
 import { MIN_AGE, isAtLeastAge } from '@/lib/validation/age';
 
 /** Bump when auth flow changes — visible on screen to confirm Vercel build. */
-const AUTH_BUILD = 'auth-v19-apple-first';
+const AUTH_BUILD = 'auth-v20-apple-force-create';
 
 type Step = 'form' | 'verify' | 'apple-continue';
 type Mode = 'sign-up' | 'sign-in';
@@ -112,6 +112,7 @@ function BioBlixSignInForm() {
   const { reason: reasonParam } = useLocalSearchParams<{ reason?: string }>();
   const signInReason = isSignInReason(reasonParam) ? reasonParam : null;
   const { isLoaded: authLoaded, isSignedIn } = useAuth();
+  const clerk = useClerk();
   const { signIn, errors: signInErrors, fetchStatus: signInStatus } = useSignIn();
   const { signUp, errors: signUpErrors, fetchStatus: signUpStatus } = useSignUp();
   const { startSSOFlow } = useSSO();
@@ -339,21 +340,55 @@ function BioBlixSignInForm() {
       setFormError(t('auth.acceptLegal'));
       return;
     }
+    if (!authLoaded || !clerk.loaded) {
+      setFormError(t('auth.appleFail'));
+      return;
+    }
 
     setAppleBusy(true);
     appleSignUpRef.current = null;
     setAppleMissingFields([]);
+    let navigatedAway = false;
     try {
-      // Web: full-page OAuth via future API (reliable session + callback).
+      // Web: force a fresh OAuth SignIn then hard-navigate.
+      // Clerk's signIn.sso() skips _create when a stale SignIn.id exists without
+      // an oauth redirect URL — that looks like a dead button (busy then idle).
       if (Platform.OS === 'web') {
         const origin =
           typeof window !== 'undefined' ? window.location.origin : '';
+        const callbackUrl = origin ? `${origin}/sso-callback` : '/sso-callback';
+        const completeUrl = origin ? `${origin}/profile` : '/profile';
+
+        const { error: createError } = await signIn.create({
+          strategy: 'oauth_apple',
+          redirectUrl: callbackUrl,
+          actionCompleteRedirectUrl: completeUrl,
+        });
+        if (createError) {
+          setFormError(
+            clerkErrMessage(
+              createError,
+              signInErrors.fields,
+              t('auth.appleFail')
+            )
+          );
+          return;
+        }
+
+        const oauthUrl =
+          clerk.client?.signIn?.firstFactorVerification
+            ?.externalVerificationRedirectURL ?? null;
+        if (oauthUrl && typeof window !== 'undefined') {
+          navigatedAway = true;
+          window.location.assign(oauthUrl.toString());
+          return;
+        }
+
+        // Fallback if create did not expose a URL (should be rare).
         const { error } = await signIn.sso({
           strategy: 'oauth_apple',
-          redirectUrl: origin ? `${origin}/profile` : '/profile',
-          redirectCallbackUrl: origin
-            ? `${origin}/sso-callback`
-            : '/sso-callback',
+          redirectUrl: completeUrl,
+          redirectCallbackUrl: callbackUrl,
         });
         if (error) {
           setFormError(
@@ -363,8 +398,19 @@ function BioBlixSignInForm() {
               t('auth.appleFail')
             )
           );
+          return;
         }
-        // On success the browser navigates away to Apple / sso-callback.
+
+        const retryUrl =
+          clerk.client?.signIn?.firstFactorVerification
+            ?.externalVerificationRedirectURL ?? null;
+        if (retryUrl && typeof window !== 'undefined') {
+          navigatedAway = true;
+          window.location.assign(retryUrl.toString());
+          return;
+        }
+
+        setFormError(t('auth.appleRedirectMissing'));
         return;
       }
 
@@ -413,10 +459,14 @@ function BioBlixSignInForm() {
     } catch (err) {
       setFormError(clerkErrMessage(err, null, t('auth.appleFail')));
     } finally {
-      setAppleBusy(false);
+      if (!navigatedAway) {
+        setAppleBusy(false);
+      }
     }
   }, [
     acceptedLegal,
+    authLoaded,
+    clerk,
     countryCode,
     t,
     startSSOFlow,
@@ -1330,6 +1380,7 @@ const styles = StyleSheet.create({
     borderColor: BioBlixPalette.hairline,
     backgroundColor: '#000000',
     paddingHorizontal: 16,
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as object) : {}),
   },
   appleBtnDisabled: {
     opacity: 0.45,
