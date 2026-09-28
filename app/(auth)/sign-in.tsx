@@ -35,7 +35,7 @@ import { isAllowedCountry } from '@/lib/i18n/countries';
 import { MIN_AGE, isAtLeastAge } from '@/lib/validation/age';
 
 /** Bump when auth flow changes — visible on screen to confirm Vercel build. */
-const AUTH_BUILD = 'auth-v15-free-profile';
+const AUTH_BUILD = 'auth-v16-apple-signin';
 
 type Step = 'form' | 'verify' | 'apple-continue';
 type Mode = 'sign-up' | 'sign-in';
@@ -117,7 +117,7 @@ function BioBlixSignInForm() {
   const { startSSOFlow } = useSSO();
   const { t, setCountryCode: setI18nCountry } = useI18n();
 
-  const [mode, setMode] = useState<Mode>('sign-up');
+  const [mode, setMode] = useState<Mode>('sign-in');
   const [nick, setNick] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -336,12 +336,9 @@ function BioBlixSignInForm() {
   const onAppleSignIn = useCallback(async () => {
     setFormError(null);
     if (!requireLegal()) return;
-    if (mode === 'sign-up') {
-      if (!countryCode || !isAllowedCountry(countryCode)) {
-        setFormError(t('auth.countryRequired'));
-        return;
-      }
-    }
+    // Do NOT require country before Apple — returning users must sign in
+    // without a sign-up form. New Apple accounts collect country on the
+    // apple-continue step / unsafeMetadata after OAuth.
 
     setAppleBusy(true);
     appleSignUpRef.current = null;
@@ -396,8 +393,9 @@ function BioBlixSignInForm() {
 
         const needsName =
           missing.includes('first_name') || missing.includes('last_name');
+        const needsCountry = !countryCode || !isAllowedCountry(countryCode);
 
-        if (!needsName) {
+        if (!needsName && !needsCountry) {
           const err = await finishAppleSignUp(activeSignUp, {
             nickname: nick.trim().toLowerCase().replace(/\s+/g, '') || undefined,
             countryCode: countryCode ?? undefined,
@@ -410,19 +408,18 @@ function BioBlixSignInForm() {
         }
 
         setStep('apple-continue');
-        setFormError(null);
+        setFormError(
+          needsCountry && !needsName ? t('auth.countryRequired') : null
+        );
         return;
       }
     } catch (err) {
-      setFormError(
-        clerkErrMessage(err, null, t('auth.appleFail'))
-      );
+      setFormError(clerkErrMessage(err, null, t('auth.appleFail')));
     } finally {
       setAppleBusy(false);
     }
   }, [
     requireLegal,
-    mode,
     countryCode,
     t,
     startSSOFlow,
