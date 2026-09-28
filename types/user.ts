@@ -3,6 +3,17 @@ import type { Timestamp } from 'firebase/firestore';
 /** Subscription plans tied to RevenueCat (and Stripe on web). */
 export type SubscriptionTier = 'standard' | 'pro';
 
+/** Social / external link on a user profile (max 10 per user). */
+export interface ProfileLink {
+  id: string;
+  /** Short label, e.g. "Instagram" or "Shop". */
+  title: string;
+  /** Full https URL. */
+  url: string;
+}
+
+export const MAX_PROFILE_LINKS = 10;
+
 /**
  * Firestore `users` document.
  * Document ID should match the Clerk user id (`userId`).
@@ -37,6 +48,8 @@ export interface User {
   coinProUntil: Timestamp | null;
   /** Clerk/user ids this viewer has blocked (hidden from their feed). */
   blockedUsers: string[];
+  /** Up to 10 public profile links (socials, shop, etc.). Free for all users. */
+  profileLinks: ProfileLink[];
   /** RevenueCat / Stripe customer identifiers when linked */
   revenueCatAppUserId?: string;
   createdAt: Timestamp;
@@ -55,10 +68,12 @@ export type CreateUserInput = Omit<
   | 'coinsSignupBonusGranted'
   | 'coinProUntil'
   | 'blockedUsers'
+  | 'profileLinks'
 > & {
   subscriptionTier?: SubscriptionTier;
   isProYearly?: boolean;
   blockedUsers?: string[];
+  profileLinks?: ProfileLink[];
 };
 
 /** Partial update payload for profile / subscription sync. */

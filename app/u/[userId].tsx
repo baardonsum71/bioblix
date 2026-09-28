@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 
 import { BioBlixText } from '@/components/bioblix/BioBlixText';
+import { BioBlixProfileLinks } from '@/components/bioblix/BioBlixProfileLinks';
 import { BioBlixVerticalFeed } from '@/components/bioblix/BioBlixVerticalFeed';
 import { BioBlixScreenShell } from '@/components/bioblix/BioBlixLogo';
 import { BioBlixPalette } from '@/constants/bioblixTheme';
@@ -210,6 +211,16 @@ export default function PublicProfileScreen() {
         </Pressable>
       </View>
 
+      <View style={styles.linksWrap}>
+        <BioBlixProfileLinks
+          links={profile.profileLinks ?? []}
+          editableUserId={isSelf ? userId : undefined}
+          onSaved={(next) =>
+            setProfile((prev) => (prev ? { ...prev, profileLinks: next } : prev))
+          }
+        />
+      </View>
+
       <BioBlixText variant="label" color={Colors.mistDim} style={styles.section}>
         {t('profile.blixSection', { count: posts.length })}
       </BioBlixText>
@@ -269,6 +280,10 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 12,
     paddingHorizontal: 20,
+  },
+  linksWrap: {
+    paddingHorizontal: 20,
+    marginBottom: 4,
   },
   btn: {
     paddingHorizontal: 16,

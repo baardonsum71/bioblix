@@ -1,4 +1,11 @@
-export type { User, CreateUserInput, UpdateUserInput, SubscriptionTier } from './user';
+export type {
+  User,
+  CreateUserInput,
+  UpdateUserInput,
+  SubscriptionTier,
+  ProfileLink,
+} from './user';
+export { MAX_PROFILE_LINKS } from './user';
 export type {
   Post,
   CreatePostInput,

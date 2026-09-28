@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 
 import { BioBlixEditPostModal } from '@/components/bioblix/BioBlixEditPostModal';
+import { BioBlixProfileLinks } from '@/components/bioblix/BioBlixProfileLinks';
 import { BioBlixText } from '@/components/bioblix/BioBlixText';
 import { BioBlixVerticalFeed } from '@/components/bioblix/BioBlixVerticalFeed';
 import { CountryPicker } from '@/components/bioblix/CountryPicker';
@@ -613,6 +614,14 @@ function BioBlixAccountSigned() {
             <ActivityIndicator color={Colors.lime} style={{ marginTop: 8 }} />
           ) : null}
         </View>
+
+        {userId ? (
+          <BioBlixProfileLinks
+            links={profile?.profileLinks ?? []}
+            editableUserId={userId}
+            onSaved={() => void refresh()}
+          />
+        ) : null}
 
         <View style={styles.postsHeader}>
           <BioBlixText variant="label" color={Colors.mistDim}>

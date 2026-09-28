@@ -134,6 +134,16 @@ export type MessageKey =
   | 'profile.invalid'
   | 'profile.notFound'
   | 'profile.blixSection'
+  | 'profile.linksTitle'
+  | 'profile.linksCount'
+  | 'profile.linksEmpty'
+  | 'profile.linksAdd'
+  | 'profile.linksRemove'
+  | 'profile.linksMax'
+  | 'profile.linksTitleRequired'
+  | 'profile.linksLabelPlaceholder'
+  | 'profile.linksUrlPlaceholder'
+  | 'profile.linksSaveFail'
   | 'feed.empty'
   | 'feed.loadError'
   | 'feed.retry'
@@ -436,6 +446,16 @@ export const en: Dictionary = {
   'profile.invalid': 'Invalid profile',
   'profile.notFound': 'User not found',
   'profile.blixSection': 'Blix ({count})',
+  'profile.linksTitle': 'Links',
+  'profile.linksCount': '{count}/{max}',
+  'profile.linksEmpty': 'Add Instagram, TikTok, shop, or other links (up to 10).',
+  'profile.linksAdd': 'Add link',
+  'profile.linksRemove': 'Remove',
+  'profile.linksMax': 'You can add up to {max} links.',
+  'profile.linksTitleRequired': 'Enter a short label for the link.',
+  'profile.linksLabelPlaceholder': 'Label (e.g. Instagram)',
+  'profile.linksUrlPlaceholder': 'https://…',
+  'profile.linksSaveFail': 'Could not save links.',
   'feed.empty': 'No blix in the feed yet.',
   'feed.loadError': 'Could not load BioBlix',
   'feed.retry': 'Try again',
@@ -750,6 +770,16 @@ export const nb: Dictionary = {
   'profile.invalid': 'Ugyldig profil',
   'profile.notFound': 'Fant ikke brukeren',
   'profile.blixSection': 'Blix ({count})',
+  'profile.linksTitle': 'Lenker',
+  'profile.linksCount': '{count}/{max}',
+  'profile.linksEmpty': 'Legg til Instagram, TikTok, butikk eller andre lenker (opptil 10).',
+  'profile.linksAdd': 'Legg til lenke',
+  'profile.linksRemove': 'Fjern',
+  'profile.linksMax': 'Du kan legge til opptil {max} lenker.',
+  'profile.linksTitleRequired': 'Skriv en kort tekst for lenken.',
+  'profile.linksLabelPlaceholder': 'Navn (f.eks. Instagram)',
+  'profile.linksUrlPlaceholder': 'https://…',
+  'profile.linksSaveFail': 'Kunne ikke lagre lenker.',
   'feed.empty': 'Ingen blix i strømmen ennå.',
   'feed.loadError': 'Kunne ikke laste BioBlix',
   'feed.retry': 'Prøv igjen',

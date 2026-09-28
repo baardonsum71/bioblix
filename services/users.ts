@@ -15,6 +15,7 @@ import {
 
 import type { CreateUserInput, UpdateUserInput, User } from '@/types';
 import { COLLECTIONS, db } from '@/lib/firebase';
+import { parseProfileLinks } from '@/lib/validation/profileLink';
 
 function usersRef() {
   return collection(db, COLLECTIONS.users);
@@ -51,6 +52,7 @@ function mapUser(id: string, data: DocumentData): User {
     coinsSignupBonusGranted: data.coinsSignupBonusGranted === true,
     coinProUntil: coinProUntilFromData(data),
     blockedUsers: Array.isArray(data.blockedUsers) ? data.blockedUsers : [],
+    profileLinks: parseProfileLinks(data.profileLinks),
     revenueCatAppUserId: data.revenueCatAppUserId,
     createdAt: data.createdAt,
     updatedAt: data.updatedAt,
@@ -96,6 +98,7 @@ export async function upsertUser(
     coinsSignupBonusGranted: false,
     coinProUntil: null,
     blockedUsers: [],
+    profileLinks: input.profileLinks ?? [],
     revenueCatAppUserId: input.revenueCatAppUserId ?? null,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -168,6 +171,7 @@ export async function blockUser(
         birthDate: null,
         countryCode: null,
         blockedUsers: [blockedUserId],
+        profileLinks: [],
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       },
