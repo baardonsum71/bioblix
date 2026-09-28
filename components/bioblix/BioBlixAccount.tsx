@@ -3,7 +3,7 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link, useRouter, type Href } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -46,7 +46,7 @@ import { presentProYearlyPaywall } from '@/lib/revenuecat/paywall';
 import { syncProToFirestore } from '@/lib/revenuecat/web';
 import { shareProfile } from '@/lib/shareProfile';
 import { SUBSCRIPTION_PLANS } from '@/lib/subscription';
-import { redeemCoins } from '@/services/coins';
+import { claimSignupCoins, redeemCoins } from '@/services/coins';
 import { countFollowers, countFollowing } from '@/services/follows';
 import { listPostsByUser } from '@/services/posts';
 import { uploadAvatarMedia } from '@/services/storage';
@@ -96,6 +96,7 @@ function BioBlixAccountSigned() {
   const [upgrading, setUpgrading] = useState(false);
   const [savingCountry, setSavingCountry] = useState(false);
   const [redeeming, setRedeeming] = useState<CoinRedeemPlan | null>(null);
+  const signupClaimAttempted = useRef(false);
 
   const coinPro = isCoinProActive(profile);
   const hasPro = Boolean(
@@ -107,9 +108,48 @@ function BioBlixAccountSigned() {
   ).summary;
 
   useEffect(() => {
+    signupClaimAttempted.current = false;
+  }, [userId]);
+
+  useEffect(() => {
     const code = profile?.countryCode;
     if (code) setCountryCode(code);
   }, [profile?.countryCode, setCountryCode]);
+
+  // Backfill + refresh signup bonus if ensure-profile claim was missed/stale.
+  useEffect(() => {
+    if (!isSignedIn || !userId || profileLoading || !profile) return;
+    if (profile.coinsSignupBonusGranted) return;
+    if (signupClaimAttempted.current) return;
+    signupClaimAttempted.current = true;
+
+    void (async () => {
+      try {
+        const result = await claimSignupCoins(() => getToken());
+        await refresh();
+        if (result.awarded) {
+          notify(
+            t('coins.signupBonusTitle'),
+            t('coins.signupBonusBody', { coins: COIN_REWARDS.signup })
+          );
+        }
+      } catch (err) {
+        signupClaimAttempted.current = false;
+        notify(
+          t('coins.claimFailTitle'),
+          err instanceof Error ? err.message : t('coins.claimFailBody')
+        );
+      }
+    })();
+  }, [
+    isSignedIn,
+    userId,
+    profile,
+    profileLoading,
+    getToken,
+    refresh,
+    t,
+  ]);
 
   const onChangeCountry = useCallback(
     async (code: string) => {

@@ -181,6 +181,10 @@ export type MessageKey =
   | 'coins.redeemedTitle'
   | 'coins.redeemedBody'
   | 'coins.redeemFail'
+  | 'coins.signupBonusTitle'
+  | 'coins.signupBonusBody'
+  | 'coins.claimFailTitle'
+  | 'coins.claimFailBody'
   | 'upload.liveBodyCoins'
   | 'link.leaveTitle'
   | 'link.leaveBody'
@@ -482,6 +486,10 @@ export const en: Dictionary = {
   'coins.redeemedTitle': 'Pro unlocked with coins',
   'coins.redeemedBody': 'Spent {cost} coins · Pro store links for {days} days.',
   'coins.redeemFail': 'Could not redeem coins',
+  'coins.signupBonusTitle': 'Welcome coins',
+  'coins.signupBonusBody': '+{coins} coins for creating your BioBlix profile.',
+  'coins.claimFailTitle': 'Could not claim coins',
+  'coins.claimFailBody': 'Open Account again in a moment, or check that /api/coins is deployed.',
   'upload.liveBodyCoins':
     'Your blix is visible in the feed. +{coins} coins earned.',
   'link.leaveTitle': 'You are leaving {name}',
@@ -791,6 +799,11 @@ export const nb: Dictionary = {
   'coins.redeemedTitle': 'Pro låst opp med coins',
   'coins.redeemedBody': 'Brukte {cost} coins · Pro-butikklenker i {days} dager.',
   'coins.redeemFail': 'Kunne ikke løse inn coins',
+  'coins.signupBonusTitle': 'Velkomst-coins',
+  'coins.signupBonusBody': '+{coins} coins for å lage BioBlix-profil.',
+  'coins.claimFailTitle': 'Kunne ikke hente coins',
+  'coins.claimFailBody':
+    'Åpne Konto igjen om litt, eller sjekk at /api/coins er deployed.',
   'upload.liveBodyCoins':
     'Blixet ditt er synlig i strømmen. +{coins} coins tjent.',
   'link.leaveTitle': 'Du forlater nå {name}',

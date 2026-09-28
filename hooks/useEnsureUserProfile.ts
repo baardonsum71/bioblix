@@ -76,7 +76,10 @@ export function useEnsureUserProfile() {
         try {
           await claimSignupCoins(() => getToken());
         } catch (coinErr) {
-          console.warn('[coins-signup]', coinErr);
+          console.warn(
+            '[coins-signup]',
+            coinErr instanceof Error ? coinErr.message : coinErr
+          );
         }
 
         if (countryCodeRaw) {
