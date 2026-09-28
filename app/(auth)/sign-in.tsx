@@ -35,7 +35,7 @@ import { isAllowedCountry } from '@/lib/i18n/countries';
 import { MIN_AGE, isAtLeastAge } from '@/lib/validation/age';
 
 /** Bump when auth flow changes — visible on screen to confirm Vercel build. */
-const AUTH_BUILD = 'auth-v18-restore-apple';
+const AUTH_BUILD = 'auth-v19-apple-first';
 
 type Step = 'form' | 'verify' | 'apple-continue';
 type Mode = 'sign-up' | 'sign-in';
@@ -335,12 +335,9 @@ function BioBlixSignInForm() {
 
   const onAppleSignIn = useCallback(async () => {
     setFormError(null);
-    if (!requireLegal()) return;
-    if (mode === 'sign-up') {
-      if (!countryCode || !isAllowedCountry(countryCode)) {
-        setFormError(t('auth.countryRequired'));
-        return;
-      }
+    if (!acceptedLegal) {
+      setFormError(t('auth.acceptLegal'));
+      return;
     }
 
     setAppleBusy(true);
@@ -419,8 +416,7 @@ function BioBlixSignInForm() {
       setAppleBusy(false);
     }
   }, [
-    requireLegal,
-    mode,
+    acceptedLegal,
     countryCode,
     t,
     startSSOFlow,
@@ -869,6 +865,84 @@ function BioBlixSignInForm() {
                 </Pressable>
               </View>
 
+              <Pressable
+                onPress={() => {
+                  setAcceptedLegal((v) => !v);
+                  setFormError(null);
+                }}
+                style={styles.legalRow}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: acceptedLegal }}
+              >
+                <View
+                  style={[
+                    styles.checkbox,
+                    acceptedLegal && styles.checkboxChecked,
+                  ]}
+                >
+                  {acceptedLegal ? (
+                    <BioBlixText
+                      variant="caption"
+                      color={BioBlixPalette.night}
+                      style={styles.checkMark}
+                    >
+                      ✓
+                    </BioBlixText>
+                  ) : null}
+                </View>
+                <View style={styles.legalTextWrap}>
+                  <BioBlixText variant="caption" color={BioBlixPalette.fog}>
+                    {t('auth.acceptPrefix')}{' '}
+                  </BioBlixText>
+                  <Link href="/privacy">
+                    <BioBlixText
+                      variant="caption"
+                      color={BioBlixPalette.cyan}
+                      style={styles.legalLink}
+                    >
+                      {t('account.privacyPolicy')}
+                    </BioBlixText>
+                  </Link>
+                  <BioBlixText variant="caption" color={BioBlixPalette.fog}>
+                    {' '}
+                    {t('auth.termsAnd')}
+                  </BioBlixText>
+                </View>
+              </Pressable>
+
+              {formError ? (
+                <BioBlixText variant="caption" color={BioBlixPalette.danger}>
+                  {formError}
+                </BioBlixText>
+              ) : null}
+
+              <Pressable
+                disabled={appleBusy}
+                onPress={() => void onAppleSignIn()}
+                style={[
+                  styles.appleBtn,
+                  appleBusy && styles.appleBtnDisabled,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel={t('auth.continueApple')}
+              >
+                {appleBusy ? (
+                  <ActivityIndicator color={BioBlixPalette.fog} />
+                ) : (
+                  <BioBlixText variant="label" color={BioBlixPalette.fog}>
+                    {t('auth.continueApple')}
+                  </BioBlixText>
+                )}
+              </Pressable>
+
+              <View style={styles.orRow}>
+                <View style={styles.orLine} />
+                <BioBlixText variant="caption" color={BioBlixPalette.muted}>
+                  {t('auth.orEmail')}
+                </BioBlixText>
+                <View style={styles.orLine} />
+              </View>
+
               {mode === 'sign-up' ? (
                 <>
                   <CountryPicker
@@ -972,78 +1046,6 @@ function BioBlixSignInForm() {
                   </Pressable>
                 </View>
               </Field>
-
-              <Pressable
-                onPress={() => {
-                  setAcceptedLegal((v) => !v);
-                  setFormError(null);
-                }}
-                style={styles.legalRow}
-                accessibilityRole="checkbox"
-                accessibilityState={{ checked: acceptedLegal }}
-              >
-                <View
-                  style={[
-                    styles.checkbox,
-                    acceptedLegal && styles.checkboxChecked,
-                  ]}
-                >
-                  {acceptedLegal ? (
-                    <BioBlixText
-                      variant="caption"
-                      color={BioBlixPalette.night}
-                      style={styles.checkMark}
-                    >
-                      ✓
-                    </BioBlixText>
-                  ) : null}
-                </View>
-                <View style={styles.legalTextWrap}>
-                  <BioBlixText variant="caption" color={BioBlixPalette.fog}>
-                    {t('auth.acceptPrefix')}{' '}
-                  </BioBlixText>
-                  <Link href="/privacy">
-                    <BioBlixText
-                      variant="caption"
-                      color={BioBlixPalette.cyan}
-                      style={styles.legalLink}
-                    >
-                      {t('account.privacyPolicy')}
-                    </BioBlixText>
-                  </Link>
-                  <BioBlixText variant="caption" color={BioBlixPalette.fog}>
-                    {' '}
-                    {t('auth.termsAnd')}
-                  </BioBlixText>
-                </View>
-              </Pressable>
-
-              <Pressable
-                disabled={!canSubmit}
-                onPress={() => void onAppleSignIn()}
-                style={[
-                  styles.appleBtn,
-                  !canSubmit && styles.appleBtnDisabled,
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel={t('auth.continueApple')}
-              >
-                {appleBusy ? (
-                  <ActivityIndicator color={BioBlixPalette.fog} />
-                ) : (
-                  <BioBlixText variant="label" color={BioBlixPalette.fog}>
-                    {t('auth.continueApple')}
-                  </BioBlixText>
-                )}
-              </Pressable>
-
-              <View style={styles.orRow}>
-                <View style={styles.orLine} />
-                <BioBlixText variant="caption" color={BioBlixPalette.muted}>
-                  {t('auth.orEmail')}
-                </BioBlixText>
-                <View style={styles.orLine} />
-              </View>
 
               <BioBlixGradientButton
                 label={
