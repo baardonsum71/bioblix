@@ -35,7 +35,7 @@ import { isAllowedCountry } from '@/lib/i18n/countries';
 import { MIN_AGE, isAtLeastAge } from '@/lib/validation/age';
 
 /** Bump when auth flow changes — visible on screen to confirm Vercel build. */
-const AUTH_BUILD = 'auth-v16-apple-signin';
+const AUTH_BUILD = 'auth-v17-apple-tap';
 
 type Step = 'form' | 'verify' | 'apple-continue';
 type Mode = 'sign-up' | 'sign-in';
@@ -1017,12 +1017,24 @@ function BioBlixSignInForm() {
                 </View>
               </Pressable>
 
+              {formError && step === 'form' ? (
+                <BioBlixText variant="caption" color={BioBlixPalette.danger}>
+                  {formError}
+                </BioBlixText>
+              ) : null}
+
               <Pressable
-                disabled={!canSubmit}
-                onPress={() => void onAppleSignIn()}
+                disabled={busy}
+                onPress={() => {
+                  if (!acceptedLegal) {
+                    setFormError(t('auth.acceptLegal'));
+                    return;
+                  }
+                  void onAppleSignIn();
+                }}
                 style={[
                   styles.appleBtn,
-                  !canSubmit && styles.appleBtnDisabled,
+                  busy && styles.appleBtnDisabled,
                 ]}
                 accessibilityRole="button"
                 accessibilityLabel={t('auth.continueApple')}
