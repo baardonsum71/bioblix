@@ -1,8 +1,9 @@
 import * as WebBrowser from 'expo-web-browser';
-import { Alert, Linking, Platform } from 'react-native';
+import { Linking, Platform } from 'react-native';
 
 import { Brand, Colors } from '@/constants/Colors';
 import { translate, type AppLocale, type MessageKey } from '@/lib/i18n';
+import { confirmAction } from '@/lib/platform';
 import { extractLinkDomain } from '@/lib/validation/proLink';
 
 function normalizeUrl(url: string): string {
@@ -13,6 +14,10 @@ function normalizeUrl(url: string): string {
 
 async function openNormalized(href: string): Promise<void> {
   if (Platform.OS === 'web') {
+    if (typeof window !== 'undefined') {
+      window.open(href, '_blank', 'noopener,noreferrer');
+      return;
+    }
     await Linking.openURL(href);
     return;
   }
@@ -28,6 +33,7 @@ type LinkLabels = {
 
 /**
  * Show App Store / Play-required external-navigation disclaimer, then open.
+ * Uses confirmAction so the dialog works on web (RN Alert is a no-op there).
  */
 export function confirmAndOpenBioBlixLink(
   url: string,
@@ -39,19 +45,19 @@ export function confirmAndOpenBioBlixLink(
   const t = (key: MessageKey, vars?: Record<string, string | number>) =>
     translate(locale, key, vars);
 
-  Alert.alert(
-    t('link.leaveTitle', { name: Brand.name }),
-    t('link.leaveBody', { name: Brand.name, domain }),
-    [
-      { text: t('common.cancel'), style: 'cancel' },
+  void (async () => {
+    const ok = await confirmAction(
+      t('link.leaveTitle', { name: Brand.name }),
+      t('link.leaveBody', { name: Brand.name, domain }),
       {
-        text: t('link.continue'),
-        onPress: () => {
-          void openNormalized(href);
-        },
-      },
-    ]
-  );
+        confirmLabel: t('link.continue'),
+        cancelLabel: t('common.cancel'),
+      }
+    );
+    if (ok) {
+      await openNormalized(href);
+    }
+  })();
 }
 
 /** @deprecated Prefer confirmAndOpenBioBlixLink for UGC compliance. */

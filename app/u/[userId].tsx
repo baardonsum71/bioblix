@@ -5,15 +5,14 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
+  ScrollView,
   StyleSheet,
   View,
 } from 'react-native';
 
 import { BioBlixText } from '@/components/bioblix/BioBlixText';
 import { BioBlixProfileLinks } from '@/components/bioblix/BioBlixProfileLinks';
-import { BioBlixVerticalFeed } from '@/components/bioblix/BioBlixVerticalFeed';
 import { BioBlixScreenShell } from '@/components/bioblix/BioBlixLogo';
-import { BioBlixPalette } from '@/constants/bioblixTheme';
 import { Colors } from '@/constants/Colors';
 import { signInHref } from '@/lib/auth/signInGate';
 import { useI18n } from '@/lib/i18n';
@@ -26,9 +25,8 @@ import {
   isFollowing,
   unfollowUser,
 } from '@/services/follows';
-import { listPostsByUser } from '@/services/posts';
 import { getUserById } from '@/services/users';
-import type { Post, User } from '@/types';
+import type { User } from '@/types';
 
 export default function PublicProfileScreen() {
   const { userId: rawId } = useLocalSearchParams<{ userId: string }>();
@@ -38,7 +36,6 @@ export default function PublicProfileScreen() {
   const { t } = useI18n();
 
   const [profile, setProfile] = useState<User | null>(null);
-  const [posts, setPosts] = useState<Post[]>([]);
   const [followers, setFollowers] = useState(0);
   const [following, setFollowing] = useState(0);
   const [followingThem, setFollowingThem] = useState(false);
@@ -51,12 +48,6 @@ export default function PublicProfileScreen() {
     try {
       const user = await getUserById(userId);
       setProfile(user);
-
-      try {
-        setPosts(await listPostsByUser(userId, 30));
-      } catch {
-        setPosts([]);
-      }
 
       try {
         const [fol, fing] = await Promise.all([
@@ -167,77 +158,72 @@ export default function PublicProfileScreen() {
 
   return (
     <BioBlixScreenShell style={styles.shell}>
-      <View style={styles.header}>
-        {profile.imageUrl ? (
-          <Image
-            source={{ uri: profile.imageUrl }}
-            style={styles.avatar}
-            contentFit="cover"
-          />
-        ) : (
-          <View style={[styles.avatar, styles.avatarPlaceholder]}>
-            <BioBlixText variant="title" color={Colors.mistDim}>
-              {profile.displayName.slice(0, 1).toUpperCase()}
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.header}>
+          {profile.imageUrl ? (
+            <Image
+              source={{ uri: profile.imageUrl }}
+              style={styles.avatar}
+              contentFit="cover"
+            />
+          ) : (
+            <View style={[styles.avatar, styles.avatarPlaceholder]}>
+              <BioBlixText variant="title" color={Colors.mistDim}>
+                {profile.displayName.slice(0, 1).toUpperCase()}
+              </BioBlixText>
+            </View>
+          )}
+          <View style={styles.headerText}>
+            <BioBlixText variant="title">{profile.displayName}</BioBlixText>
+            <BioBlixText variant="caption" color={Colors.mistDim}>
+              {t('profile.followersFollowing', { followers, following })}
             </BioBlixText>
           </View>
-        )}
-        <View style={styles.headerText}>
-          <BioBlixText variant="title">{profile.displayName}</BioBlixText>
-          <BioBlixText variant="caption" color={Colors.mistDim}>
-            {t('profile.followersFollowing', { followers, following })}
-          </BioBlixText>
         </View>
-      </View>
 
-      <View style={styles.actions}>
-        {!isSelf && isSignedIn ? (
-          <Pressable
-            style={[styles.btn, followingThem ? styles.btnGhost : styles.btnFill]}
-            onPress={() => void onToggleFollow()}
-            disabled={busy}
-          >
-            <BioBlixText
-              variant="label"
-              color={followingThem ? Colors.lime : Colors.ink}
+        <View style={styles.actions}>
+          {!isSelf && isSignedIn ? (
+            <Pressable
+              style={[
+                styles.btn,
+                followingThem ? styles.btnGhost : styles.btnFill,
+              ]}
+              onPress={() => void onToggleFollow()}
+              disabled={busy}
             >
-              {followingThem ? t('profile.following') : t('profile.follow')}
+              <BioBlixText
+                variant="label"
+                color={followingThem ? Colors.lime : Colors.ink}
+              >
+                {followingThem ? t('profile.following') : t('profile.follow')}
+              </BioBlixText>
+            </Pressable>
+          ) : null}
+          <Pressable
+            style={[styles.btn, styles.btnGhost]}
+            onPress={() => void onShare()}
+          >
+            <BioBlixText variant="label" color={Colors.lime}>
+              {t('profile.share')}
             </BioBlixText>
           </Pressable>
-        ) : null}
-        <Pressable style={[styles.btn, styles.btnGhost]} onPress={() => void onShare()}>
-          <BioBlixText variant="label" color={Colors.lime}>
-            {t('profile.share')}
-          </BioBlixText>
-        </Pressable>
-      </View>
+        </View>
 
-      <View style={styles.linksWrap}>
-        <BioBlixProfileLinks
-          links={profile.profileLinks ?? []}
-          editableUserId={isSelf ? userId : undefined}
-          onSaved={(next) =>
-            setProfile((prev) => (prev ? { ...prev, profileLinks: next } : prev))
-          }
-        />
-      </View>
-
-      <BioBlixText variant="label" color={Colors.mistDim} style={styles.section}>
-        {t('profile.blixSection', { count: posts.length })}
-      </BioBlixText>
-
-      <View style={styles.feedWrap}>
-        <BioBlixVerticalFeed
-          posts={posts}
-          loading={false}
-          viewerUserId={viewerId ?? null}
-          usernameFor={() => profile.displayName}
-          emptyMessage={t('profile.noBlix')}
-          onDeleted={(postId) =>
-            setPosts((prev) => prev.filter((p) => p.id !== postId))
-          }
-          requireFocus={false}
-        />
-      </View>
+        <View style={styles.linksWrap}>
+          <BioBlixProfileLinks
+            links={profile.profileLinks ?? []}
+            editableUserId={isSelf ? userId : undefined}
+            onSaved={(next) =>
+              setProfile((prev) =>
+                prev ? { ...prev, profileLinks: next } : prev
+              )
+            }
+          />
+        </View>
+      </ScrollView>
     </BioBlixScreenShell>
   );
 }
@@ -246,6 +232,9 @@ const styles = StyleSheet.create({
   shell: {
     flex: 1,
     paddingTop: 16,
+  },
+  scroll: {
+    paddingBottom: 40,
   },
   center: {
     flex: 1,
@@ -296,13 +285,5 @@ const styles = StyleSheet.create({
   btnGhost: {
     borderWidth: 1,
     borderColor: Colors.lime,
-  },
-  section: {
-    paddingHorizontal: 20,
-    marginBottom: 8,
-  },
-  feedWrap: {
-    flex: 1,
-    minHeight: 360,
   },
 });

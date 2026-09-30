@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   StyleSheet,
   TextInput,
@@ -122,6 +123,7 @@ export function BioBlixProfileLinks({
             onPress={() => confirmAndOpenBioBlixLink(link.url, { locale })}
             accessibilityRole="link"
             accessibilityLabel={link.title}
+            hitSlop={8}
           >
             <BioBlixText variant="label" color={Colors.lime} numberOfLines={1}>
               {link.title}
@@ -137,6 +139,7 @@ export function BioBlixProfileLinks({
               style={styles.removeBtn}
               accessibilityRole="button"
               accessibilityLabel={t('profile.linksRemove')}
+              hitSlop={8}
             >
               <BioBlixText variant="caption" color={BioBlixPalette.magenta}>
                 {t('profile.linksRemove')}
@@ -230,10 +233,12 @@ const styles = StyleSheet.create({
   linkMain: {
     flex: 1,
     gap: 2,
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as object) : {}),
   },
   removeBtn: {
     paddingHorizontal: 6,
     paddingVertical: 4,
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as object) : {}),
   },
   form: {
     gap: 8,

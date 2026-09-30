@@ -12,10 +12,8 @@ import {
   View,
 } from 'react-native';
 
-import { BioBlixEditPostModal } from '@/components/bioblix/BioBlixEditPostModal';
 import { BioBlixProfileLinks } from '@/components/bioblix/BioBlixProfileLinks';
 import { BioBlixText } from '@/components/bioblix/BioBlixText';
-import { BioBlixVerticalFeed } from '@/components/bioblix/BioBlixVerticalFeed';
 import { CountryPicker } from '@/components/bioblix/CountryPicker';
 import {
   BioBlixLogo,
@@ -49,10 +47,8 @@ import { shareProfile } from '@/lib/shareProfile';
 import { SUBSCRIPTION_PLANS } from '@/lib/subscription';
 import { claimSignupCoins, redeemCoins } from '@/services/coins';
 import { countFollowers, countFollowing } from '@/services/follows';
-import { listPostsByUser } from '@/services/posts';
 import { uploadAvatarMedia } from '@/services/storage';
 import { isCoinProActive, updateUser } from '@/services/users';
-import type { Post } from '@/types';
 
 export default function BioBlixAccount() {
   const { t } = useI18n();
@@ -91,9 +87,6 @@ function BioBlixAccountSigned() {
   const [followers, setFollowers] = useState(0);
   const [following, setFollowing] = useState(0);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const [myPosts, setMyPosts] = useState<Post[]>([]);
-  const [postsLoading, setPostsLoading] = useState(false);
-  const [editing, setEditing] = useState<Post | null>(null);
   const [upgrading, setUpgrading] = useState(false);
   const [savingCountry, setSavingCountry] = useState(false);
   const [redeeming, setRedeeming] = useState<CoinRedeemPlan | null>(null);
@@ -180,21 +173,6 @@ function BioBlixAccountSigned() {
     [userId, user, setCountryCode, refresh, t]
   );
 
-  const loadMyPosts = useCallback(async () => {
-    if (!userId || !isSignedIn) {
-      setMyPosts([]);
-      return;
-    }
-    setPostsLoading(true);
-    try {
-      setMyPosts(await listPostsByUser(userId, 40));
-    } catch {
-      setMyPosts([]);
-    } finally {
-      setPostsLoading(false);
-    }
-  }, [userId, isSignedIn]);
-
   useEffect(() => {
     if (!userId || !isSignedIn) return;
     void Promise.all([countFollowers(userId), countFollowing(userId)])
@@ -207,10 +185,6 @@ function BioBlixAccountSigned() {
         setFollowing(0);
       });
   }, [userId, isSignedIn, profile?.imageUrl]);
-
-  useEffect(() => {
-    void loadMyPosts();
-  }, [loadMyPosts]);
 
   const onPickAvatar = useCallback(async () => {
     if (!userId) return;
@@ -510,7 +484,7 @@ function BioBlixAccountSigned() {
           </Pressable>
           <Pressable
             style={styles.secondaryBtn}
-            onPress={() => void loadMyPosts()}
+            onPress={() => void refresh()}
           >
             <BioBlixText variant="caption" color={Colors.lime}>
               {t('account.refresh')}
@@ -616,21 +590,14 @@ function BioBlixAccountSigned() {
         </View>
 
         {userId ? (
-          <BioBlixProfileLinks
-            links={profile?.profileLinks ?? []}
-            editableUserId={userId}
-            onSaved={() => void refresh()}
-          />
+          <View style={styles.linksBlock}>
+            <BioBlixProfileLinks
+              links={profile?.profileLinks ?? []}
+              editableUserId={userId}
+              onSaved={() => void refresh()}
+            />
+          </View>
         ) : null}
-
-        <View style={styles.postsHeader}>
-          <BioBlixText variant="label" color={Colors.mistDim}>
-            {t('account.myBlix')} ({myPosts.length})
-          </BioBlixText>
-          <BioBlixText variant="caption" color={Colors.mistDim}>
-            {t('account.editDelete')}
-          </BioBlixText>
-        </View>
 
         <View style={styles.footerLinks}>
           <Link href="/privacy" asChild>
@@ -653,33 +620,6 @@ function BioBlixAccountSigned() {
           )}
         </View>
       </ScrollView>
-
-      <View style={styles.feedWrap}>
-        <BioBlixVerticalFeed
-          posts={myPosts}
-          loading={postsLoading}
-          viewerUserId={userId}
-          usernameFor={() => displayName}
-          emptyMessage={t('account.emptyPosts')}
-          onDeleted={(postId) =>
-            setMyPosts((prev) => prev.filter((p) => p.id !== postId))
-          }
-          onEdit={(post) => setEditing(post)}
-          requireFocus={false}
-        />
-      </View>
-
-      <BioBlixEditPostModal
-        post={editing}
-        visible={Boolean(editing)}
-        canUseLinks={hasPro}
-        onClose={() => setEditing(null)}
-        onSaved={(updated) => {
-          setMyPosts((prev) =>
-            prev.map((p) => (p.id === updated.id ? updated : p))
-          );
-        }}
-      />
     </BioBlixScreenShell>
   );
 }
@@ -735,17 +675,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   accountTopScroll: {
-    flexGrow: 0,
-    flexShrink: 0,
-    maxHeight: '42%',
+    flex: 1,
   },
   accountScroll: {
     paddingTop: 48,
-    paddingBottom: 12,
+    paddingBottom: 48,
   },
-  feedWrap: {
-    flex: 1,
-    minHeight: 360,
+  linksBlock: {
+    marginHorizontal: 16,
+    marginTop: 4,
+    marginBottom: 8,
   },
   scroll: {
     flex: 1,
@@ -811,49 +750,6 @@ const styles = StyleSheet.create({
   countryBlock: {
     marginHorizontal: 16,
     marginBottom: 12,
-  },
-  postsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    marginBottom: 8,
-    marginTop: 4,
-  },
-  emptyPosts: {
-    paddingHorizontal: 16,
-    marginBottom: 12,
-  },
-  postsList: {
-    width: '100%',
-  },
-  postCard: {
-    flexDirection: 'row',
-    gap: 12,
-    alignItems: 'center',
-    backgroundColor: Colors.surface,
-    borderRadius: 12,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: Colors.surfaceMuted,
-    paddingRight: 10,
-  },
-  postThumb: {
-    width: 72,
-    height: 72,
-  },
-  postMeta: {
-    flex: 1,
-    gap: 2,
-    paddingVertical: 8,
-  },
-  postActions: {
-    flexDirection: 'row',
-    gap: 14,
-    marginTop: 4,
-  },
-  postActionBtn: {
-    paddingVertical: 2,
   },
   footerLinks: {
     flexDirection: 'row',
