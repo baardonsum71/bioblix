@@ -41,6 +41,7 @@ export type MessageKey =
   | 'account.becomeProSub'
   | 'account.proActive'
   | 'account.proActiveSub'
+  | 'account.registrations'
   | 'account.country'
   | 'account.changeCountry'
   | 'account.privacy'
@@ -346,6 +347,7 @@ export const en: Dictionary = {
   'account.becomeProSub': '{prices} · clickable links',
   'account.proActive': 'Pro active',
   'account.proActiveSub': 'Clickable store links enabled',
+  'account.registrations': 'Registered users: {count}',
   'account.country': 'Country',
   'account.changeCountry': 'Change country',
   'account.privacy': 'Privacy',
@@ -669,6 +671,7 @@ export const nb: Dictionary = {
   'account.becomeProSub': '{prices} · klikkbare lenker',
   'account.proActive': 'Pro aktiv',
   'account.proActiveSub': 'Klikkbare butikklenker er på',
+  'account.registrations': 'Registrerte brukere: {count}',
   'account.country': 'Land',
   'account.changeCountry': 'Bytt land',
   'account.privacy': 'Personvern',

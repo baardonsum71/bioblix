@@ -2,6 +2,7 @@ import {
   arrayUnion,
   collection,
   doc,
+  getCountFromServer,
   getDoc,
   getDocs,
   setDoc,
@@ -195,4 +196,10 @@ export async function listUsers(max = 50): Promise<User[]> {
   const q = query(usersRef(), orderBy('createdAt', 'desc'), limit(max));
   const snap = await getDocs(q);
   return snap.docs.map((d) => mapUser(d.id, d.data()));
+}
+
+/** Total Firestore profiles (completed registrations). Owner dashboard only. */
+export async function countRegisteredUsers(): Promise<number> {
+  const snap = await getCountFromServer(usersRef());
+  return snap.data().count;
 }

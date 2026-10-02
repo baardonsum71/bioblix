@@ -48,7 +48,11 @@ import { SUBSCRIPTION_PLANS } from '@/lib/subscription';
 import { claimSignupCoins, redeemCoins } from '@/services/coins';
 import { countFollowers, countFollowing } from '@/services/follows';
 import { uploadAvatarMedia } from '@/services/storage';
-import { isCoinProActive, updateUser } from '@/services/users';
+import {
+  countRegisteredUsers,
+  isCoinProActive,
+  updateUser,
+} from '@/services/users';
 
 export default function BioBlixAccount() {
   const { t } = useI18n();
@@ -86,6 +90,7 @@ function BioBlixAccountSigned() {
 
   const [followers, setFollowers] = useState(0);
   const [following, setFollowing] = useState(0);
+  const [registeredCount, setRegisteredCount] = useState<number | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [upgrading, setUpgrading] = useState(false);
   const [savingCountry, setSavingCountry] = useState(false);
@@ -185,6 +190,24 @@ function BioBlixAccountSigned() {
         setFollowing(0);
       });
   }, [userId, isSignedIn, profile?.imageUrl]);
+
+  useEffect(() => {
+    if (!isOwner || !isSignedIn) {
+      setRegisteredCount(null);
+      return;
+    }
+    let cancelled = false;
+    void countRegisteredUsers()
+      .then((n) => {
+        if (!cancelled) setRegisteredCount(n);
+      })
+      .catch(() => {
+        if (!cancelled) setRegisteredCount(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOwner, isSignedIn, profile?.updatedAt]);
 
   const onPickAvatar = useCallback(async () => {
     if (!userId) return;
@@ -453,6 +476,11 @@ function BioBlixAccountSigned() {
                 {profileError.message}
               </BioBlixText>
             ) : null}
+            {isOwner && registeredCount != null ? (
+              <BioBlixText variant="caption" color={Colors.lime}>
+                {t('account.registrations', { count: registeredCount })}
+              </BioBlixText>
+            ) : null}
           </View>
         </View>
 
@@ -484,7 +512,14 @@ function BioBlixAccountSigned() {
           </Pressable>
           <Pressable
             style={styles.secondaryBtn}
-            onPress={() => void refresh()}
+            onPress={() => {
+              void refresh();
+              if (isOwner) {
+                void countRegisteredUsers()
+                  .then(setRegisteredCount)
+                  .catch(() => setRegisteredCount(null));
+              }
+            }}
           >
             <BioBlixText variant="caption" color={Colors.lime}>
               {t('account.refresh')}
