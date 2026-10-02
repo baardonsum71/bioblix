@@ -19,6 +19,10 @@ export default function BioBlixHtml({ children }: { children: ReactNode }) {
         <meta name="description" content={BioBlixBrand.shortDescription} />
         <meta name="application-name" content={BioBlixBrand.name} />
         <meta name="theme-color" content={BioBlixPalette.night} />
+        <meta
+          name="trustpilot-one-time-domain-verification-id"
+          content="be14ee4d-87fe-4db0-a2e5-a6fa556e8218"
+        />
         <meta property="og:title" content={BioBlixBrand.name} />
         <meta property="og:description" content={BioBlixBrand.shortDescription} />
         <meta property="og:type" content="website" />
