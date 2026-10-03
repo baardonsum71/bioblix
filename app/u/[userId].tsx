@@ -13,6 +13,7 @@ import {
 import { BioBlixText } from '@/components/bioblix/BioBlixText';
 import { BioBlixProfileLinks } from '@/components/bioblix/BioBlixProfileLinks';
 import { BioBlixScreenShell } from '@/components/bioblix/BioBlixLogo';
+import { BioBlixRadii, BioBlixSpacing } from '@/constants/bioblixTheme';
 import { Colors } from '@/constants/Colors';
 import { signInHref } from '@/lib/auth/signInGate';
 import { useI18n } from '@/lib/i18n';
@@ -25,8 +26,11 @@ import {
   isFollowing,
   unfollowUser,
 } from '@/services/follows';
+import { listPostsByUser } from '@/services/posts';
 import { getUserById } from '@/services/users';
-import type { User } from '@/types';
+import type { Post, User } from '@/types';
+
+type ProfileTab = 'links' | 'blix';
 
 export default function PublicProfileScreen() {
   const { userId: rawId } = useLocalSearchParams<{ userId: string }>();
@@ -36,11 +40,13 @@ export default function PublicProfileScreen() {
   const { t } = useI18n();
 
   const [profile, setProfile] = useState<User | null>(null);
+  const [posts, setPosts] = useState<Post[]>([]);
   const [followers, setFollowers] = useState(0);
   const [following, setFollowing] = useState(0);
   const [followingThem, setFollowingThem] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [tab, setTab] = useState<ProfileTab>('links');
 
   const load = useCallback(async () => {
     if (!userId) return;
@@ -48,6 +54,12 @@ export default function PublicProfileScreen() {
     try {
       const user = await getUserById(userId);
       setProfile(user);
+
+      try {
+        setPosts(await listPostsByUser(userId, 30));
+      } catch {
+        setPosts([]);
+      }
 
       try {
         const [fol, fing] = await Promise.all([
@@ -212,17 +224,76 @@ export default function PublicProfileScreen() {
           </Pressable>
         </View>
 
-        <View style={styles.linksWrap}>
-          <BioBlixProfileLinks
-            links={profile.profileLinks ?? []}
-            editableUserId={isSelf ? userId : undefined}
-            onSaved={(next) =>
-              setProfile((prev) =>
-                prev ? { ...prev, profileLinks: next } : prev
-              )
-            }
-          />
+        <View style={styles.tabRow}>
+          <Pressable
+            style={[styles.tab, tab === 'links' && styles.tabActive]}
+            onPress={() => setTab('links')}
+          >
+            <BioBlixText
+              variant="label"
+              color={tab === 'links' ? Colors.ink : Colors.mistDim}
+            >
+              {t('profile.tabLinks')}
+            </BioBlixText>
+          </Pressable>
+          <Pressable
+            style={[styles.tab, tab === 'blix' && styles.tabActive]}
+            onPress={() => setTab('blix')}
+          >
+            <BioBlixText
+              variant="label"
+              color={tab === 'blix' ? Colors.ink : Colors.mistDim}
+            >
+              {t('profile.tabBlix', { count: posts.length })}
+            </BioBlixText>
+          </Pressable>
         </View>
+
+        {tab === 'links' ? (
+          <View style={styles.linksWrap}>
+            <BioBlixProfileLinks
+              links={profile.profileLinks ?? []}
+              editableUserId={isSelf ? userId : undefined}
+              onSaved={(next) =>
+                setProfile((prev) =>
+                  prev ? { ...prev, profileLinks: next } : prev
+                )
+              }
+            />
+          </View>
+        ) : (
+          <View style={styles.blixWrap}>
+            {posts.length === 0 ? (
+              <BioBlixText variant="caption" color={Colors.mistDim}>
+                {t('profile.noBlix')}
+              </BioBlixText>
+            ) : (
+              posts.map((post) => (
+                <View key={post.id} style={styles.blixCard}>
+                  <Image
+                    source={{ uri: post.mediaUrl }}
+                    style={styles.blixThumb}
+                    contentFit="cover"
+                  />
+                  <View style={styles.blixMeta}>
+                    <BioBlixText variant="label" numberOfLines={2}>
+                      {post.title}
+                    </BioBlixText>
+                    {post.description ? (
+                      <BioBlixText
+                        variant="caption"
+                        color={Colors.mistDim}
+                        numberOfLines={3}
+                      >
+                        {post.description}
+                      </BioBlixText>
+                    ) : null}
+                  </View>
+                </View>
+              ))
+            )}
+          </View>
+        )}
 
         <Link href="/(auth)/sign-in?reason=publish" asChild>
           <Pressable style={styles.watermark}>
@@ -278,9 +349,53 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     paddingHorizontal: 20,
   },
+  tabRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 20,
+    marginBottom: 14,
+  },
+  tab: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderRadius: BioBlixRadii.md,
+    borderWidth: 1,
+    borderColor: Colors.surfaceMuted,
+    backgroundColor: Colors.surface,
+  },
+  tabActive: {
+    backgroundColor: Colors.lime,
+    borderColor: Colors.lime,
+  },
   linksWrap: {
     paddingHorizontal: 20,
     marginBottom: 4,
+  },
+  blixWrap: {
+    paddingHorizontal: 20,
+    gap: BioBlixSpacing.sm,
+  },
+  blixCard: {
+    flexDirection: 'row',
+    gap: 12,
+    borderWidth: 1,
+    borderColor: Colors.surfaceMuted,
+    borderRadius: BioBlixRadii.md,
+    overflow: 'hidden',
+    backgroundColor: Colors.surface,
+  },
+  blixThumb: {
+    width: 88,
+    height: 88,
+    backgroundColor: Colors.surfaceMuted,
+  },
+  blixMeta: {
+    flex: 1,
+    gap: 4,
+    paddingVertical: 10,
+    paddingRight: 12,
+    justifyContent: 'center',
   },
   watermark: {
     alignItems: 'center',

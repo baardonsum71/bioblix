@@ -23,9 +23,59 @@ import {
 } from '@/constants/bioblixTheme';
 import { Colors } from '@/constants/Colors';
 import { useI18n } from '@/lib/i18n';
+import type { MessageKey } from '@/lib/i18n/dictionaries';
+
+type PersonaId = 'influencer' | 'gamer' | 'business' | 'student';
+
+const PERSONAS: {
+  id: PersonaId;
+  labelKey: MessageKey;
+  titleKey: MessageKey;
+  bodyKey: MessageKey;
+  linkA: MessageKey;
+  linkB: MessageKey;
+  blixKey: MessageKey;
+}[] = [
+  {
+    id: 'influencer',
+    labelKey: 'landing.persona.influencer',
+    titleKey: 'landing.persona.influencerTitle',
+    bodyKey: 'landing.persona.influencerBody',
+    linkA: 'landing.persona.influencerLinkA',
+    linkB: 'landing.persona.influencerLinkB',
+    blixKey: 'landing.persona.influencerBlix',
+  },
+  {
+    id: 'gamer',
+    labelKey: 'landing.persona.gamer',
+    titleKey: 'landing.persona.gamerTitle',
+    bodyKey: 'landing.persona.gamerBody',
+    linkA: 'landing.persona.gamerLinkA',
+    linkB: 'landing.persona.gamerLinkB',
+    blixKey: 'landing.persona.gamerBlix',
+  },
+  {
+    id: 'business',
+    labelKey: 'landing.persona.business',
+    titleKey: 'landing.persona.businessTitle',
+    bodyKey: 'landing.persona.businessBody',
+    linkA: 'landing.persona.businessLinkA',
+    linkB: 'landing.persona.businessLinkB',
+    blixKey: 'landing.persona.businessBlix',
+  },
+  {
+    id: 'student',
+    labelKey: 'landing.persona.student',
+    titleKey: 'landing.persona.studentTitle',
+    bodyKey: 'landing.persona.studentBody',
+    linkA: 'landing.persona.studentLinkA',
+    linkB: 'landing.persona.studentLinkB',
+    blixKey: 'landing.persona.studentBlix',
+  },
+];
 
 /**
- * Guest landing — value hook + claim-handle CTA before tabs feel empty.
+ * Guest landing — value hook, personas, claim-handle CTA.
  */
 export function BioBlixLandingHero({
   onBrowseFeed,
@@ -36,6 +86,9 @@ export function BioBlixLandingHero({
   const router = useRouter();
   const [handle, setHandle] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [persona, setPersona] = useState<PersonaId>('influencer');
+
+  const active = PERSONAS.find((p) => p.id === persona) ?? PERSONAS[0];
 
   const claim = () => {
     const nick = handle.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
@@ -44,7 +97,9 @@ export function BioBlixLandingHero({
       return;
     }
     setError(null);
-    router.push(`/(auth)/sign-in?reason=publish&nick=${encodeURIComponent(nick)}` as Href);
+    router.push(
+      `/(auth)/sign-in?reason=publish&nick=${encodeURIComponent(nick)}` as Href
+    );
   };
 
   return (
@@ -61,27 +116,55 @@ export function BioBlixLandingHero({
           {t('landing.sub')}
         </BioBlixText>
 
+        <BioBlixText variant="label" color={Colors.mistDim}>
+          {t('landing.personaHeading')}
+        </BioBlixText>
+        <View style={styles.personaRow}>
+          {PERSONAS.map((p) => {
+            const on = p.id === persona;
+            return (
+              <Pressable
+                key={p.id}
+                style={[styles.personaChip, on && styles.personaChipOn]}
+                onPress={() => setPersona(p.id)}
+              >
+                <BioBlixText
+                  variant="caption"
+                  color={on ? Colors.ink : Colors.lime}
+                >
+                  {t(p.labelKey)}
+                </BioBlixText>
+              </Pressable>
+            );
+          })}
+        </View>
+
         <View style={styles.demoCard}>
           <View style={styles.demoAvatar}>
             <BioBlixText variant="title" color={Colors.ink}>
-              B
+              {t(active.labelKey).slice(0, 1)}
             </BioBlixText>
           </View>
           <View style={styles.demoBody}>
             <BioBlixText variant="label" color={Colors.lime}>
-              @{t('landing.demoHandle')}
+              {t(active.titleKey)}
             </BioBlixText>
             <BioBlixText variant="caption" color={Colors.mistDim}>
-              {t('landing.demoLine')}
+              {t(active.bodyKey)}
             </BioBlixText>
             <View style={styles.demoLink}>
               <BioBlixText variant="caption" color={Colors.ink}>
-                Instagram
+                {t(active.linkA)}
               </BioBlixText>
             </View>
             <View style={styles.demoLink}>
               <BioBlixText variant="caption" color={Colors.ink}>
-                {t('landing.demoShop')}
+                {t(active.linkB)}
+              </BioBlixText>
+            </View>
+            <View style={styles.demoBlix}>
+              <BioBlixText variant="caption" color={Colors.mistDim}>
+                {t(active.blixKey)}
               </BioBlixText>
             </View>
           </View>
@@ -163,6 +246,21 @@ const styles = StyleSheet.create({
     maxWidth: 420,
     marginBottom: 8,
   },
+  personaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  personaChip: {
+    borderWidth: 1,
+    borderColor: Colors.lime,
+    borderRadius: BioBlixRadii.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  personaChipOn: {
+    backgroundColor: Colors.lime,
+  },
   demoCard: {
     flexDirection: 'row',
     gap: 14,
@@ -191,6 +289,13 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
     alignItems: 'center',
+  },
+  demoBlix: {
+    borderWidth: 1,
+    borderColor: Colors.surfaceMuted,
+    borderRadius: BioBlixRadii.sm,
+    padding: 8,
+    marginTop: 2,
   },
   claimRow: {
     flexDirection: 'row',

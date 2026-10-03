@@ -133,6 +133,8 @@ export type MessageKey =
   | 'profile.following'
   | 'profile.share'
   | 'profile.madeWith'
+  | 'profile.tabLinks'
+  | 'profile.tabBlix'
   | 'profile.invalid'
   | 'profile.notFound'
   | 'profile.blixSection'
@@ -306,6 +308,31 @@ export type MessageKey =
   | 'landing.demoHandle'
   | 'landing.demoLine'
   | 'landing.demoShop'
+  | 'landing.personaHeading'
+  | 'landing.persona.influencer'
+  | 'landing.persona.gamer'
+  | 'landing.persona.business'
+  | 'landing.persona.student'
+  | 'landing.persona.influencerTitle'
+  | 'landing.persona.gamerTitle'
+  | 'landing.persona.businessTitle'
+  | 'landing.persona.studentTitle'
+  | 'landing.persona.influencerBody'
+  | 'landing.persona.gamerBody'
+  | 'landing.persona.businessBody'
+  | 'landing.persona.studentBody'
+  | 'landing.persona.influencerLinkA'
+  | 'landing.persona.influencerLinkB'
+  | 'landing.persona.gamerLinkA'
+  | 'landing.persona.gamerLinkB'
+  | 'landing.persona.businessLinkA'
+  | 'landing.persona.businessLinkB'
+  | 'landing.persona.studentLinkA'
+  | 'landing.persona.studentLinkB'
+  | 'landing.persona.influencerBlix'
+  | 'landing.persona.gamerBlix'
+  | 'landing.persona.businessBlix'
+  | 'landing.persona.studentBlix'
   | 'auth.sendNewCode'
   | 'auth.stillMissing'
   | 'auth.countryHint'
@@ -459,6 +486,8 @@ export const en: Dictionary = {
   'profile.following': 'Following',
   'profile.share': 'Share profile',
   'profile.madeWith': 'Made with BioBlix — create your free profile',
+  'profile.tabLinks': 'Links',
+  'profile.tabBlix': 'Blix ({count})',
   'profile.invalid': 'Invalid profile',
   'profile.notFound': 'User not found',
   'profile.blixSection': 'Blix ({count})',
@@ -634,17 +663,42 @@ export const en: Dictionary = {
   'brand.tagline': 'Showcase apps and products in short blix',
   'brand.shortDescription':
     'BioBlix is a vertical showcase where creators share short videos and images of their apps and products — with an optional Pro link straight to a store or landing page.',
-  'landing.headline': 'Show your app or product. Collect your links.',
+  'landing.headline': 'Your everyday + your links. One BioBlix.',
   'landing.sub':
-    'Free profile for blix and social links. Pro unlocks clickable store links on every post.',
+    'Share short blix from daily life and keep every important link in one living profile — for creators, gamers, businesses and students.',
   'landing.claimLabel': 'Claim your BioBlix name',
   'landing.handlePlaceholder': 'yourname',
   'landing.handleShort': 'Name must be at least 3 characters (a–z, 0–9, _).',
   'landing.claimCta': 'Get your link',
-  'landing.browseFeed': 'Browse the blix feed first',
+  'landing.browseFeed': 'Explore the live blix feed',
   'landing.demoHandle': 'yourname',
-  'landing.demoLine': 'Example profile — links + product blix in one place',
+  'landing.demoLine': 'Example profile — links + everyday blix',
   'landing.demoShop': 'My shop',
+  'landing.personaHeading': 'See BioBlix for your world',
+  'landing.persona.influencer': 'Influencer',
+  'landing.persona.gamer': 'Gamer',
+  'landing.persona.business': 'Business',
+  'landing.persona.student': 'Student',
+  'landing.persona.influencerTitle': '@nova.creates',
+  'landing.persona.gamerTitle': '@pixel.raid',
+  'landing.persona.businessTitle': '@north.cafe',
+  'landing.persona.studentTitle': '@mila.studies',
+  'landing.persona.influencerBody': 'Sponsored picks, latest TikTok, discount codes.',
+  'landing.persona.gamerBody': 'Live now, Discord, setup links.',
+  'landing.persona.businessBody': 'Hours, booking, newest products.',
+  'landing.persona.studentBody': 'Projects, Spotify, everyday campus blix.',
+  'landing.persona.influencerLinkA': 'Shop the look (−15%)',
+  'landing.persona.influencerLinkB': 'Latest YouTube',
+  'landing.persona.gamerLinkA': 'Twitch — LIVE',
+  'landing.persona.gamerLinkB': 'Join Discord',
+  'landing.persona.businessLinkA': 'Book a table',
+  'landing.persona.businessLinkB': 'Menu & hours',
+  'landing.persona.studentLinkA': 'Portfolio / LinkedIn',
+  'landing.persona.studentLinkB': 'Study playlist',
+  'landing.persona.influencerBlix': 'Blix: “New drop tomorrow — sneak peek 👀”',
+  'landing.persona.gamerBlix': 'Blix: “Ranked grind starts in 10 — come watch”',
+  'landing.persona.businessBlix': 'Blix: “Fresh cinnamon rolls just out of the oven”',
+  'landing.persona.studentBlix': 'Blix: “Thesis draft done. Coffee reward unlocked.”',
   'auth.sendNewCode': 'Send new code',
   'auth.stillMissing': 'Still missing: {fields}.',
   'auth.countryHint': 'Choose your country first — the form switches to your language.',
@@ -798,6 +852,8 @@ export const nb: Dictionary = {
   'profile.following': 'Følger',
   'profile.share': 'Del profil',
   'profile.madeWith': 'Laget med BioBlix — lag din egen gratis profil',
+  'profile.tabLinks': 'Lenker',
+  'profile.tabBlix': 'Blix ({count})',
   'profile.invalid': 'Ugyldig profil',
   'profile.notFound': 'Fant ikke brukeren',
   'profile.blixSection': 'Blix ({count})',
@@ -977,17 +1033,42 @@ export const nb: Dictionary = {
   'brand.tagline': 'Vis frem apper og produkter i korte blix',
   'brand.shortDescription':
     'BioBlix er en vertikal showcase der skapere deler korte videoer og bilder av apper og produkter — med valgfri Pro-lenke rett til butikk eller landingsside.',
-  'landing.headline': 'Vis frem appen eller produktet. Samle lenkene dine.',
+  'landing.headline': 'Hverdagen din + lenkene dine. Én BioBlix.',
   'landing.sub':
-    'Gratis profil for blix og sosiale lenker. Pro låser opp klikkbare butikklenker på hvert innlegg.',
+    'Del korte blix fra hverdagen og samle alle viktige lenker på én levende profil — for skapere, gamere, bedrifter og studenter.',
   'landing.claimLabel': 'Sikre BioBlix-navnet ditt',
   'landing.handlePlaceholder': 'dittnavn',
-  'landing.handleShort': 'Navnet må være minst 3 tegn (a–å, 0–9, _).',
+  'landing.handleShort': 'Navnet må være minst 3 tegn (a–z, 0–9, _).',
   'landing.claimCta': 'Hent din link',
-  'landing.browseFeed': 'Se blix-feeden først',
+  'landing.browseFeed': 'Utforsk blix-feeden',
   'landing.demoHandle': 'dittnavn',
-  'landing.demoLine': 'Eksempelprofil — lenker + produkt-blix på ett sted',
+  'landing.demoLine': 'Eksempelprofil — lenker + hverdags-blix',
   'landing.demoShop': 'Min butikk',
+  'landing.personaHeading': 'Se BioBlix for din verden',
+  'landing.persona.influencer': 'Influencer',
+  'landing.persona.gamer': 'Gamer',
+  'landing.persona.business': 'Bedrift',
+  'landing.persona.student': 'Student',
+  'landing.persona.influencerTitle': '@nova.creates',
+  'landing.persona.gamerTitle': '@pixel.raid',
+  'landing.persona.businessTitle': '@north.cafe',
+  'landing.persona.studentTitle': '@mila.studies',
+  'landing.persona.influencerBody': 'Rabattkoder, siste TikTok, sponsede linker.',
+  'landing.persona.gamerBody': 'Live nå, Discord, setup-lenker.',
+  'landing.persona.businessBody': 'Åpningstider, booking, nyeste produkter.',
+  'landing.persona.studentBody': 'Prosjekter, Spotify, hverdags-blix fra campus.',
+  'landing.persona.influencerLinkA': 'Shop the look (−15%)',
+  'landing.persona.influencerLinkB': 'Siste YouTube',
+  'landing.persona.gamerLinkA': 'Twitch — LIVE',
+  'landing.persona.gamerLinkB': 'Bli med i Discord',
+  'landing.persona.businessLinkA': 'Book bord',
+  'landing.persona.businessLinkB': 'Meny & åpningstider',
+  'landing.persona.studentLinkA': 'Portefølje / LinkedIn',
+  'landing.persona.studentLinkB': 'Studie-spilleliste',
+  'landing.persona.influencerBlix': 'Blix: «Ny drop i morgen — sneikpeek 👀»',
+  'landing.persona.gamerBlix': 'Blix: «Ranked om 10 — bli med og se»',
+  'landing.persona.businessBlix': 'Blix: «Ferske kanelboller rett fra ovnen»',
+  'landing.persona.studentBlix': 'Blix: «Thesis-utkast ferdig. Kaffe belønning.»',
   'auth.sendNewCode': 'Send ny kode',
   'auth.stillMissing': 'Mangler fortsatt: {fields}.',
   'auth.countryHint': 'Velg land først — skjemaet bytter til språket ditt.',
