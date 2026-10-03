@@ -143,6 +143,19 @@ export type MessageKey =
   | 'profile.publishBlix'
   | 'profile.publishBlixHint'
   | 'profile.publishBlixCta'
+  | 'profile.spotifyTitle'
+  | 'profile.spotifyHint'
+  | 'profile.spotifyPlaceholder'
+  | 'profile.spotifySave'
+  | 'profile.spotifyRemove'
+  | 'profile.spotifySaved'
+  | 'profile.spotifyRemoved'
+  | 'profile.spotifyInvalid'
+  | 'profile.spotifySaveFail'
+  | 'profile.spotifyNowPlaying'
+  | 'profile.spotifyPlayer'
+  | 'profile.spotifyOpen'
+  | 'profile.spotifyOpenHint'
   | 'profile.linkPublished'
   | 'profile.everydayHeading'
   | 'profile.linkTag'
@@ -556,6 +569,21 @@ export const en: Dictionary = {
   'profile.publishBlix': 'Share a Blix (photo + link)',
   'profile.publishBlixHint': 'Upload a photo or video and add an optional shop link.',
   'profile.publishBlixCta': 'Post a Blix',
+  'profile.spotifyTitle': 'Add a Spotify song',
+  'profile.spotifyHint':
+    'On Spotify: Share → Copy song link, then paste it here. Guests get Spotify’s player — no music files on BioBlix.',
+  'profile.spotifyPlaceholder': 'https://open.spotify.com/track/…',
+  'profile.spotifySave': 'Save song',
+  'profile.spotifyRemove': 'Remove',
+  'profile.spotifySaved': 'Spotify player updated.',
+  'profile.spotifyRemoved': 'Spotify song removed.',
+  'profile.spotifyInvalid':
+    'Paste a Spotify track, album, playlist, or episode link (open.spotify.com/…).',
+  'profile.spotifySaveFail': 'Could not save Spotify link.',
+  'profile.spotifyNowPlaying': 'Music',
+  'profile.spotifyPlayer': 'Spotify player',
+  'profile.spotifyOpen': 'Play on Spotify',
+  'profile.spotifyOpenHint': 'Opens the track in the Spotify app or browser.',
   'profile.linkPublished': 'Link published.',
   'profile.everydayHeading': 'Everyday (Blixes)',
   'profile.linkTag': 'Link',
@@ -988,6 +1016,21 @@ export const nb: Dictionary = {
   'profile.publishBlix': 'Del en Blix (bilde + link)',
   'profile.publishBlixHint': 'Last opp bilde eller video og legg til valgfri butikklenke.',
   'profile.publishBlixCta': 'Legg ut Blix',
+  'profile.spotifyTitle': 'Legg til Spotify-sang',
+  'profile.spotifyHint':
+    'På Spotify: Del → Kopier sanglenke, lim inn her. Gjester får Spotifys spiller — ingen musikkfiler på BioBlix.',
+  'profile.spotifyPlaceholder': 'https://open.spotify.com/track/…',
+  'profile.spotifySave': 'Lagre sang',
+  'profile.spotifyRemove': 'Fjern',
+  'profile.spotifySaved': 'Spotify-spiller oppdatert.',
+  'profile.spotifyRemoved': 'Spotify-sang fjernet.',
+  'profile.spotifyInvalid':
+    'Lim inn en Spotify-lenke til sang, album, spilleliste eller episode (open.spotify.com/…).',
+  'profile.spotifySaveFail': 'Kunne ikke lagre Spotify-lenke.',
+  'profile.spotifyNowPlaying': 'Musikk',
+  'profile.spotifyPlayer': 'Spotify-spiller',
+  'profile.spotifyOpen': 'Spill på Spotify',
+  'profile.spotifyOpenHint': 'Åpner sangen i Spotify-appen eller nettleseren.',
   'profile.linkPublished': 'Lenke publisert.',
   'profile.everydayHeading': 'Hverdagen (Blixes)',
   'profile.linkTag': 'Link',

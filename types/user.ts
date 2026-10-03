@@ -57,6 +57,11 @@ export interface User {
   blockedUsers: string[];
   /** Up to 10 public profile links (socials, shop, etc.). Free for all users. */
   profileLinks: ProfileLink[];
+  /**
+   * Optional Spotify share URL (track/album/playlist/…).
+   * Rendered as an official Spotify embed — no audio hosted on BioBlix.
+   */
+  spotifyUrl: string | null;
   /** Selected in onboarding — one or more audiences. */
   audiences: BioBlixAudience[];
   /** RevenueCat / Stripe customer identifiers when linked */
@@ -78,12 +83,14 @@ export type CreateUserInput = Omit<
   | 'coinProUntil'
   | 'blockedUsers'
   | 'profileLinks'
+  | 'spotifyUrl'
   | 'audiences'
 > & {
   subscriptionTier?: SubscriptionTier;
   isProYearly?: boolean;
   blockedUsers?: string[];
   profileLinks?: ProfileLink[];
+  spotifyUrl?: string | null;
   audiences?: BioBlixAudience[];
 };
 

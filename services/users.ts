@@ -73,6 +73,10 @@ function mapUser(id: string, data: DocumentData): User {
     coinProUntil: coinProUntilFromData(data),
     blockedUsers: Array.isArray(data.blockedUsers) ? data.blockedUsers : [],
     profileLinks: parseProfileLinks(data.profileLinks),
+    spotifyUrl:
+      typeof data.spotifyUrl === 'string' && data.spotifyUrl.trim()
+        ? data.spotifyUrl.trim()
+        : null,
     audiences: parseAudiences(data.audiences),
     revenueCatAppUserId: data.revenueCatAppUserId,
     createdAt: data.createdAt,
@@ -135,6 +139,7 @@ export async function upsertUser(
     coinProUntil: null,
     blockedUsers: [],
     profileLinks: input.profileLinks ?? [],
+    spotifyUrl: input.spotifyUrl ?? null,
     audiences: input.audiences ?? [],
     revenueCatAppUserId: input.revenueCatAppUserId ?? null,
     createdAt: serverTimestamp(),
@@ -209,6 +214,7 @@ export async function blockUser(
         countryCode: null,
         blockedUsers: [blockedUserId],
         profileLinks: [],
+        spotifyUrl: null,
         audiences: [],
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),

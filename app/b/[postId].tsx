@@ -13,12 +13,18 @@ import {
   bioBlixLinkCtaLabel,
   confirmAndOpenBioBlixLink,
 } from '@/components/bioblix/bioBlixLinks';
+import { BioBlixHead } from '@/components/bioblix/BioBlixHead';
 import { BioBlixText } from '@/components/bioblix/BioBlixText';
 import { BioBlixScreenShell } from '@/components/bioblix/BioBlixLogo';
 import { BioBlixRadii } from '@/constants/bioblixTheme';
 import { Colors } from '@/constants/Colors';
 import { useI18n } from '@/lib/i18n';
 import { notify } from '@/lib/platform';
+import {
+  blixImageAlt,
+  buildBlixSeo,
+  type SeoLocale,
+} from '@/lib/seo/profileMeta';
 import { shareBlix } from '@/lib/shareProfile';
 import { getPostById } from '@/services/posts';
 import { getUserById } from '@/services/users';
@@ -32,6 +38,7 @@ export default function SharedBlixScreen() {
   const postId = typeof rawId === 'string' ? decodeURIComponent(rawId) : '';
   const router = useRouter();
   const { t, locale } = useI18n();
+  const seoLocale: SeoLocale = locale === 'en' ? 'en' : 'nb';
   const [post, setPost] = useState<Post | null>(null);
   const [author, setAuthor] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -89,9 +96,18 @@ export default function SharedBlixScreen() {
 
   const hasLink = Boolean(post.linkUrl?.trim());
   const name = author?.displayName ?? 'BioBlix';
+  const seo = buildBlixSeo({
+    postId: post.id,
+    title: post.title,
+    description: post.description,
+    mediaUrl: post.mediaUrl,
+    authorName: author?.displayName,
+    locale: seoLocale,
+  });
 
   return (
     <BioBlixScreenShell style={styles.shell}>
+      <BioBlixHead seo={seo} />
       <ScrollView contentContainerStyle={styles.scroll}>
         <Pressable
           onPress={() =>
@@ -115,6 +131,11 @@ export default function SharedBlixScreen() {
             source={{ uri: post.mediaUrl }}
             style={styles.media}
             contentFit="cover"
+            alt={
+              post.title?.trim()
+                ? `${post.title} — ${blixImageAlt(name, seoLocale)}`
+                : blixImageAlt(name, seoLocale)
+            }
           />
           {hasLink ? (
             <View style={styles.linkBadge}>

@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+# Sitemap will be generated later (Cloud Function listing vanity handles).
+# Sitemap: https://www.bioblix.com/sitemap.xml

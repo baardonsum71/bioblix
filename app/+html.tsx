@@ -23,9 +23,16 @@ export default function BioBlixHtml({ children }: { children: ReactNode }) {
           name="trustpilot-one-time-domain-verification-id"
           content="be14ee4d-87fe-4db0-a2e5-a6fa556e8218"
         />
+        <meta property="og:site_name" content={BioBlixBrand.name} />
         <meta property="og:title" content={BioBlixBrand.name} />
         <meta property="og:description" content={BioBlixBrand.shortDescription} />
         <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://www.bioblix.com" />
+        <meta property="og:image" content="https://www.bioblix.com/favicon.png" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={BioBlixBrand.name} />
+        <meta name="twitter:description" content={BioBlixBrand.shortDescription} />
+        <meta name="twitter:image" content="https://www.bioblix.com/favicon.png" />
         <ScrollViewStyleReset />
         <style dangerouslySetInnerHTML={{ __html: bioblixWebChrome }} />
       </head>

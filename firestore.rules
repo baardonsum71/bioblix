@@ -53,6 +53,17 @@ service cloud.firestore {
         );
     }
 
+    /** Optional Spotify share URL for official embed player. */
+    function spotifyUrlOk() {
+      return !('spotifyUrl' in request.resource.data)
+        || request.resource.data.spotifyUrl == null
+        || (
+          request.resource.data.spotifyUrl is string
+          && request.resource.data.spotifyUrl.size() > 0
+          && request.resource.data.spotifyUrl.size() <= 500
+        );
+    }
+
     /**
      * Vanity handle lock: doc id = handle (e.g. usernames/gamingper).
      * Create-once — prevents two accounts claiming the same BioBlix URL.
@@ -83,7 +94,8 @@ service cloud.firestore {
         && request.resource.data.get('coinsSignupBonusGranted', false) == false
         && !('coinProUntil' in request.resource.data
           && request.resource.data.coinProUntil != null)
-        && profileLinksOk();
+        && profileLinksOk()
+        && spotifyUrlOk();
 
       // Clients may update profile + blockedUsers, but never flip Pro/coins themselves.
       allow update: if signedIn()
@@ -95,7 +107,8 @@ service cloud.firestore {
           == resource.data.get('coinsSignupBonusGranted', false)
         && request.resource.data.get('coinProUntil', null)
           == resource.data.get('coinProUntil', null)
-        && profileLinksOk();
+        && profileLinksOk()
+        && spotifyUrlOk();
 
       allow delete: if false;
     }
