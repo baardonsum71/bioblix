@@ -9,6 +9,7 @@ import {
   updateDoc,
   serverTimestamp,
   query,
+  where,
   orderBy,
   limit,
   type DocumentData,
@@ -30,6 +31,20 @@ function coinProUntilFromData(data: DocumentData): User['coinProUntil'] {
   const raw = data.coinProUntil;
   if (!raw) return null;
   return raw as User['coinProUntil'];
+}
+
+function parseAudiences(raw: unknown): User['audiences'] {
+  if (!Array.isArray(raw)) return [];
+  const allowed = new Set([
+    'influencer',
+    'gamer',
+    'student',
+    'business',
+  ] as const);
+  return raw.filter(
+    (v): v is NonNullable<User['audiences']>[number] =>
+      typeof v === 'string' && allowed.has(v as never)
+  );
 }
 
 function mapUser(id: string, data: DocumentData): User {
@@ -54,10 +69,23 @@ function mapUser(id: string, data: DocumentData): User {
     coinProUntil: coinProUntilFromData(data),
     blockedUsers: Array.isArray(data.blockedUsers) ? data.blockedUsers : [],
     profileLinks: parseProfileLinks(data.profileLinks),
+    audiences: parseAudiences(data.audiences),
     revenueCatAppUserId: data.revenueCatAppUserId,
     createdAt: data.createdAt,
     updatedAt: data.updatedAt,
   };
+}
+
+/**
+ * True when no existing profile uses this handle as displayName
+ * (handles are stored lowercase).
+ */
+export async function isUsernameAvailable(username: string): Promise<boolean> {
+  const nick = username.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+  if (nick.length < 3) return false;
+  const q = query(usersRef(), where('displayName', '==', nick), limit(1));
+  const snap = await getDocs(q);
+  return snap.empty;
 }
 
 /** Create or overwrite a user profile (doc id = Clerk user id). */
@@ -100,6 +128,7 @@ export async function upsertUser(
     coinProUntil: null,
     blockedUsers: [],
     profileLinks: input.profileLinks ?? [],
+    audiences: input.audiences ?? [],
     revenueCatAppUserId: input.revenueCatAppUserId ?? null,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -173,6 +202,7 @@ export async function blockUser(
         countryCode: null,
         blockedUsers: [blockedUserId],
         profileLinks: [],
+        audiences: [],
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       },

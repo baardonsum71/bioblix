@@ -1,19 +1,22 @@
 import { useAuth } from '@clerk/expo';
 import { Image } from 'expo-image';
-import { Link, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { Link, useLocalSearchParams, useRouter, type Href } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
+  useWindowDimensions,
   View,
 } from 'react-native';
 
+import { confirmAndOpenBioBlixLink } from '@/components/bioblix/bioBlixLinks';
 import { BioBlixText } from '@/components/bioblix/BioBlixText';
 import { BioBlixProfileLinks } from '@/components/bioblix/BioBlixProfileLinks';
 import { BioBlixScreenShell } from '@/components/bioblix/BioBlixLogo';
-import { BioBlixRadii, BioBlixSpacing } from '@/constants/bioblixTheme';
+import { BioBlixGlow, BioBlixRadii } from '@/constants/bioblixTheme';
 import { Colors } from '@/constants/Colors';
 import { signInHref } from '@/lib/auth/signInGate';
 import { useI18n } from '@/lib/i18n';
@@ -32,12 +35,20 @@ import type { Post, User } from '@/types';
 
 type ProfileTab = 'links' | 'blix';
 
+const PINNED_MAX = 5;
+const GRID_GAP = 2;
+const GRID_COLS = 3;
+
+/**
+ * Mobile-first public profile: pinned top links + Instagram-style shoppable grid.
+ */
 export default function PublicProfileScreen() {
   const { userId: rawId } = useLocalSearchParams<{ userId: string }>();
   const userId = typeof rawId === 'string' ? decodeURIComponent(rawId) : '';
   const { userId: viewerId, isSignedIn } = useAuth();
   const router = useRouter();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const { width } = useWindowDimensions();
 
   const [profile, setProfile] = useState<User | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
@@ -46,7 +57,12 @@ export default function PublicProfileScreen() {
   const [followingThem, setFollowingThem] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [tab, setTab] = useState<ProfileTab>('links');
+  const [tab, setTab] = useState<ProfileTab>('blix');
+
+  const cellSize = useMemo(() => {
+    const contentWidth = Math.min(width, 560) - 40;
+    return Math.floor((contentWidth - GRID_GAP * (GRID_COLS - 1)) / GRID_COLS);
+  }, [width]);
 
   const load = useCallback(async () => {
     if (!userId) return;
@@ -56,7 +72,7 @@ export default function PublicProfileScreen() {
       setProfile(user);
 
       try {
-        setPosts(await listPostsByUser(userId, 30));
+        setPosts(await listPostsByUser(userId, 60));
       } catch {
         setPosts([]);
       }
@@ -167,6 +183,8 @@ export default function PublicProfileScreen() {
   }
 
   const isSelf = Boolean(viewerId && viewerId === userId);
+  const allLinks = profile.profileLinks ?? [];
+  const pinned = allLinks.slice(0, PINNED_MAX);
 
   return (
     <BioBlixScreenShell style={styles.shell}>
@@ -224,18 +242,28 @@ export default function PublicProfileScreen() {
           </Pressable>
         </View>
 
-        <View style={styles.tabRow}>
-          <Pressable
-            style={[styles.tab, tab === 'links' && styles.tabActive]}
-            onPress={() => setTab('links')}
-          >
-            <BioBlixText
-              variant="label"
-              color={tab === 'links' ? Colors.ink : Colors.mistDim}
-            >
-              {t('profile.tabLinks')}
+        {pinned.length > 0 ? (
+          <View style={styles.pinnedWrap}>
+            <BioBlixText variant="caption" color={Colors.mistDim}>
+              {t('profile.pinnedLinks')}
             </BioBlixText>
-          </Pressable>
+            {pinned.map((link) => (
+              <Pressable
+                key={link.id}
+                style={styles.pinnedLink}
+                onPress={() => confirmAndOpenBioBlixLink(link.url, { locale })}
+                accessibilityRole="link"
+                accessibilityLabel={link.title}
+              >
+                <BioBlixText variant="label" color={Colors.ink} numberOfLines={1}>
+                  {link.title}
+                </BioBlixText>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+
+        <View style={styles.tabRow}>
           <Pressable
             style={[styles.tab, tab === 'blix' && styles.tabActive]}
             onPress={() => setTab('blix')}
@@ -247,12 +275,23 @@ export default function PublicProfileScreen() {
               {t('profile.tabBlix', { count: posts.length })}
             </BioBlixText>
           </Pressable>
+          <Pressable
+            style={[styles.tab, tab === 'links' && styles.tabActive]}
+            onPress={() => setTab('links')}
+          >
+            <BioBlixText
+              variant="label"
+              color={tab === 'links' ? Colors.ink : Colors.mistDim}
+            >
+              {t('profile.tabLinks')}
+            </BioBlixText>
+          </Pressable>
         </View>
 
         {tab === 'links' ? (
           <View style={styles.linksWrap}>
             <BioBlixProfileLinks
-              links={profile.profileLinks ?? []}
+              links={allLinks}
               editableUserId={isSelf ? userId : undefined}
               onSaved={(next) =>
                 setProfile((prev) =>
@@ -262,43 +301,57 @@ export default function PublicProfileScreen() {
             />
           </View>
         ) : (
-          <View style={styles.blixWrap}>
+          <View style={styles.gridWrap}>
             {posts.length === 0 ? (
               <BioBlixText variant="caption" color={Colors.mistDim}>
                 {t('profile.noBlix')}
               </BioBlixText>
             ) : (
-              posts.map((post) => (
-                <View key={post.id} style={styles.blixCard}>
-                  <Image
-                    source={{ uri: post.mediaUrl }}
-                    style={styles.blixThumb}
-                    contentFit="cover"
-                  />
-                  <View style={styles.blixMeta}>
-                    <BioBlixText variant="label" numberOfLines={2}>
-                      {post.title}
-                    </BioBlixText>
-                    {post.description ? (
-                      <BioBlixText
-                        variant="caption"
-                        color={Colors.mistDim}
-                        numberOfLines={3}
-                      >
-                        {post.description}
-                      </BioBlixText>
-                    ) : null}
-                  </View>
-                </View>
-              ))
+              <View style={styles.grid}>
+                {posts.map((post) => {
+                  const hasLink = Boolean(post.linkUrl?.trim());
+                  return (
+                    <Pressable
+                      key={post.id}
+                      style={[
+                        styles.gridCell,
+                        { width: cellSize, height: cellSize },
+                      ]}
+                      onPress={() =>
+                        router.push(
+                          `/b/${encodeURIComponent(post.id)}` as Href
+                        )
+                      }
+                      accessibilityRole="button"
+                      accessibilityLabel={post.title}
+                    >
+                      <Image
+                        source={{ uri: post.mediaUrl }}
+                        style={styles.gridImage}
+                        contentFit="cover"
+                      />
+                      {hasLink ? (
+                        <View style={styles.linkBadge}>
+                          <BioBlixText variant="caption" color={Colors.ink}>
+                            ↗
+                          </BioBlixText>
+                        </View>
+                      ) : null}
+                    </Pressable>
+                  );
+                })}
+              </View>
             )}
           </View>
         )}
 
         <Link href="/(auth)/sign-in?reason=publish" asChild>
           <Pressable style={styles.watermark}>
+            <BioBlixText variant="label" color={Colors.lime} style={styles.watermarkTitle}>
+              {t('profile.madeWithShoppable')}
+            </BioBlixText>
             <BioBlixText variant="caption" color={Colors.mistDim}>
-              {t('profile.madeWith')}
+              {t('profile.madeWithCta')}
             </BioBlixText>
           </Pressable>
         </Link>
@@ -313,7 +366,10 @@ const styles = StyleSheet.create({
     paddingTop: 16,
   },
   scroll: {
-    paddingBottom: 40,
+    paddingBottom: 48,
+    maxWidth: 560,
+    width: '100%',
+    alignSelf: 'center',
   },
   center: {
     flex: 1,
@@ -325,7 +381,16 @@ const styles = StyleSheet.create({
     gap: 14,
     alignItems: 'center',
     marginBottom: 16,
-    paddingHorizontal: 20,
+    marginHorizontal: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderRadius: BioBlixRadii.md,
+    backgroundColor: 'rgba(22,27,38,0.72)',
+    borderWidth: 1,
+    borderColor: 'rgba(42,51,68,0.8)',
+    ...(Platform.OS === 'web'
+      ? ({ backdropFilter: 'blur(10px)' } as object)
+      : {}),
   },
   avatar: {
     width: 72,
@@ -346,8 +411,21 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
     gap: 10,
-    marginBottom: 12,
+    marginBottom: 14,
     paddingHorizontal: 20,
+  },
+  pinnedWrap: {
+    paddingHorizontal: 20,
+    gap: 8,
+    marginBottom: 16,
+  },
+  pinnedLink: {
+    backgroundColor: Colors.lime,
+    borderRadius: BioBlixRadii.md,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
   },
   tabRow: {
     flexDirection: 'row',
@@ -372,35 +450,46 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginBottom: 4,
   },
-  blixWrap: {
+  gridWrap: {
     paddingHorizontal: 20,
-    gap: BioBlixSpacing.sm,
   },
-  blixCard: {
+  grid: {
     flexDirection: 'row',
-    gap: 12,
-    borderWidth: 1,
-    borderColor: Colors.surfaceMuted,
-    borderRadius: BioBlixRadii.md,
-    overflow: 'hidden',
+    flexWrap: 'wrap',
+    gap: GRID_GAP,
+  },
+  gridCell: {
     backgroundColor: Colors.surface,
+    overflow: 'hidden',
+    position: 'relative',
   },
-  blixThumb: {
-    width: 88,
-    height: 88,
-    backgroundColor: Colors.surfaceMuted,
+  gridImage: {
+    width: '100%',
+    height: '100%',
   },
-  blixMeta: {
-    flex: 1,
-    gap: 4,
-    paddingVertical: 10,
-    paddingRight: 12,
+  linkBadge: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: Colors.lime,
+    alignItems: 'center',
     justifyContent: 'center',
+    ...BioBlixGlow.linkBadge,
   },
   watermark: {
     alignItems: 'center',
-    paddingVertical: 20,
-    marginTop: 16,
+    gap: 4,
+    paddingVertical: 28,
+    marginTop: 20,
+    marginHorizontal: 20,
+    borderTopWidth: 1,
+    borderTopColor: Colors.surfaceMuted,
+  },
+  watermarkTitle: {
+    textAlign: 'center',
   },
   btn: {
     paddingHorizontal: 16,

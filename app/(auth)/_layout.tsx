@@ -36,7 +36,7 @@ function AuthLayoutGuarded() {
   }
 
   if (isSignedIn) {
-    return <Redirect href="/(tabs)/profile" />;
+    return <Redirect href="/onboarding" />;
   }
 
   return (

@@ -665,7 +665,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 16,
     color: Colors.white,
-    fontFamily: 'DMSans_400Regular',
+    fontFamily: 'PlusJakartaSans_400Regular',
     marginBottom: 4,
   },
   inputDisabled: {
@@ -693,7 +693,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     textTransform: 'none',
     letterSpacing: 0,
-    fontFamily: 'DMSans_700Bold',
+    fontFamily: 'PlusJakartaSans_700Bold',
     fontSize: 14,
     lineHeight: 20,
   },

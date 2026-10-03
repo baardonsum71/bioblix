@@ -38,7 +38,7 @@ export default function BioBlixTabLayout() {
           paddingTop: 8,
         },
         tabBarLabelStyle: {
-          fontFamily: 'DMSans_700Bold',
+          fontFamily: 'PlusJakartaSans_700Bold',
           fontSize: 11,
           letterSpacing: 0.5,
           marginBottom: 2,

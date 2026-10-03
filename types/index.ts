@@ -4,6 +4,7 @@ export type {
   UpdateUserInput,
   SubscriptionTier,
   ProfileLink,
+  BioBlixAudience,
 } from './user';
 export { MAX_PROFILE_LINKS } from './user';
 export type {

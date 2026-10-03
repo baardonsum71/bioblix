@@ -1,12 +1,12 @@
 /**
- * BioBlix design system — "Neon Blix"
- * Cyan → magenta → orange, matching the official B / BioBlix marks.
+ * BioBlix design system — "Clean Slate with a Pop of Color"
+ * Rich Dark base + electric teal CTA for influencers, gamers, students & business.
  */
 export const BioBlixBrand = {
   name: 'BioBlix',
-  tagline: 'Showcase apps and products in short blix',
+  tagline: 'Share your everyday. Click the moments.',
   shortDescription:
-    'BioBlix is a vertical showcase where creators share short videos and images of their apps and products — with an optional Pro link straight to a store or landing page.',
+    'BioBlix is where creators share photos and videos with direct links — gather followers in one living profile, free.',
   scheme: 'bioblix',
   bundleId: 'com.bioblix.app',
   supportUrl: 'https://bioblix.app/support',
@@ -14,40 +14,46 @@ export const BioBlixBrand = {
   privacyEmail: 'privacy@bioblix.app',
 } as const;
 
-/** Brand gradient stops (left → right / top-left → bottom-right). */
+/** Brand gradient stops (teal → violet → magenta → blaze). */
 export const BioBlixGradient = {
-  colors: ['#2EE6FF', '#7B5CFF', '#E93BFF', '#FF8C2E'] as const,
-  soft: ['#2EE6FF55', '#E93BFF44', '#FF8C2E33'] as const,
-  locations: [0, 0.35, 0.65, 1] as const,
+  colors: ['#00F5D4', '#7B2CBF', '#E93BFF', '#FF8C2E'] as const,
+  soft: ['#00F5D455', '#7B2CBF44', '#FF8C2E33'] as const,
+  locations: [0, 0.4, 0.7, 1] as const,
   start: { x: 0, y: 0 } as const,
   end: { x: 1, y: 1 } as const,
 };
 
-/** Core palette tokens (use these everywhere instead of hex literals). */
+/** Core palette — Rich Dark + electric teal. */
 export const BioBlixPalette = {
-  night: '#050508',
-  nightElevated: '#0C0B12',
-  panel: '#12101A',
-  raised: '#1C1830',
-  hairline: '#2E2748',
-  /** Primary accent — electric cyan from the B mark */
-  aurora: '#2EE6FF',
-  auroraDeep: '#E93BFF',
-  cyan: '#2EE6FF',
-  violet: '#7B5CFF',
+  /** #0B0F19 Rich Dark background */
+  night: '#0B0F19',
+  nightElevated: '#0F141F',
+  /** #161B26 cards / panels */
+  panel: '#161B26',
+  raised: '#1C2433',
+  hairline: '#2A3344',
+  /** #00F5D4 electric teal — primary CTA */
+  aurora: '#00F5D4',
+  auroraDeep: '#7B2CBF',
+  cyan: '#00F5D4',
+  violet: '#7B2CBF',
   magenta: '#E93BFF',
   blaze: '#FF8C2E',
   ember: '#FF6B5C',
   saffron: '#FFB347',
-  ice: '#F2F4FF',
-  fog: '#B8B4D0',
-  muted: '#8A84A8',
+  /** Primary text */
+  ice: '#FFFFFF',
+  fog: '#E2E8F0',
+  /** #94A3B8 body / secondary */
+  muted: '#94A3B8',
   danger: '#FF5A5F',
-  success: '#2EE6FF',
+  success: '#00F5D4',
   black: '#000000',
   white: '#FFFFFF',
-  overlay: 'rgba(5,5,8,0.82)',
-  scrim: 'rgba(5,5,8,0.66)',
+  overlay: 'rgba(11,15,25,0.82)',
+  scrim: 'rgba(11,15,25,0.66)',
+  /** Subtle neon glow for clickable media */
+  glowTeal: 'rgba(0,245,212,0.45)',
 } as const;
 
 export const BioBlixSpacing = {
@@ -61,41 +67,66 @@ export const BioBlixSpacing = {
 } as const;
 
 export const BioBlixRadii = {
-  sm: 10,
-  md: 14,
-  lg: 18,
+  sm: 12,
+  md: 16,
+  lg: 16,
   xl: 24,
   pill: 999,
 } as const;
 
+/** Plus Jakarta Sans when loaded; falls back to system geometric sans. */
+const fontRegular = 'PlusJakartaSans_400Regular';
+const fontBold = 'PlusJakartaSans_700Bold';
+const fontDisplay = 'PlusJakartaSans_700Bold';
+
 export const BioBlixType = {
   display: {
-    fontFamily: 'Syne_700Bold',
+    fontFamily: fontDisplay,
     fontSize: 34,
-    letterSpacing: -0.9,
-    lineHeight: 38,
+    letterSpacing: -0.8,
+    lineHeight: 40,
   },
   title: {
-    fontFamily: 'Syne_700Bold',
+    fontFamily: fontBold,
     fontSize: 22,
-    letterSpacing: -0.35,
+    letterSpacing: -0.4,
     lineHeight: 28,
   },
   body: {
-    fontFamily: 'DMSans_400Regular',
+    fontFamily: fontRegular,
     fontSize: 16,
+    letterSpacing: 0,
     lineHeight: 24,
   },
-  caption: {
-    fontFamily: 'DMSans_400Regular',
-    fontSize: 14,
+  label: {
+    fontFamily: fontBold,
+    fontSize: 15,
+    letterSpacing: 0.1,
     lineHeight: 20,
   },
-  label: {
-    fontFamily: 'DMSans_700Bold',
-    fontSize: 11,
-    letterSpacing: 1.4,
-    textTransform: 'uppercase' as const,
+  caption: {
+    fontFamily: fontRegular,
+    fontSize: 13,
+    letterSpacing: 0.1,
+    lineHeight: 18,
+  },
+} as const;
+
+/** Soft neon glow for shoppable / CTA elements. */
+export const BioBlixGlow = {
+  cta: {
+    shadowColor: BioBlixPalette.aurora,
+    shadowOpacity: 0.45,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 6,
+  },
+  linkBadge: {
+    shadowColor: BioBlixPalette.aurora,
+    shadowOpacity: 0.55,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 4,
   },
 } as const;
 
@@ -107,6 +138,7 @@ export const BioBlixTheme = {
   space: BioBlixSpacing,
   radii: BioBlixRadii,
   type: BioBlixType,
+  glow: BioBlixGlow,
   components: {
     tabBar: {
       background: BioBlixPalette.night,
@@ -116,7 +148,7 @@ export const BioBlixTheme = {
     },
     cta: {
       background: BioBlixPalette.cyan,
-      backgroundPressed: BioBlixPalette.magenta,
+      backgroundPressed: BioBlixPalette.auroraDeep,
       text: BioBlixPalette.night,
     },
     dangerCta: {

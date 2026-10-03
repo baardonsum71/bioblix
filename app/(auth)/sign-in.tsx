@@ -20,6 +20,7 @@ import {
   BioBlixScreenShell,
 } from '@/components/bioblix/BioBlixLogo';
 import { isClerkConfigured } from '@/components/bioblix/BioBlixProviders';
+import { BioBlixProgressBar } from '@/components/bioblix/BioBlixProgressBar';
 import {
   BioBlixPalette,
   BioBlixRadii,
@@ -185,12 +186,12 @@ function BioBlixSignInForm() {
       decorateUrl: (url: string) => string;
     }) => {
       if (session?.currentTask) return;
-      const url = decorateUrl('/(tabs)/profile');
+      const url = decorateUrl('/onboarding');
       if (url.startsWith('http') && Platform.OS === 'web') {
         window.location.href = url;
         return;
       }
-      router.replace('/(tabs)/profile' as Href);
+      router.replace('/onboarding' as Href);
     },
     [router]
   );
@@ -575,9 +576,9 @@ function BioBlixSignInForm() {
     if (!requireLegal()) return;
 
     const emailAddress = email.trim().toLowerCase();
-    const username = nick.trim().toLowerCase().replace(/\s+/g, '');
-    const first = firstName.trim();
-    const last = lastName.trim();
+    const username = nick.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+    const first = firstName.trim() || username.slice(0, 24);
+    const last = lastName.trim() || 'BioBlix';
 
     if (!countryCode || !isAllowedCountry(countryCode)) {
       setFormError(t('auth.countryRequired'));
@@ -596,10 +597,6 @@ function BioBlixSignInForm() {
 
     if (!username || username.length < 3) {
       setFormError(t('auth.nicknameShort'));
-      return;
-    }
-    if (!first || !last) {
-      setFormError(t('auth.fillNames'));
       return;
     }
     if (!emailAddress || !password) {
@@ -847,8 +844,10 @@ function BioBlixSignInForm() {
   }
 
   if (isSignedIn) {
-    return <Redirect href="/(tabs)/profile" />;
+    return <Redirect href="/onboarding" />;
   }
+
+  const claimedNick = nick.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
 
   return (
     <BioBlixScreenShell>
@@ -860,6 +859,9 @@ function BioBlixSignInForm() {
           contentContainerStyle={styles.container}
           keyboardShouldPersistTaps="handled"
         >
+          {mode === 'sign-up' && step === 'form' ? (
+            <BioBlixProgressBar step={2} />
+          ) : null}
           <BioBlixLogo variant="wordmark" size={108} style={styles.logo} />
           <BioBlixText variant="display">
             {step === 'verify'
@@ -867,7 +869,7 @@ function BioBlixSignInForm() {
               : step === 'apple-continue'
                 ? t('auth.appleCompleteTitle')
                 : mode === 'sign-up'
-                  ? t('auth.createAccount')
+                  ? t('auth.createFreeAccount')
                   : t('auth.signIn')}
           </BioBlixText>
           <BioBlixText variant="body" color={BioBlixPalette.muted} style={styles.copy}>
@@ -882,9 +884,16 @@ function BioBlixSignInForm() {
                 : signInReason
                   ? t(signInReasonBodyKey(signInReason))
                   : mode === 'sign-up'
-                    ? t('auth.countryHint')
+                    ? t('auth.signUpHint')
                     : t('auth.signInHint')}
           </BioBlixText>
+          {mode === 'sign-up' && claimedNick.length >= 3 && step === 'form' ? (
+            <View style={styles.claimedChip}>
+              <BioBlixText variant="caption" color={BioBlixPalette.aurora}>
+                bioblix.com/{claimedNick}
+              </BioBlixText>
+            </View>
+          ) : null}
 
           <View nativeID="clerk-captcha" />
 
@@ -1020,6 +1029,14 @@ function BioBlixSignInForm() {
                 </BioBlixText>
               </Pressable>
 
+              <BioBlixText
+                variant="caption"
+                color={BioBlixPalette.muted}
+                style={{ textAlign: 'center', marginBottom: 4 }}
+              >
+                {t('auth.neverPost')}
+              </BioBlixText>
+
               <View style={styles.orRow}>
                 <View style={styles.orLine} />
                 <BioBlixText variant="caption" color={BioBlixPalette.muted}>
@@ -1028,67 +1045,18 @@ function BioBlixSignInForm() {
                 <View style={styles.orLine} />
               </View>
 
-              {mode === 'sign-up' ? (
-                <>
-                  <CountryPicker
-                    label={t('auth.country')}
-                    value={countryCode}
-                    onChange={(code) => {
-                      setCountryCode(code);
-                      setI18nCountry(code);
-                    }}
+              {mode === 'sign-up' && claimedNick.length < 3 ? (
+                <Field label={t('auth.nickname')}>
+                  <TextInput
+                    autoCapitalize="none"
+                    autoComplete="username"
+                    placeholder={t('landing.handlePlaceholder')}
+                    placeholderTextColor={BioBlixPalette.muted}
+                    style={styles.input}
+                    value={nick}
+                    onChangeText={setNick}
                   />
-                  <BioBlixText
-                    variant="caption"
-                    color={BioBlixPalette.muted}
-                    style={{ marginTop: -4, marginBottom: 4 }}
-                  >
-                    {t('auth.countryHint')}
-                  </BioBlixText>
-                  <Field label={t('auth.nickname')}>
-                    <TextInput
-                      autoCapitalize="none"
-                      autoComplete="username"
-                      placeholder="e.g. blekkulf"
-                      placeholderTextColor={BioBlixPalette.muted}
-                      style={styles.input}
-                      value={nick}
-                      onChangeText={setNick}
-                    />
-                  </Field>
-                  <Field label={t('auth.firstName')}>
-                    <TextInput
-                      autoComplete="given-name"
-                      placeholder={t('auth.firstName')}
-                      placeholderTextColor={BioBlixPalette.muted}
-                      style={styles.input}
-                      value={firstName}
-                      onChangeText={setFirstName}
-                    />
-                  </Field>
-                  <Field label={t('auth.lastName')}>
-                    <TextInput
-                      autoComplete="family-name"
-                      placeholder={t('auth.lastName')}
-                      placeholderTextColor={BioBlixPalette.muted}
-                      style={styles.input}
-                      value={lastName}
-                      onChangeText={setLastName}
-                    />
-                  </Field>
-                  <Field label={t('auth.birthDate', { age: MIN_AGE })}>
-                    <TextInput
-                      autoComplete="birthdate-full"
-                      placeholder={t('auth.birthDateHint')}
-                      placeholderTextColor={BioBlixPalette.muted}
-                      style={styles.input}
-                      value={birthDate}
-                      onChangeText={setBirthDate}
-                      autoCapitalize="none"
-                      keyboardType="numbers-and-punctuation"
-                    />
-                  </Field>
-                </>
+                </Field>
               ) : null}
 
               <Field label={t('auth.email')}>
@@ -1096,7 +1064,7 @@ function BioBlixSignInForm() {
                   autoCapitalize="none"
                   autoComplete="email"
                   keyboardType="email-address"
-                  placeholder="you@email.com"
+                  placeholder={t('auth.emailPlaceholder')}
                   placeholderTextColor={BioBlixPalette.muted}
                   style={styles.input}
                   value={email}
@@ -1132,9 +1100,36 @@ function BioBlixSignInForm() {
                 </View>
               </Field>
 
+              {mode === 'sign-up' ? (
+                <>
+                  <Field label={t('auth.birthDate', { age: MIN_AGE })}>
+                    <TextInput
+                      autoComplete="birthdate-full"
+                      placeholder={t('auth.birthDateHint')}
+                      placeholderTextColor={BioBlixPalette.muted}
+                      style={styles.input}
+                      value={birthDate}
+                      onChangeText={setBirthDate}
+                      autoCapitalize="none"
+                      keyboardType="numbers-and-punctuation"
+                    />
+                  </Field>
+                  <CountryPicker
+                    label={t('auth.country')}
+                    value={countryCode}
+                    onChange={(code) => {
+                      setCountryCode(code);
+                      setI18nCountry(code);
+                    }}
+                  />
+                </>
+              ) : null}
+
               <BioBlixGradientButton
                 label={
-                  mode === 'sign-up' ? t('auth.createAccount') : t('auth.signIn')
+                  mode === 'sign-up'
+                    ? t('auth.createFreeAccount')
+                    : t('auth.signIn')
                 }
                 disabled={!canSubmit}
                 loading={busy && !oauthBusy}
@@ -1144,6 +1139,13 @@ function BioBlixSignInForm() {
                 style={styles.cta}
               />
 
+              <BioBlixText
+                variant="caption"
+                color={BioBlixPalette.muted}
+                style={styles.legalFoot}
+              >
+                {t('landing.claimMicro')}
+              </BioBlixText>
               <BioBlixText
                 variant="caption"
                 color={BioBlixPalette.muted}
@@ -1319,6 +1321,16 @@ const styles = StyleSheet.create({
   logo: {
     marginBottom: 4,
   },
+  claimedChip: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: BioBlixRadii.sm,
+    borderWidth: 1,
+    borderColor: BioBlixPalette.aurora,
+    backgroundColor: BioBlixPalette.panel,
+    marginBottom: 4,
+  },
   copy: {
     maxWidth: 400,
     marginBottom: 4,
@@ -1351,7 +1363,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     color: BioBlixPalette.fog,
-    fontFamily: 'DMSans_400Regular',
+    fontFamily: 'PlusJakartaSans_400Regular',
     fontSize: 16,
   },
   passwordRow: {
@@ -1391,7 +1403,7 @@ const styles = StyleSheet.create({
   checkMark: {
     fontSize: 12,
     lineHeight: 14,
-    fontFamily: 'DMSans_700Bold',
+    fontFamily: 'PlusJakartaSans_700Bold',
   },
   legalTextWrap: {
     flex: 1,

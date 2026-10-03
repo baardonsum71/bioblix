@@ -1,8 +1,7 @@
 import {
-  DMSans_400Regular,
-  DMSans_700Bold,
-} from '@expo-google-fonts/dm-sans';
-import { Syne_700Bold } from '@expo-google-fonts/syne';
+  PlusJakartaSans_400Regular,
+  PlusJakartaSans_700Bold,
+} from '@expo-google-fonts/plus-jakarta-sans';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -31,11 +30,15 @@ function RootStack() {
         contentStyle: { backgroundColor: BioBlixPalette.night },
         headerStyle: { backgroundColor: BioBlixPalette.night },
         headerTintColor: BioBlixPalette.fog,
-        headerTitleStyle: { fontFamily: 'Syne_700Bold' },
+        headerTitleStyle: { fontFamily: 'PlusJakartaSans_700Bold' },
       }}
     >
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+      <Stack.Screen
+        name="onboarding"
+        options={{ headerShown: false }}
+      />
       <Stack.Screen
         name="privacy"
         options={{
@@ -72,6 +75,13 @@ function RootStack() {
         }}
       />
       <Stack.Screen
+        name="b/[postId]"
+        options={{
+          title: 'Blix',
+          headerBackTitle: t('nav.back'),
+        }}
+      />
+      <Stack.Screen
         name="live/go"
         options={{
           title: t('live.goLive'),
@@ -84,9 +94,8 @@ function RootStack() {
 
 export default function BioBlixRootLayout() {
   const [loaded, error] = useFonts({
-    Syne_700Bold,
-    DMSans_400Regular,
-    DMSans_700Bold,
+    PlusJakartaSans_400Regular,
+    PlusJakartaSans_700Bold,
   });
 
   useEffect(() => {

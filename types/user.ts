@@ -14,6 +14,13 @@ export interface ProfileLink {
 
 export const MAX_PROFILE_LINKS = 10;
 
+/** Onboarding audience tags — tailor modules on the profile. */
+export type BioBlixAudience =
+  | 'influencer'
+  | 'gamer'
+  | 'student'
+  | 'business';
+
 /**
  * Firestore `users` document.
  * Document ID should match the Clerk user id (`userId`).
@@ -50,6 +57,8 @@ export interface User {
   blockedUsers: string[];
   /** Up to 10 public profile links (socials, shop, etc.). Free for all users. */
   profileLinks: ProfileLink[];
+  /** Selected in onboarding — one or more audiences. */
+  audiences: BioBlixAudience[];
   /** RevenueCat / Stripe customer identifiers when linked */
   revenueCatAppUserId?: string;
   createdAt: Timestamp;
@@ -69,11 +78,13 @@ export type CreateUserInput = Omit<
   | 'coinProUntil'
   | 'blockedUsers'
   | 'profileLinks'
+  | 'audiences'
 > & {
   subscriptionTier?: SubscriptionTier;
   isProYearly?: boolean;
   blockedUsers?: string[];
   profileLinks?: ProfileLink[];
+  audiences?: BioBlixAudience[];
 };
 
 /** Partial update payload for profile / subscription sync. */

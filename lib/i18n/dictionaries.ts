@@ -133,10 +133,16 @@ export type MessageKey =
   | 'profile.following'
   | 'profile.share'
   | 'profile.madeWith'
+  | 'profile.madeWithShoppable'
+  | 'profile.madeWithCta'
+  | 'profile.pinnedLinks'
   | 'profile.tabLinks'
   | 'profile.tabBlix'
   | 'profile.invalid'
   | 'profile.notFound'
+  | 'blix.notFound'
+  | 'blix.shareThis'
+  | 'blix.shared'
   | 'profile.blixSection'
   | 'profile.linksTitle'
   | 'profile.linksCount'
@@ -272,6 +278,7 @@ export type MessageKey =
   | 'auth.birthRange'
   | 'auth.invalidCode'
   | 'share.checkOut'
+  | 'share.blix'
   | 'paywall.openFail'
   | 'privacy.rights'
   | 'auth.showPassword'
@@ -299,16 +306,51 @@ export type MessageKey =
   | 'brand.tagline'
   | 'brand.shortDescription'
   | 'landing.headline'
+  | 'landing.headlineLine1'
+  | 'landing.headlineHighlight'
   | 'landing.sub'
+  | 'landing.domainPrefix'
   | 'landing.claimLabel'
   | 'landing.handlePlaceholder'
   | 'landing.handleShort'
   | 'landing.claimCta'
+  | 'landing.continue'
+  | 'landing.nameAvailable'
+  | 'landing.nameTaken'
+  | 'landing.claimMicro'
+  | 'landing.howHeading'
+  | 'signup.step1'
+  | 'signup.step2'
+  | 'signup.step3'
+  | 'signup.progress'
+  | 'onboarding.headline'
+  | 'onboarding.sub'
+  | 'onboarding.cta'
+  | 'onboarding.pickOne'
+  | 'onboarding.audience.influencer'
+  | 'onboarding.audience.gamer'
+  | 'onboarding.audience.student'
+  | 'onboarding.audience.business'
+  | 'auth.createFreeAccount'
+  | 'auth.signUpHint'
+  | 'auth.emailPlaceholder'
+  | 'landing.step1Title'
+  | 'landing.step1Body'
+  | 'landing.step2Title'
+  | 'landing.step2Body'
+  | 'landing.step3Title'
+  | 'landing.step3Body'
+  | 'landing.inspiredHeading'
+  | 'landing.inspiredSub'
+  | 'landing.bottomHeadline'
+  | 'landing.bottomCta'
   | 'landing.browseFeed'
   | 'landing.demoHandle'
   | 'landing.demoLine'
   | 'landing.demoShop'
+  | 'landing.demoTapHint'
   | 'landing.personaHeading'
+  | 'auth.neverPost'
   | 'landing.persona.influencer'
   | 'landing.persona.gamer'
   | 'landing.persona.business'
@@ -333,6 +375,10 @@ export type MessageKey =
   | 'landing.persona.gamerBlix'
   | 'landing.persona.businessBlix'
   | 'landing.persona.studentBlix'
+  | 'landing.persona.influencerShop'
+  | 'landing.persona.gamerShop'
+  | 'landing.persona.businessShop'
+  | 'landing.persona.studentShop'
   | 'auth.sendNewCode'
   | 'auth.stillMissing'
   | 'auth.countryHint'
@@ -486,10 +532,16 @@ export const en: Dictionary = {
   'profile.following': 'Following',
   'profile.share': 'Share profile',
   'profile.madeWith': 'Made with BioBlix — create your free profile',
+  'profile.madeWithShoppable': 'Want clickable photos too?',
+  'profile.madeWithCta': 'Create your BioBlix — free',
+  'profile.pinnedLinks': 'Pinned links',
   'profile.tabLinks': 'Links',
   'profile.tabBlix': 'Blix ({count})',
   'profile.invalid': 'Invalid profile',
   'profile.notFound': 'User not found',
+  'blix.notFound': 'This blix was not found',
+  'blix.shareThis': 'Share this blix',
+  'blix.shared': 'Link copied / share sheet opened',
   'profile.blixSection': 'Blix ({count})',
   'profile.linksTitle': 'Links',
   'profile.linksCount': '{count}/{max}',
@@ -637,6 +689,7 @@ export const en: Dictionary = {
   'auth.birthRange': 'Invalid birth date.',
   'auth.invalidCode': 'Invalid code. Try again.',
   'share.checkOut': 'Check out {name} on BioBlix',
+  'share.blix': '{title} — shared on BioBlix',
   'paywall.openFail': 'Could not open payment. Try again.',
   'privacy.rights': 'All rights reserved.',
   'auth.showPassword': 'Show password',
@@ -663,30 +716,70 @@ export const en: Dictionary = {
   'brand.tagline': 'Showcase apps and products in short blix',
   'brand.shortDescription':
     'BioBlix is a vertical showcase where creators share short videos and images of their apps and products — with an optional Pro link straight to a store or landing page.',
-  'landing.headline': 'Your everyday + your links. One BioBlix.',
+  'landing.headline': 'Share your everyday. Click the moments.',
+  'landing.headlineLine1': 'Share your everyday.',
+  'landing.headlineHighlight': 'Click the moments.',
   'landing.sub':
-    'Share short blix from daily life and keep every important link in one living profile — for creators, gamers, businesses and students.',
+    'Gather your followers in one place. Post photos and videos with direct links to everything you do — completely free.',
+  'landing.domainPrefix': '://bioblix.com',
   'landing.claimLabel': 'Claim your BioBlix name',
   'landing.handlePlaceholder': 'yourname',
   'landing.handleShort': 'Name must be at least 3 characters (a–z, 0–9, _).',
-  'landing.claimCta': 'Get your link',
+  'landing.claimCta': 'Claim your link',
+  'landing.continue': 'Continue',
+  'landing.nameAvailable': 'This name is available! 🎉',
+  'landing.nameTaken': 'That name is taken — try another.',
+  'landing.claimMicro': '⚡ Takes under 60 seconds. No credit card required.',
+  'signup.step1': 'Claim name',
+  'signup.step2': 'Create account',
+  'signup.step3': 'Personalize',
+  'signup.progress': 'Step {step} of {total}',
+  'onboarding.headline': 'What will you use BioBlix for?',
+  'onboarding.sub': 'Pick one or more — we’ll tailor your profile modules.',
+  'onboarding.cta': 'Go to my profile 🚀',
+  'onboarding.pickOne': 'Pick at least one option to continue.',
+  'onboarding.audience.influencer': 'Influencer / Creator',
+  'onboarding.audience.gamer': 'Gaming / Streaming',
+  'onboarding.audience.student': 'Student / Personal',
+  'onboarding.audience.business': 'Business / Brand',
+  'auth.createFreeAccount': 'Create free account',
+  'auth.signUpHint': 'Continue with Google or Apple — or email. Completely free.',
+  'auth.emailPlaceholder': 'you@email.com',
+  'landing.howHeading': 'How it works',
+  'landing.step1Title': 'Claim your name',
+  'landing.step1Body': 'Create your unique bioblix.com link in under a minute.',
+  'landing.step2Title': 'Share your everyday',
+  'landing.step2Body':
+    'Upload photos and videos from your life, setup, or products.',
+  'landing.step3Title': 'Make it clickable',
+  'landing.step3Body':
+    'Add links inside your posts and send followers exactly where you want.',
+  'landing.inspiredHeading': 'Inspired? See how others use BioBlix',
+  'landing.inspiredSub': 'Real profiles — everyday moments with links inside.',
+  'landing.bottomHeadline': 'Ready to make your links come alive?',
+  'landing.bottomCta': 'Get started free',
   'landing.browseFeed': 'Explore the live blix feed',
   'landing.demoHandle': 'yourname',
-  'landing.demoLine': 'Example profile — links + everyday blix',
+  'landing.demoLine': 'Example profile — clickable media + pinned links',
   'landing.demoShop': 'My shop',
-  'landing.personaHeading': 'See BioBlix for your world',
-  'landing.persona.influencer': 'Influencer',
-  'landing.persona.gamer': 'Gamer',
+  'landing.demoTapHint': 'Tap the photo → the link opens.',
+  'landing.personaHeading': 'Tailored for you',
+  'landing.persona.influencer': 'Influencers',
+  'landing.persona.gamer': 'Gamers',
   'landing.persona.business': 'Business',
-  'landing.persona.student': 'Student',
+  'landing.persona.student': 'Students',
   'landing.persona.influencerTitle': '@nova.creates',
   'landing.persona.gamerTitle': '@pixel.raid',
   'landing.persona.businessTitle': '@north.cafe',
   'landing.persona.studentTitle': '@mila.studies',
-  'landing.persona.influencerBody': 'Sponsored picks, latest TikTok, discount codes.',
-  'landing.persona.gamerBody': 'Live now, Discord, setup links.',
-  'landing.persona.businessBody': 'Hours, booking, newest products.',
-  'landing.persona.studentBody': 'Projects, Spotify, everyday campus blix.',
+  'landing.persona.influencerBody':
+    'Turn followers into customers. Put discount codes and product links right inside your outfit photos.',
+  'landing.persona.gamerBody':
+    'Show off your setup. Link your gear, Discord, and go live-green when you stream on Twitch.',
+  'landing.persona.businessBody':
+    'Simplify selling. Put store, booking, or menu links straight into your photos.',
+  'landing.persona.studentBody':
+    'Gather everything you do. Share everyday glimpses, Spotify playlists, and projects with friends — free.',
   'landing.persona.influencerLinkA': 'Shop the look (−15%)',
   'landing.persona.influencerLinkB': 'Latest YouTube',
   'landing.persona.gamerLinkA': 'Twitch — LIVE',
@@ -699,6 +792,11 @@ export const en: Dictionary = {
   'landing.persona.gamerBlix': 'Blix: “Ranked grind starts in 10 — come watch”',
   'landing.persona.businessBlix': 'Blix: “Fresh cinnamon rolls just out of the oven”',
   'landing.persona.studentBlix': 'Blix: “Thesis draft done. Coffee reward unlocked.”',
+  'landing.persona.influencerShop': 'Opening shop → sweater −15%',
+  'landing.persona.gamerShop': 'Opening → keyboard in my setup',
+  'landing.persona.businessShop': 'Opening → book a table',
+  'landing.persona.studentShop': 'Opening → portfolio',
+  'auth.neverPost': 'We never post anything without your permission.',
   'auth.sendNewCode': 'Send new code',
   'auth.stillMissing': 'Still missing: {fields}.',
   'auth.countryHint': 'Choose your country first — the form switches to your language.',
@@ -852,10 +950,16 @@ export const nb: Dictionary = {
   'profile.following': 'Følger',
   'profile.share': 'Del profil',
   'profile.madeWith': 'Laget med BioBlix — lag din egen gratis profil',
+  'profile.madeWithShoppable': 'Vil du også ha klikkbare bilder?',
+  'profile.madeWithCta': 'Lag din BioBlix — gratis',
+  'profile.pinnedLinks': 'Festede lenker',
   'profile.tabLinks': 'Lenker',
   'profile.tabBlix': 'Blix ({count})',
   'profile.invalid': 'Ugyldig profil',
   'profile.notFound': 'Fant ikke brukeren',
+  'blix.notFound': 'Denne blixen ble ikke funnet',
+  'blix.shareThis': 'Del denne blixen',
+  'blix.shared': 'Lenke kopiert / delingsark åpnet',
   'profile.blixSection': 'Blix ({count})',
   'profile.linksTitle': 'Lenker',
   'profile.linksCount': '{count}/{max}',
@@ -1005,6 +1109,7 @@ export const nb: Dictionary = {
   'auth.birthRange': 'Ugyldig fødselsdato.',
   'auth.invalidCode': 'Ugyldig kode. Prøv igjen.',
   'share.checkOut': 'Sjekk {name} på BioBlix',
+  'share.blix': '{title} — delt på BioBlix',
   'paywall.openFail': 'Kunne ikke åpne betaling. Prøv igjen.',
   'privacy.rights': 'Alle rettigheter forbeholdt.',
   'auth.showPassword': 'Vis passord',
@@ -1033,30 +1138,70 @@ export const nb: Dictionary = {
   'brand.tagline': 'Vis frem apper og produkter i korte blix',
   'brand.shortDescription':
     'BioBlix er en vertikal showcase der skapere deler korte videoer og bilder av apper og produkter — med valgfri Pro-lenke rett til butikk eller landingsside.',
-  'landing.headline': 'Hverdagen din + lenkene dine. Én BioBlix.',
+  'landing.headline': 'Del hverdagen din. Klikk på øyeblikkene.',
+  'landing.headlineLine1': 'Del hverdagen din.',
+  'landing.headlineHighlight': 'Klikk på øyeblikkene.',
   'landing.sub':
-    'Del korte blix fra hverdagen og samle alle viktige lenker på én levende profil — for skapere, gamere, bedrifter og studenter.',
+    'Samle følgerne dine på ett sted. Legg ut bilder og videoer med direkte linker til alt du gjør – helt gratis.',
+  'landing.domainPrefix': '://bioblix.com',
   'landing.claimLabel': 'Sikre BioBlix-navnet ditt',
   'landing.handlePlaceholder': 'dittnavn',
   'landing.handleShort': 'Navnet må være minst 3 tegn (a–z, 0–9, _).',
-  'landing.claimCta': 'Hent din link',
+  'landing.claimCta': 'Sikre din link',
+  'landing.continue': 'Fortsett',
+  'landing.nameAvailable': 'Dette navnet er ledig! 🎉',
+  'landing.nameTaken': 'Navnet er opptatt — prøv et annet.',
+  'landing.claimMicro': '⚡ Tar under 60 sekunder. Krever ikke kredittkort.',
+  'signup.step1': 'Sikre navn',
+  'signup.step2': 'Opprett konto',
+  'signup.step3': 'Tilpass',
+  'signup.progress': 'Steg {step} av {total}',
+  'onboarding.headline': 'Hva skal du bruke BioBlix til?',
+  'onboarding.sub': 'Velg én eller flere — vi tilpasser profilmodulene dine.',
+  'onboarding.cta': 'Gå til min profil 🚀',
+  'onboarding.pickOne': 'Velg minst ett alternativ for å fortsette.',
+  'onboarding.audience.influencer': 'Influencer / Kreatør',
+  'onboarding.audience.gamer': 'Gaming / Streaming',
+  'onboarding.audience.student': 'Student / Personlig',
+  'onboarding.audience.business': 'Bedrift / Merkevare',
+  'auth.createFreeAccount': 'Opprett gratis konto',
+  'auth.signUpHint': 'Fortsett med Google eller Apple — eller e-post. Helt gratis.',
+  'auth.emailPlaceholder': 'eksempel@epost.no',
+  'landing.howHeading': 'Slik fungerer det',
+  'landing.step1Title': 'Sikre ditt navn',
+  'landing.step1Body': 'Opprett din unike bioblix.com-link på under ett minutt.',
+  'landing.step2Title': 'Del hverdagen',
+  'landing.step2Body':
+    'Last opp bilder og videoer fra opplevelsene dine, din setup eller dine produkter.',
+  'landing.step3Title': 'Gjør det klikkbart',
+  'landing.step3Body':
+    'Legg linker direkte i innleggene dine, og send følgerne dine akkurat dit du vil.',
+  'landing.inspiredHeading': 'Inspirert? Se hvordan andre bruker BioBlix',
+  'landing.inspiredSub': 'Ekte profiler — hverdagsøyeblikk med linker inni.',
+  'landing.bottomHeadline': 'Klar til å gjøre linkene dine levende?',
+  'landing.bottomCta': 'Kom i gang gratis',
   'landing.browseFeed': 'Utforsk blix-feeden',
   'landing.demoHandle': 'dittnavn',
-  'landing.demoLine': 'Eksempelprofil — lenker + hverdags-blix',
+  'landing.demoLine': 'Eksempelprofil — klikkbar media + festede lenker',
   'landing.demoShop': 'Min butikk',
-  'landing.personaHeading': 'Se BioBlix for din verden',
-  'landing.persona.influencer': 'Influencer',
-  'landing.persona.gamer': 'Gamer',
-  'landing.persona.business': 'Bedrift',
-  'landing.persona.student': 'Student',
+  'landing.demoTapHint': 'Trykk på bildet → linken åpnes.',
+  'landing.personaHeading': 'Skreddersydd for deg',
+  'landing.persona.influencer': 'Influencere',
+  'landing.persona.gamer': 'Gamere',
+  'landing.persona.business': 'Bedrifter',
+  'landing.persona.student': 'Studenter',
   'landing.persona.influencerTitle': '@nova.creates',
   'landing.persona.gamerTitle': '@pixel.raid',
   'landing.persona.businessTitle': '@north.cafe',
   'landing.persona.studentTitle': '@mila.studies',
-  'landing.persona.influencerBody': 'Rabattkoder, siste TikTok, sponsede linker.',
-  'landing.persona.gamerBody': 'Live nå, Discord, setup-lenker.',
-  'landing.persona.businessBody': 'Åpningstider, booking, nyeste produkter.',
-  'landing.persona.studentBody': 'Prosjekter, Spotify, hverdags-blix fra campus.',
+  'landing.persona.influencerBody':
+    'Gjør følgere til kunder. Legg rabattkoder og produktlinker direkte i antrekk-bildene dine.',
+  'landing.persona.gamerBody':
+    'Vis frem din setup. Link til utstyret ditt, Discord-serveren og lys grønt når du er live på Twitch.',
+  'landing.persona.businessBody':
+    'Forenkle salget. Legg linker til nettbutikk, tidsbestilling eller meny rett i bildene dine.',
+  'landing.persona.studentBody':
+    'Samle alt du gjør. Del hverdagsglimt, Spotify-lister og prosjekter med venner.',
   'landing.persona.influencerLinkA': 'Shop the look (−15%)',
   'landing.persona.influencerLinkB': 'Siste YouTube',
   'landing.persona.gamerLinkA': 'Twitch — LIVE',
@@ -1069,6 +1214,11 @@ export const nb: Dictionary = {
   'landing.persona.gamerBlix': 'Blix: «Ranked om 10 — bli med og se»',
   'landing.persona.businessBlix': 'Blix: «Ferske kanelboller rett fra ovnen»',
   'landing.persona.studentBlix': 'Blix: «Thesis-utkast ferdig. Kaffe belønning.»',
+  'landing.persona.influencerShop': 'Åpner butikk → genser −15%',
+  'landing.persona.gamerShop': 'Åpner → tastaturet i setupen',
+  'landing.persona.businessShop': 'Åpner → book bord',
+  'landing.persona.studentShop': 'Åpner → portefølje',
+  'auth.neverPost': 'Vi poster aldri noe uten din tillatelse.',
   'auth.sendNewCode': 'Send ny kode',
   'auth.stillMissing': 'Mangler fortsatt: {fields}.',
   'auth.countryHint': 'Velg land først — skjemaet bytter til språket ditt.',
