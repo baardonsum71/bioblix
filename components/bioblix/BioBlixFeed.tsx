@@ -16,8 +16,7 @@ import { useBioBlixFeed } from '@/hooks/useBioBlixFeed';
 import { useProYearlyEntitlement } from '@/hooks/useProYearlyEntitlement';
 import { useI18n } from '@/lib/i18n';
 import { getUserById } from '@/services/users';
-import { subscribeActiveLives } from '@/services/lives';
-import type { LiveSession, Post } from '@/types';
+import type { Post } from '@/types';
 
 function displayNameFor(
   userId: string,
@@ -41,7 +40,6 @@ export default function BioBlixFeed() {
   );
   const [editing, setEditing] = useState<Post | null>(null);
   const [localPosts, setLocalPosts] = useState<Post[] | null>(null);
-  const [lives, setLives] = useState<LiveSession[]>([]);
 
   const displayPosts = localPosts ?? posts;
 
@@ -49,25 +47,16 @@ export default function BioBlixFeed() {
     setLocalPosts(null);
   }, [posts]);
 
-  useEffect(() => {
-    const unsub = subscribeActiveLives(
-      setLives,
-      () => setLives([]),
-      20
-    );
-    return unsub;
-  }, []);
+  // Live sessions are intentionally NOT injected into the main Blix feed.
+  // A stuck "Connecting…" live (bad LiveKit config / zombie session) looks
+  // unprofessional and blocks the growth funnel. Hosts can still use Go Live;
+  // re-enable feed injection once LiveKit is production-ready.
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadAuthors() {
-      const ids = [
-        ...new Set([
-          ...displayPosts.map((p) => p.userId),
-          ...lives.map((l) => l.hostUserId),
-        ]),
-      ];
+      const ids = [...new Set(displayPosts.map((p) => p.userId))];
       if (ids.length === 0) return;
 
       const entries = await Promise.all(
@@ -94,7 +83,7 @@ export default function BioBlixFeed() {
     return () => {
       cancelled = true;
     };
-  }, [displayPosts, lives]);
+  }, [displayPosts]);
 
   const empty = useMemo(() => {
     if (loading) return null;
@@ -129,7 +118,7 @@ export default function BioBlixFeed() {
     });
   }, [posts]);
 
-  const hasContent = displayPosts.length > 0 || lives.length > 0;
+  const hasContent = displayPosts.length > 0;
 
   if (!isFocused && !hasContent && !loading) {
     return <View style={styles.root} />;
@@ -165,7 +154,6 @@ export default function BioBlixFeed() {
     <View style={styles.root}>
       <BioBlixVerticalFeed
         posts={displayPosts}
-        lives={lives}
         loading={loading}
         viewerUserId={viewerUserId}
         usernameFor={(p) => displayNameFor(p.userId, authors)}
