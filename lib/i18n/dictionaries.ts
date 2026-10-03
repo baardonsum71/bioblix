@@ -132,6 +132,7 @@ export type MessageKey =
   | 'profile.follow'
   | 'profile.following'
   | 'profile.share'
+  | 'profile.madeWith'
   | 'profile.invalid'
   | 'profile.notFound'
   | 'profile.blixSection'
@@ -282,6 +283,8 @@ export type MessageKey =
   | 'auth.notReady'
   | 'auth.acceptPrefix'
   | 'auth.continueApple'
+  | 'auth.continueGoogle'
+  | 'auth.googleFail'
   | 'auth.orEmail'
   | 'auth.continueConfirm'
   | 'auth.clerkMissing'
@@ -293,6 +296,16 @@ export type MessageKey =
   | 'auth.useLatestCode'
   | 'brand.tagline'
   | 'brand.shortDescription'
+  | 'landing.headline'
+  | 'landing.sub'
+  | 'landing.claimLabel'
+  | 'landing.handlePlaceholder'
+  | 'landing.handleShort'
+  | 'landing.claimCta'
+  | 'landing.browseFeed'
+  | 'landing.demoHandle'
+  | 'landing.demoLine'
+  | 'landing.demoShop'
   | 'auth.sendNewCode'
   | 'auth.stillMissing'
   | 'auth.countryHint'
@@ -445,6 +458,7 @@ export const en: Dictionary = {
   'profile.follow': 'Follow',
   'profile.following': 'Following',
   'profile.share': 'Share profile',
+  'profile.madeWith': 'Made with BioBlix — create your free profile',
   'profile.invalid': 'Invalid profile',
   'profile.notFound': 'User not found',
   'profile.blixSection': 'Blix ({count})',
@@ -570,6 +584,7 @@ export const en: Dictionary = {
   'auth.appleUpdateFail': 'Could not update Apple profile.',
   'auth.sessionFail': 'Could not complete session.',
   'auth.appleFail': 'Apple sign-in failed. Check that Apple is enabled in Clerk.',
+  'auth.googleFail': 'Google sign-in failed. Enable Google in Clerk SSO.',
   'auth.appleRedirectMissing':
     'Apple sign-in did not start. Refresh the page and try again (or use email).',
   'auth.fillName': 'Enter first and last name to finish Apple sign-in.',
@@ -606,6 +621,7 @@ export const en: Dictionary = {
   'auth.notReady': 'Auth not ready',
   'auth.acceptPrefix': 'I accept the',
   'auth.continueApple': 'Continue with Apple',
+  'auth.continueGoogle': 'Continue with Google',
   'auth.orEmail': 'or email',
   'auth.continueConfirm': 'By continuing you confirm that you have read our privacy policy.',
   'auth.clerkMissing': 'Clerk missing: {fields}',
@@ -618,6 +634,17 @@ export const en: Dictionary = {
   'brand.tagline': 'Showcase apps and products in short blix',
   'brand.shortDescription':
     'BioBlix is a vertical showcase where creators share short videos and images of their apps and products — with an optional Pro link straight to a store or landing page.',
+  'landing.headline': 'Show your app or product. Collect your links.',
+  'landing.sub':
+    'Free profile for blix and social links. Pro unlocks clickable store links on every post.',
+  'landing.claimLabel': 'Claim your BioBlix name',
+  'landing.handlePlaceholder': 'yourname',
+  'landing.handleShort': 'Name must be at least 3 characters (a–z, 0–9, _).',
+  'landing.claimCta': 'Get your link',
+  'landing.browseFeed': 'Browse the blix feed first',
+  'landing.demoHandle': 'yourname',
+  'landing.demoLine': 'Example profile — links + product blix in one place',
+  'landing.demoShop': 'My shop',
   'auth.sendNewCode': 'Send new code',
   'auth.stillMissing': 'Still missing: {fields}.',
   'auth.countryHint': 'Choose your country first — the form switches to your language.',
@@ -770,6 +797,7 @@ export const nb: Dictionary = {
   'profile.follow': 'Følg',
   'profile.following': 'Følger',
   'profile.share': 'Del profil',
+  'profile.madeWith': 'Laget med BioBlix — lag din egen gratis profil',
   'profile.invalid': 'Ugyldig profil',
   'profile.notFound': 'Fant ikke brukeren',
   'profile.blixSection': 'Blix ({count})',
@@ -897,6 +925,7 @@ export const nb: Dictionary = {
   'auth.appleUpdateFail': 'Kunne ikke oppdatere Apple-profil.',
   'auth.sessionFail': 'Kunne ikke fullføre sesjon.',
   'auth.appleFail': 'Apple-innlogging feilet. Sjekk at Apple er på i Clerk.',
+  'auth.googleFail': 'Google-innlogging feilet. Aktiver Google i Clerk SSO.',
   'auth.appleRedirectMissing':
     'Apple-innlogging startet ikke. Oppdater siden og prøv igjen (eller bruk e-post).',
   'auth.fillName': 'Fyll inn fornavn og etternavn for å fullføre Apple-innlogging.',
@@ -933,6 +962,7 @@ export const nb: Dictionary = {
   'auth.notReady': 'Auth ikke klar',
   'auth.acceptPrefix': 'Jeg godtar',
   'auth.continueApple': 'Fortsett med Apple',
+  'auth.continueGoogle': 'Fortsett med Google',
   'auth.orEmail': 'eller e-post',
   'auth.continueConfirm': 'Ved å fortsette bekrefter du at du har lest vår personvernpolicy.',
   'auth.clerkMissing': 'Clerk mangler: {fields}',
@@ -947,6 +977,17 @@ export const nb: Dictionary = {
   'brand.tagline': 'Vis frem apper og produkter i korte blix',
   'brand.shortDescription':
     'BioBlix er en vertikal showcase der skapere deler korte videoer og bilder av apper og produkter — med valgfri Pro-lenke rett til butikk eller landingsside.',
+  'landing.headline': 'Vis frem appen eller produktet. Samle lenkene dine.',
+  'landing.sub':
+    'Gratis profil for blix og sosiale lenker. Pro låser opp klikkbare butikklenker på hvert innlegg.',
+  'landing.claimLabel': 'Sikre BioBlix-navnet ditt',
+  'landing.handlePlaceholder': 'dittnavn',
+  'landing.handleShort': 'Navnet må være minst 3 tegn (a–å, 0–9, _).',
+  'landing.claimCta': 'Hent din link',
+  'landing.browseFeed': 'Se blix-feeden først',
+  'landing.demoHandle': 'dittnavn',
+  'landing.demoLine': 'Eksempelprofil — lenker + produkt-blix på ett sted',
+  'landing.demoShop': 'Min butikk',
   'auth.sendNewCode': 'Send ny kode',
   'auth.stillMissing': 'Mangler fortsatt: {fields}.',
   'auth.countryHint': 'Velg land først — skjemaet bytter til språket ditt.',

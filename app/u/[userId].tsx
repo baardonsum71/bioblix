@@ -1,6 +1,6 @@
 import { useAuth } from '@clerk/expo';
 import { Image } from 'expo-image';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Link, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -223,6 +223,14 @@ export default function PublicProfileScreen() {
             }
           />
         </View>
+
+        <Link href="/(auth)/sign-in?reason=publish" asChild>
+          <Pressable style={styles.watermark}>
+            <BioBlixText variant="caption" color={Colors.mistDim}>
+              {t('profile.madeWith')}
+            </BioBlixText>
+          </Pressable>
+        </Link>
       </ScrollView>
     </BioBlixScreenShell>
   );
@@ -273,6 +281,11 @@ const styles = StyleSheet.create({
   linksWrap: {
     paddingHorizontal: 20,
     marginBottom: 4,
+  },
+  watermark: {
+    alignItems: 'center',
+    paddingVertical: 20,
+    marginTop: 16,
   },
   btn: {
     paddingHorizontal: 16,

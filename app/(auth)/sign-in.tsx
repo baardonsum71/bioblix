@@ -1,7 +1,7 @@
 import { useAuth, useClerk, useSignIn, useSignUp } from '@clerk/expo';
 import { useSSO } from '@clerk/expo/experimental';
 import { Link, Redirect, type Href, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -109,7 +109,10 @@ function Field({
 
 function BioBlixSignInForm() {
   const router = useRouter();
-  const { reason: reasonParam } = useLocalSearchParams<{ reason?: string }>();
+  const { reason: reasonParam, nick: nickParam } = useLocalSearchParams<{
+    reason?: string;
+    nick?: string;
+  }>();
   const signInReason = isSignInReason(reasonParam) ? reasonParam : null;
   const { isLoaded: authLoaded, isSignedIn } = useAuth();
   const clerk = useClerk();
@@ -132,14 +135,23 @@ function BioBlixSignInForm() {
   const [step, setStep] = useState<Step>('form');
   const [verifyKind, setVerifyKind] = useState<VerifyKind>('sign-up');
   const [formError, setFormError] = useState<string | null>(null);
-  const [appleBusy, setAppleBusy] = useState(false);
+  const [oauthBusy, setOauthBusy] = useState(false);
   const [appleMissingFields, setAppleMissingFields] = useState<string[]>([]);
   const codeSentRef = useRef(false);
   /** SSO returns its own signUp instance — keep it for the continue step. */
   const appleSignUpRef = useRef<typeof signUp | null>(null);
 
+  useEffect(() => {
+    const raw = typeof nickParam === 'string' ? nickParam : '';
+    const cleaned = raw.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+    if (cleaned.length >= 3) {
+      setNick(cleaned);
+      setMode('sign-up');
+    }
+  }, [nickParam]);
+
   const busy =
-    appleBusy ||
+    oauthBusy ||
     signInStatus === 'fetching' ||
     signUpStatus === 'fetching';
   const canSubmit = acceptedLegal && !busy;
@@ -334,149 +346,157 @@ function BioBlixSignInForm() {
     [navigateAfterAuth, t]
   );
 
-  const onAppleSignIn = useCallback(async () => {
-    setFormError(null);
-    if (!acceptedLegal) {
-      setFormError(t('auth.acceptLegal'));
-      return;
-    }
-    if (!authLoaded || !clerk.loaded) {
-      setFormError(t('auth.appleFail'));
-      return;
-    }
-
-    setAppleBusy(true);
-    appleSignUpRef.current = null;
-    setAppleMissingFields([]);
-    let navigatedAway = false;
-    try {
-      // Web: force a fresh OAuth SignIn then hard-navigate.
-      // Clerk's signIn.sso() skips _create when a stale SignIn.id exists without
-      // an oauth redirect URL — that looks like a dead button (busy then idle).
-      if (Platform.OS === 'web') {
-        const origin =
-          typeof window !== 'undefined' ? window.location.origin : '';
-        const callbackUrl = origin ? `${origin}/sso-callback` : '/sso-callback';
-        const completeUrl = origin ? `${origin}/profile` : '/profile';
-
-        const { error: createError } = await signIn.create({
-          strategy: 'oauth_apple',
-          redirectUrl: callbackUrl,
-          actionCompleteRedirectUrl: completeUrl,
-        });
-        if (createError) {
-          setFormError(
-            clerkErrMessage(
-              createError,
-              signInErrors.fields,
-              t('auth.appleFail')
-            )
-          );
-          return;
-        }
-
-        const oauthUrl =
-          clerk.client?.signIn?.firstFactorVerification
-            ?.externalVerificationRedirectURL ?? null;
-        if (oauthUrl && typeof window !== 'undefined') {
-          navigatedAway = true;
-          window.location.assign(oauthUrl.toString());
-          return;
-        }
-
-        // Fallback if create did not expose a URL (should be rare).
-        const { error } = await signIn.sso({
-          strategy: 'oauth_apple',
-          redirectUrl: completeUrl,
-          redirectCallbackUrl: callbackUrl,
-        });
-        if (error) {
-          setFormError(
-            clerkErrMessage(
-              error,
-              signInErrors.fields,
-              t('auth.appleFail')
-            )
-          );
-          return;
-        }
-
-        const retryUrl =
-          clerk.client?.signIn?.firstFactorVerification
-            ?.externalVerificationRedirectURL ?? null;
-        if (retryUrl && typeof window !== 'undefined') {
-          navigatedAway = true;
-          window.location.assign(retryUrl.toString());
-          return;
-        }
-
-        setFormError(t('auth.appleRedirectMissing'));
+  const onOAuthSignIn = useCallback(
+    async (strategy: 'oauth_apple' | 'oauth_google') => {
+      setFormError(null);
+      if (!acceptedLegal) {
+        setFormError(t('auth.acceptLegal'));
+        return;
+      }
+      if (!authLoaded || !clerk.loaded) {
+        setFormError(t('auth.appleFail'));
         return;
       }
 
-      // Native: AuthSession browser flow.
-      const { createdSessionId, signUp: ssoSignUp } = await startSSOFlow({
-        strategy: 'oauth_apple',
-        unsafeMetadata: {
-          acceptedPrivacyAt: new Date().toISOString(),
-          ...(countryCode ? { countryCode } : {}),
-        },
-      });
+      setOauthBusy(true);
+      appleSignUpRef.current = null;
+      setAppleMissingFields([]);
+      let navigatedAway = false;
+      const failMsg =
+        strategy === 'oauth_google' ? t('auth.googleFail') : t('auth.appleFail');
+      const claimedNick = nick.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+      try {
+        if (
+          claimedNick.length >= 3 &&
+          Platform.OS === 'web' &&
+          typeof sessionStorage !== 'undefined'
+        ) {
+          sessionStorage.setItem('bioblix_claim_nick', claimedNick);
+        }
 
-      if (createdSessionId) {
-        navigateAfterAuth({
-          session: null,
-          decorateUrl: (url) => url,
-        });
-        return;
-      }
+        // Web: force a fresh OAuth SignIn then hard-navigate.
+        // Clerk's signIn.sso() skips _create when a stale SignIn.id exists without
+        // an oauth redirect URL — that looks like a dead button (busy then idle).
+        if (Platform.OS === 'web') {
+          const origin =
+            typeof window !== 'undefined' ? window.location.origin : '';
+          const callbackUrl = origin ? `${origin}/sso-callback` : '/sso-callback';
+          const completeUrl = origin ? `${origin}/profile` : '/profile';
 
-      const activeSignUp = ssoSignUp ?? signUp;
-      if (activeSignUp?.status === 'missing_requirements') {
-        appleSignUpRef.current = activeSignUp;
-        const missing = (activeSignUp.missingFields ?? []).map((f) => String(f));
-        setAppleMissingFields(missing);
-
-        const needsName =
-          missing.includes('first_name') || missing.includes('last_name');
-
-        if (!needsName) {
-          const err = await finishAppleSignUp(activeSignUp, {
-            nickname: nick.trim().toLowerCase().replace(/\s+/g, '') || undefined,
-            countryCode: countryCode ?? undefined,
+          const { error: createError } = await signIn.create({
+            strategy,
+            redirectUrl: callbackUrl,
+            actionCompleteRedirectUrl: completeUrl,
           });
-          if (err) {
-            setFormError(err);
-            setStep('apple-continue');
+          if (createError) {
+            setFormError(
+              clerkErrMessage(createError, signInErrors.fields, failMsg)
+            );
+            return;
           }
+
+          const oauthUrl =
+            clerk.client?.signIn?.firstFactorVerification
+              ?.externalVerificationRedirectURL ?? null;
+          if (oauthUrl && typeof window !== 'undefined') {
+            navigatedAway = true;
+            window.location.assign(oauthUrl.toString());
+            return;
+          }
+
+          const { error } = await signIn.sso({
+            strategy,
+            redirectUrl: completeUrl,
+            redirectCallbackUrl: callbackUrl,
+          });
+          if (error) {
+            setFormError(clerkErrMessage(error, signInErrors.fields, failMsg));
+            return;
+          }
+
+          const retryUrl =
+            clerk.client?.signIn?.firstFactorVerification
+              ?.externalVerificationRedirectURL ?? null;
+          if (retryUrl && typeof window !== 'undefined') {
+            navigatedAway = true;
+            window.location.assign(retryUrl.toString());
+            return;
+          }
+
+          setFormError(t('auth.appleRedirectMissing'));
           return;
         }
 
-        setStep('apple-continue');
-        setFormError(null);
-        return;
+        const { createdSessionId, signUp: ssoSignUp } = await startSSOFlow({
+          strategy,
+          unsafeMetadata: {
+            acceptedPrivacyAt: new Date().toISOString(),
+            ...(countryCode ? { countryCode } : {}),
+            ...(nick.trim().length >= 3
+              ? { nickname: nick.trim().toLowerCase().replace(/\s+/g, '') }
+              : {}),
+          },
+        });
+
+        if (createdSessionId) {
+          navigateAfterAuth({
+            session: null,
+            decorateUrl: (url) => url,
+          });
+          return;
+        }
+
+        const activeSignUp = ssoSignUp ?? signUp;
+        if (activeSignUp?.status === 'missing_requirements') {
+          appleSignUpRef.current = activeSignUp;
+          const missing = (activeSignUp.missingFields ?? []).map((f) =>
+            String(f)
+          );
+          setAppleMissingFields(missing);
+
+          const needsName =
+            missing.includes('first_name') || missing.includes('last_name');
+
+          if (!needsName) {
+            const err = await finishAppleSignUp(activeSignUp, {
+              nickname:
+                nick.trim().toLowerCase().replace(/\s+/g, '') || undefined,
+              countryCode: countryCode ?? undefined,
+            });
+            if (err) {
+              setFormError(err);
+              setStep('apple-continue');
+            }
+            return;
+          }
+
+          setStep('apple-continue');
+          setFormError(null);
+          return;
+        }
+      } catch (err) {
+        setFormError(clerkErrMessage(err, null, failMsg));
+      } finally {
+        if (!navigatedAway) {
+          setOauthBusy(false);
+        }
       }
-    } catch (err) {
-      setFormError(clerkErrMessage(err, null, t('auth.appleFail')));
-    } finally {
-      if (!navigatedAway) {
-        setAppleBusy(false);
-      }
-    }
-  }, [
-    acceptedLegal,
-    authLoaded,
-    clerk,
-    countryCode,
-    t,
-    startSSOFlow,
-    navigateAfterAuth,
-    signUp,
-    signIn,
-    signInErrors.fields,
-    finishAppleSignUp,
-    nick,
-  ]);
+    },
+    [
+      acceptedLegal,
+      authLoaded,
+      clerk,
+      countryCode,
+      t,
+      startSSOFlow,
+      navigateAfterAuth,
+      signUp,
+      signIn,
+      signInErrors.fields,
+      finishAppleSignUp,
+      nick,
+    ]
+  );
 
   const onCompleteAppleProfile = useCallback(async () => {
     setFormError(null);
@@ -523,7 +543,7 @@ function BioBlixSignInForm() {
       return;
     }
 
-    setAppleBusy(true);
+    setOauthBusy(true);
     try {
       const err = await finishAppleSignUp(active, {
         first: needsName ? first : undefined,
@@ -536,7 +556,7 @@ function BioBlixSignInForm() {
     } catch (err) {
       setFormError(clerkErrMessage(err, null));
     } finally {
-      setAppleBusy(false);
+      setOauthBusy(false);
     }
   }, [
     firstName,
@@ -967,22 +987,37 @@ function BioBlixSignInForm() {
               ) : null}
 
               <Pressable
-                disabled={appleBusy}
-                onPress={() => void onAppleSignIn()}
+                disabled={oauthBusy}
+                onPress={() => void onOAuthSignIn('oauth_apple')}
                 style={[
                   styles.appleBtn,
-                  appleBusy && styles.appleBtnDisabled,
+                  oauthBusy && styles.appleBtnDisabled,
                 ]}
                 accessibilityRole="button"
                 accessibilityLabel={t('auth.continueApple')}
               >
-                {appleBusy ? (
+                {oauthBusy ? (
                   <ActivityIndicator color={BioBlixPalette.fog} />
                 ) : (
                   <BioBlixText variant="label" color={BioBlixPalette.fog}>
                     {t('auth.continueApple')}
                   </BioBlixText>
                 )}
+              </Pressable>
+
+              <Pressable
+                disabled={oauthBusy}
+                onPress={() => void onOAuthSignIn('oauth_google')}
+                style={[
+                  styles.googleBtn,
+                  oauthBusy && styles.appleBtnDisabled,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel={t('auth.continueGoogle')}
+              >
+                <BioBlixText variant="label" color={BioBlixPalette.night}>
+                  {t('auth.continueGoogle')}
+                </BioBlixText>
               </Pressable>
 
               <View style={styles.orRow}>
@@ -1102,7 +1137,7 @@ function BioBlixSignInForm() {
                   mode === 'sign-up' ? t('auth.createAccount') : t('auth.signIn')
                 }
                 disabled={!canSubmit}
-                loading={busy && !appleBusy}
+                loading={busy && !oauthBusy}
                 onPress={() =>
                   void (mode === 'sign-up' ? onCreateAccount() : onSignIn())
                 }
@@ -1184,7 +1219,7 @@ function BioBlixSignInForm() {
               <BioBlixGradientButton
                 label={t('auth.completeContinue')}
                 disabled={busy}
-                loading={appleBusy}
+                loading={oauthBusy}
                 onPress={() => void onCompleteAppleProfile()}
                 style={styles.cta}
               />
@@ -1379,6 +1414,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: BioBlixPalette.hairline,
     backgroundColor: '#000000',
+    paddingHorizontal: 16,
+    ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as object) : {}),
+  },
+  googleBtn: {
+    marginTop: BioBlixSpacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+    borderRadius: BioBlixRadii.md,
+    borderWidth: 1,
+    borderColor: BioBlixPalette.hairline,
+    backgroundColor: BioBlixPalette.ice,
     paddingHorizontal: 16,
     ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as object) : {}),
   },

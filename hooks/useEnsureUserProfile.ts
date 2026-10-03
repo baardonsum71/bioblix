@@ -1,5 +1,6 @@
 import { useAuth, useUser } from '@clerk/expo';
 import { useEffect, useRef, useState } from 'react';
+import { Platform } from 'react-native';
 
 import { ensureOwnerProAccess } from '@/lib/clerk/ensureOwnerPro';
 import {
@@ -45,10 +46,39 @@ export function useEnsureUserProfile() {
           user.primaryEmailAddress?.emailAddress ??
           user.emailAddresses[0]?.emailAddress ??
           '';
-        const nickname =
+        const nicknameMeta =
           typeof user.unsafeMetadata?.nickname === 'string'
             ? user.unsafeMetadata.nickname.trim()
             : '';
+        let claimedNick = '';
+        if (
+          typeof sessionStorage !== 'undefined' &&
+          Platform.OS === 'web'
+        ) {
+          claimedNick = (sessionStorage.getItem('bioblix_claim_nick') ?? '')
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9_]/g, '');
+        }
+        const nickname = nicknameMeta || claimedNick;
+        if (claimedNick && claimedNick !== nicknameMeta) {
+          try {
+            await user.update({
+              unsafeMetadata: {
+                ...(typeof user.unsafeMetadata === 'object' &&
+                user.unsafeMetadata
+                  ? user.unsafeMetadata
+                  : {}),
+                nickname: claimedNick,
+              },
+            });
+          } catch {
+            /* best-effort */
+          }
+          if (typeof sessionStorage !== 'undefined') {
+            sessionStorage.removeItem('bioblix_claim_nick');
+          }
+        }
         const birthDateRaw =
           typeof user.unsafeMetadata?.birthDate === 'string'
             ? user.unsafeMetadata.birthDate.trim()
