@@ -1,6 +1,7 @@
 import { Platform, Share } from 'react-native';
 
 import { getApiBaseUrl } from '@/lib/apiBase';
+import { isValidHandle, sanitizeHandle } from '@/lib/validation/handle';
 
 function originBase(): string {
   const base =
@@ -9,8 +10,15 @@ function originBase(): string {
   return base.replace(/\/$/, '') || 'https://www.bioblix.com';
 }
 
-/** Absolute public profile URL for sharing. */
-export function profileShareUrl(userId: string): string {
+/**
+ * Absolute public profile URL for sharing.
+ * Prefer vanity bioblix.com/{handle} when displayName is a valid handle.
+ */
+export function profileShareUrl(userId: string, handle?: string | null): string {
+  const nick = handle ? sanitizeHandle(handle) : '';
+  if (nick && isValidHandle(nick)) {
+    return `${originBase()}/${encodeURIComponent(nick)}`;
+  }
   return `${originBase()}/u/${encodeURIComponent(userId)}`;
 }
 
@@ -55,7 +63,7 @@ export async function shareProfile(params: {
   /** Localized share text, e.g. from t('share.checkOut', { name }). */
   message?: string;
 }): Promise<void> {
-  const url = profileShareUrl(params.userId);
+  const url = profileShareUrl(params.userId, params.displayName);
   const message =
     params.message ?? `Check out ${params.displayName} on BioBlix`;
   await shareUrl({ url, title: 'BioBlix', message });

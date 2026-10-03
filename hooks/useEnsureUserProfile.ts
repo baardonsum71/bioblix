@@ -8,7 +8,12 @@ import {
   syncFirebaseAuthFromClerk,
 } from '@/lib/clerk/firebaseSession';
 import { useI18n } from '@/lib/i18n';
+import { isValidHandle, sanitizeHandle } from '@/lib/validation/handle';
 import { claimSignupCoins } from '@/services/coins';
+import {
+  UsernameTakenError,
+  claimUsername,
+} from '@/services/usernames';
 import { upsertUser } from '@/services/users';
 
 /**
@@ -55,13 +60,13 @@ export function useEnsureUserProfile() {
           typeof sessionStorage !== 'undefined' &&
           Platform.OS === 'web'
         ) {
-          claimedNick = (sessionStorage.getItem('bioblix_claim_nick') ?? '')
-            .trim()
-            .toLowerCase()
-            .replace(/[^a-z0-9_]/g, '');
+          claimedNick = sanitizeHandle(
+            sessionStorage.getItem('bioblix_claim_nick') ?? ''
+          );
         }
-        const nickname = nicknameMeta || claimedNick;
-        if (claimedNick && claimedNick !== nicknameMeta) {
+        const nicknameMetaClean = sanitizeHandle(nicknameMeta);
+        const nickname = nicknameMetaClean || claimedNick;
+        if (claimedNick && claimedNick !== nicknameMetaClean) {
           try {
             await user.update({
               unsafeMetadata: {
@@ -87,12 +92,27 @@ export function useEnsureUserProfile() {
           typeof user.unsafeMetadata?.countryCode === 'string'
             ? user.unsafeMetadata.countryCode.trim().toUpperCase()
             : '';
-        const displayName =
+        // Lock vanity handle only when the user claimed one (landing / registrer).
+        let displayName =
           nickname ||
           user.username ||
           user.fullName?.trim() ||
           email.split('@')[0] ||
           'BioBlix-bruker';
+
+        if (nickname && isValidHandle(nickname)) {
+          try {
+            displayName = await claimUsername(userId, nickname);
+          } catch (claimErr) {
+            if (claimErr instanceof UsernameTakenError) {
+              // Account still created; unique fallback so signup never hard-fails.
+              const fallback = `u${userId.replace(/[^a-z0-9]/gi, '').slice(-10).toLowerCase()}`;
+              displayName = await claimUsername(userId, fallback);
+            } else {
+              throw claimErr;
+            }
+          }
+        }
 
         await upsertUser(userId, {
           clerkId: userId,

@@ -53,6 +53,24 @@ service cloud.firestore {
         );
     }
 
+    /**
+     * Vanity handle lock: doc id = handle (e.g. usernames/gamingper).
+     * Create-once — prevents two accounts claiming the same BioBlix URL.
+     */
+    match /usernames/{username} {
+      allow read: if true;
+
+      allow create: if signedIn()
+        && !exists(/databases/$(database)/documents/usernames/$(username))
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasAll(['uid', 'createdAt'])
+        && username.size() >= 3
+        && username.size() <= 24
+        && username.matches('^[a-z0-9][a-z0-9_.-]*[a-z0-9]$');
+
+      allow update, delete: if false;
+    }
+
     match /users/{userId} {
       allow read: if true;
 

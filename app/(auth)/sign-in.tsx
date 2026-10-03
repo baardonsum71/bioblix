@@ -13,6 +13,8 @@ import {
   View,
 } from 'react-native';
 
+import { LinearGradient } from 'expo-linear-gradient';
+
 import { BioBlixText } from '@/components/bioblix/BioBlixText';
 import {
   BioBlixGradientButton,
@@ -22,6 +24,7 @@ import {
 import { isClerkConfigured } from '@/components/bioblix/BioBlixProviders';
 import { BioBlixProgressBar } from '@/components/bioblix/BioBlixProgressBar';
 import {
+  BioBlixGlow,
   BioBlixPalette,
   BioBlixRadii,
   BioBlixSpacing,
@@ -34,6 +37,7 @@ import {
 import { useI18n } from '@/lib/i18n';
 import { isAllowedCountry } from '@/lib/i18n/countries';
 import { MIN_AGE, isAtLeastAge } from '@/lib/validation/age';
+import { sanitizeHandle } from '@/lib/validation/handle';
 
 /** Bump when auth flow changes — visible on screen to confirm Vercel build. */
 const AUTH_BUILD = 'auth-v20-apple-force-create';
@@ -110,9 +114,14 @@ function Field({
 
 function BioBlixSignInForm() {
   const router = useRouter();
-  const { reason: reasonParam, nick: nickParam } = useLocalSearchParams<{
+  const {
+    reason: reasonParam,
+    nick: nickParam,
+    username: usernameParam,
+  } = useLocalSearchParams<{
     reason?: string;
     nick?: string;
+    username?: string;
   }>();
   const signInReason = isSignInReason(reasonParam) ? reasonParam : null;
   const { isLoaded: authLoaded, isSignedIn } = useAuth();
@@ -143,13 +152,22 @@ function BioBlixSignInForm() {
   const appleSignUpRef = useRef<typeof signUp | null>(null);
 
   useEffect(() => {
-    const raw = typeof nickParam === 'string' ? nickParam : '';
-    const cleaned = raw.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+    // Landing /registrer?username=… (or ?nick=…) → prefill claimed handle.
+    const raw =
+      typeof usernameParam === 'string' && usernameParam
+        ? usernameParam
+        : typeof nickParam === 'string'
+          ? nickParam
+          : '';
+    const cleaned = sanitizeHandle(raw);
     if (cleaned.length >= 3) {
       setNick(cleaned);
       setMode('sign-up');
+      if (Platform.OS === 'web' && typeof sessionStorage !== 'undefined') {
+        sessionStorage.setItem('bioblix_claim_nick', cleaned);
+      }
     }
-  }, [nickParam]);
+  }, [nickParam, usernameParam]);
 
   const busy =
     oauthBusy ||
@@ -365,7 +383,7 @@ function BioBlixSignInForm() {
       let navigatedAway = false;
       const failMsg =
         strategy === 'oauth_google' ? t('auth.googleFail') : t('auth.appleFail');
-      const claimedNick = nick.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+      const claimedNick = sanitizeHandle(nick);
       try {
         if (
           claimedNick.length >= 3 &&
@@ -576,7 +594,7 @@ function BioBlixSignInForm() {
     if (!requireLegal()) return;
 
     const emailAddress = email.trim().toLowerCase();
-    const username = nick.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+    const username = sanitizeHandle(nick);
     const first = firstName.trim() || username.slice(0, 24);
     const last = lastName.trim() || 'BioBlix';
 
@@ -847,10 +865,22 @@ function BioBlixSignInForm() {
     return <Redirect href="/onboarding" />;
   }
 
-  const claimedNick = nick.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+  const claimedNick = sanitizeHandle(nick);
+
+  const claimFlow =
+    mode === 'sign-up' && claimedNick.length >= 3 && step === 'form';
 
   return (
     <BioBlixScreenShell>
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <LinearGradient
+          colors={['rgba(123,44,191,0.18)', BioBlixPalette.night, 'rgba(0,245,212,0.12)']}
+          locations={[0, 0.45, 1]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+      </View>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -859,20 +889,32 @@ function BioBlixSignInForm() {
           contentContainerStyle={styles.container}
           keyboardShouldPersistTaps="handled"
         >
+          <View style={styles.registerCard}>
           {mode === 'sign-up' && step === 'form' ? (
             <BioBlixProgressBar step={2} />
           ) : null}
-          <BioBlixLogo variant="wordmark" size={108} style={styles.logo} />
-          <BioBlixText variant="display">
+          <BioBlixLogo variant="wordmark" size={72} style={styles.logo} />
+          <BioBlixText variant="title" style={styles.headline}>
             {step === 'verify'
               ? t('auth.verifyEmailTitle')
               : step === 'apple-continue'
                 ? t('auth.appleCompleteTitle')
-                : mode === 'sign-up'
-                  ? t('auth.createFreeAccount')
-                  : t('auth.signIn')}
+                : claimFlow
+                  ? t('auth.secureProfile')
+                  : mode === 'sign-up'
+                    ? t('auth.createFreeAccount')
+                    : t('auth.signIn')}
           </BioBlixText>
-          <BioBlixText variant="body" color={BioBlixPalette.muted} style={styles.copy}>
+          {claimFlow ? (
+            <BioBlixText
+              variant="title"
+              color={BioBlixPalette.aurora}
+              style={styles.handleHighlight}
+            >
+              ://bioblix.com/{claimedNick}
+            </BioBlixText>
+          ) : null}
+          <BioBlixText variant="caption" color={BioBlixPalette.muted} style={styles.copy}>
             {step === 'verify'
               ? t('auth.codeSent')
               : step === 'apple-continue'
@@ -881,19 +923,14 @@ function BioBlixSignInForm() {
                     )
                   ? t('auth.appleNameMissing')
                   : t('auth.appleOneStep')
-                : signInReason
-                  ? t(signInReasonBodyKey(signInReason))
-                  : mode === 'sign-up'
-                    ? t('auth.signUpHint')
-                    : t('auth.signInHint')}
+                : claimFlow
+                  ? t('auth.registerSubtitle')
+                  : signInReason
+                    ? t(signInReasonBodyKey(signInReason))
+                    : mode === 'sign-up'
+                      ? t('auth.signUpHint')
+                      : t('auth.signInHint')}
           </BioBlixText>
-          {mode === 'sign-up' && claimedNick.length >= 3 && step === 'form' ? (
-            <View style={styles.claimedChip}>
-              <BioBlixText variant="caption" color={BioBlixPalette.aurora}>
-                bioblix.com/{claimedNick}
-              </BioBlixText>
-            </View>
-          ) : null}
 
           <View nativeID="clerk-captcha" />
 
@@ -1301,11 +1338,20 @@ function BioBlixSignInForm() {
           <BioBlixText variant="caption" color={BioBlixPalette.muted} style={styles.build}>
             {AUTH_BUILD}
           </BioBlixText>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </BioBlixScreenShell>
   );
 }
+
+const glassCard =
+  Platform.OS === 'web'
+    ? ({
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+      } as object)
+    : {};
 
 const styles = StyleSheet.create({
   flex: {
@@ -1314,26 +1360,42 @@ const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
     justifyContent: 'center',
-    padding: 28,
+    alignItems: 'center',
+    padding: 20,
     paddingVertical: 48,
+  },
+  registerCard: {
+    width: '100%',
+    maxWidth: 480,
     gap: 12,
+    backgroundColor: 'rgba(22, 27, 38, 0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 24,
+    paddingHorizontal: 30,
+    paddingVertical: 36,
+    shadowColor: '#000',
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 10,
+    ...glassCard,
   },
   logo: {
     marginBottom: 4,
+    alignSelf: 'center',
   },
-  claimedChip: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: BioBlixRadii.sm,
-    borderWidth: 1,
-    borderColor: BioBlixPalette.aurora,
-    backgroundColor: BioBlixPalette.panel,
-    marginBottom: 4,
+  headline: {
+    textAlign: 'center',
+    letterSpacing: -0.4,
+  },
+  handleHighlight: {
+    textAlign: 'center',
+    marginTop: -4,
   },
   copy: {
-    maxWidth: 400,
-    marginBottom: 4,
+    textAlign: 'center',
+    marginBottom: 8,
   },
   modeRow: {
     flexDirection: 'row',
@@ -1346,7 +1408,7 @@ const styles = StyleSheet.create({
     borderRadius: BioBlixRadii.pill,
     borderWidth: 1,
     borderColor: BioBlixPalette.hairline,
-    backgroundColor: BioBlixPalette.panel,
+    backgroundColor: 'rgba(11, 15, 25, 0.8)',
   },
   modeChipActive: {
     backgroundColor: BioBlixPalette.cyan,
@@ -1356,15 +1418,16 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   input: {
-    backgroundColor: BioBlixPalette.panel,
+    backgroundColor: 'rgba(11, 15, 25, 0.8)',
     borderWidth: 1,
-    borderColor: BioBlixPalette.hairline,
-    borderRadius: BioBlixRadii.md,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    color: BioBlixPalette.fog,
+    color: BioBlixPalette.ice,
     fontFamily: 'PlusJakartaSans_400Regular',
     fontSize: 16,
+    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : {}),
   },
   passwordRow: {
     position: 'relative',
@@ -1416,15 +1479,16 @@ const styles = StyleSheet.create({
   },
   cta: {
     marginTop: BioBlixSpacing.sm,
+    ...BioBlixGlow.cta,
   },
   appleBtn: {
     marginTop: BioBlixSpacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 48,
-    borderRadius: BioBlixRadii.md,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: BioBlixPalette.hairline,
+    borderColor: 'rgba(255,255,255,0.12)',
     backgroundColor: '#000000',
     paddingHorizontal: 16,
     ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as object) : {}),
@@ -1434,9 +1498,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 48,
-    borderRadius: BioBlixRadii.md,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: BioBlixPalette.hairline,
+    borderColor: 'rgba(255,255,255,0.12)',
     backgroundColor: BioBlixPalette.ice,
     paddingHorizontal: 16,
     ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as object) : {}),

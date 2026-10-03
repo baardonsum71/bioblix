@@ -1,3 +1,4 @@
+import { useAuth } from '@clerk/expo';
 import { Tabs } from 'expo-router';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,12 +17,15 @@ function TabIcon({ focused }: { focused: boolean }) {
 }
 
 export default function BioBlixTabLayout() {
+  const { isSignedIn } = useAuth();
   const tab = BioBlixTheme.components.tabBar;
   const insets = useSafeAreaInsets();
   const { t } = useI18n();
   // Extra padding for iPhone home indicator + mobile browser chrome.
   const bottomPad = Math.max(insets.bottom, 12) + 8;
   const tabBarHeight = 52 + bottomPad;
+  // Guests see the marketing landing full-bleed — no Publish/Account chrome.
+  const hideTabBar = !isSignedIn;
 
   return (
     <Tabs
@@ -29,20 +33,24 @@ export default function BioBlixTabLayout() {
         headerShown: false,
         tabBarActiveTintColor: tab.active,
         tabBarInactiveTintColor: tab.inactive,
-        tabBarStyle: {
-          backgroundColor: tab.background,
-          borderTopColor: tab.border,
-          borderTopWidth: 1,
-          height: tabBarHeight,
-          paddingBottom: bottomPad,
-          paddingTop: 8,
-        },
-        tabBarLabelStyle: {
-          fontFamily: 'PlusJakartaSans_700Bold',
-          fontSize: 11,
-          letterSpacing: 0.5,
-          marginBottom: 2,
-        },
+        tabBarStyle: hideTabBar
+          ? { display: 'none' }
+          : {
+              backgroundColor: tab.background,
+              borderTopColor: tab.border,
+              borderTopWidth: 1,
+              height: tabBarHeight,
+              paddingBottom: bottomPad,
+              paddingTop: 8,
+            },
+        tabBarLabelStyle: hideTabBar
+          ? undefined
+          : {
+              fontFamily: 'PlusJakartaSans_700Bold',
+              fontSize: 11,
+              letterSpacing: 0.5,
+              marginBottom: 2,
+            },
         tabBarItemStyle: {
           paddingTop: 2,
         },

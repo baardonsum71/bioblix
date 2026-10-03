@@ -40,6 +40,21 @@ function RootStack() {
         options={{ headerShown: false }}
       />
       <Stack.Screen
+        name="registrer"
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="profil"
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="[handle]"
+        options={{
+          title: t('nav.profile'),
+          headerBackTitle: t('nav.back'),
+        }}
+      />
+      <Stack.Screen
         name="privacy"
         options={{
           title: t('nav.privacy'),

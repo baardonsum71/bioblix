@@ -30,6 +30,7 @@ import {
 import { Colors } from '@/constants/Colors';
 import { useI18n } from '@/lib/i18n';
 import type { MessageKey } from '@/lib/i18n/dictionaries';
+import { sanitizeHandle } from '@/lib/validation/handle';
 import { isUsernameAvailable } from '@/services/users';
 
 type PersonaId = 'influencer' | 'gamer' | 'student' | 'business';
@@ -316,7 +317,7 @@ function ClaimBox({
   const checkGen = useRef(0);
 
   useEffect(() => {
-    const nick = handle.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+    const nick = sanitizeHandle(handle);
     if (nick.length < 3) {
       setAvailability(nick.length === 0 ? 'idle' : 'invalid');
       return;
@@ -359,7 +360,7 @@ function ClaimBox({
           <TextInput
             ref={inputRef}
             value={handle}
-            onChangeText={(v) => setHandle(v.replace(/\s+/g, '').toLowerCase())}
+            onChangeText={(v) => setHandle(sanitizeHandle(v))}
             placeholder={t('landing.handlePlaceholder')}
             placeholderTextColor="#475569"
             autoCapitalize="none"
@@ -440,7 +441,7 @@ export function BioBlixLandingHero({
   const active = PERSONAS.find((p) => p.id === persona) ?? PERSONAS[0];
 
   const claim = async () => {
-    const nick = handle.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+    const nick = sanitizeHandle(handle);
     if (nick.length < 3) {
       setError(t('landing.handleShort'));
       return;
@@ -458,8 +459,9 @@ export function BioBlixLandingHero({
     if (Platform.OS === 'web' && typeof sessionStorage !== 'undefined') {
       sessionStorage.setItem('bioblix_claim_nick', nick);
     }
+    // Pretty funnel URL → /registrer?username=… → Clerk sign-up
     router.push(
-      `/(auth)/sign-in?reason=publish&nick=${encodeURIComponent(nick)}` as Href
+      `/registrer?username=${encodeURIComponent(nick)}` as Href
     );
   };
 

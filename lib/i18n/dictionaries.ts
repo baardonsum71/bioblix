@@ -136,6 +136,17 @@ export type MessageKey =
   | 'profile.madeWithShoppable'
   | 'profile.madeWithCta'
   | 'profile.pinnedLinks'
+  | 'profile.welcomeEveryday'
+  | 'profile.adminTitle'
+  | 'profile.publishLink'
+  | 'profile.publishLinkCta'
+  | 'profile.publishBlix'
+  | 'profile.publishBlixHint'
+  | 'profile.publishBlixCta'
+  | 'profile.linkPublished'
+  | 'profile.everydayHeading'
+  | 'profile.linkTag'
+  | 'profile.noLinksPublic'
   | 'profile.tabLinks'
   | 'profile.tabBlix'
   | 'profile.invalid'
@@ -332,6 +343,9 @@ export type MessageKey =
   | 'onboarding.audience.student'
   | 'onboarding.audience.business'
   | 'auth.createFreeAccount'
+  | 'auth.finishForHandle'
+  | 'auth.secureProfile'
+  | 'auth.registerSubtitle'
   | 'auth.signUpHint'
   | 'auth.emailPlaceholder'
   | 'landing.step1Title'
@@ -535,6 +549,17 @@ export const en: Dictionary = {
   'profile.madeWithShoppable': 'Want clickable photos too?',
   'profile.madeWithCta': 'Create your BioBlix — free',
   'profile.pinnedLinks': 'Pinned links',
+  'profile.welcomeEveryday': 'Welcome to my everyday',
+  'profile.adminTitle': 'Control panel (only visible to you)',
+  'profile.publishLink': 'Publish a new link',
+  'profile.publishLinkCta': 'Publish link',
+  'profile.publishBlix': 'Share a Blix (photo + link)',
+  'profile.publishBlixHint': 'Upload a photo or video and add an optional shop link.',
+  'profile.publishBlixCta': 'Post a Blix',
+  'profile.linkPublished': 'Link published.',
+  'profile.everydayHeading': 'Everyday (Blixes)',
+  'profile.linkTag': 'Link',
+  'profile.noLinksPublic': 'No links yet.',
   'profile.tabLinks': 'Links',
   'profile.tabBlix': 'Blix ({count})',
   'profile.invalid': 'Invalid profile',
@@ -743,6 +768,9 @@ export const en: Dictionary = {
   'onboarding.audience.student': 'Student / Personal',
   'onboarding.audience.business': 'Business / Brand',
   'auth.createFreeAccount': 'Create free account',
+  'auth.finishForHandle': 'Finish registration for',
+  'auth.secureProfile': 'Claim your profile:',
+  'auth.registerSubtitle': 'One step left before your visual bio-link is ready.',
   'auth.signUpHint': 'Continue with Google or Apple — or email. Completely free.',
   'auth.emailPlaceholder': 'you@email.com',
   'landing.howHeading': 'How it works',
@@ -953,6 +981,17 @@ export const nb: Dictionary = {
   'profile.madeWithShoppable': 'Vil du også ha klikkbare bilder?',
   'profile.madeWithCta': 'Lag din BioBlix — gratis',
   'profile.pinnedLinks': 'Festede lenker',
+  'profile.welcomeEveryday': 'Velkommen til min hverdag',
+  'profile.adminTitle': 'Kontrollpanel (kun synlig for deg)',
+  'profile.publishLink': 'Publish en ny lenke',
+  'profile.publishLinkCta': 'Publish Link',
+  'profile.publishBlix': 'Del en Blix (bilde + link)',
+  'profile.publishBlixHint': 'Last opp bilde eller video og legg til valgfri butikklenke.',
+  'profile.publishBlixCta': 'Legg ut Blix',
+  'profile.linkPublished': 'Lenke publisert.',
+  'profile.everydayHeading': 'Hverdagen (Blixes)',
+  'profile.linkTag': 'Link',
+  'profile.noLinksPublic': 'Ingen lenker ennå.',
   'profile.tabLinks': 'Lenker',
   'profile.tabBlix': 'Blix ({count})',
   'profile.invalid': 'Ugyldig profil',
@@ -1165,6 +1204,9 @@ export const nb: Dictionary = {
   'onboarding.audience.student': 'Student / Personlig',
   'onboarding.audience.business': 'Bedrift / Merkevare',
   'auth.createFreeAccount': 'Opprett gratis konto',
+  'auth.finishForHandle': 'Fullfør registreringen for',
+  'auth.secureProfile': 'Sikre din profil:',
+  'auth.registerSubtitle': 'Bare ett steg igjen før din visuelle bio-link er klar.',
   'auth.signUpHint': 'Fortsett med Google eller Apple — eller e-post. Helt gratis.',
   'auth.emailPlaceholder': 'eksempel@epost.no',
   'landing.howHeading': 'Slik fungerer det',

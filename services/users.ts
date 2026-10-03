@@ -17,7 +17,11 @@ import {
 
 import type { CreateUserInput, UpdateUserInput, User } from '@/types';
 import { COLLECTIONS, db } from '@/lib/firebase';
+import { isValidHandle, sanitizeHandle } from '@/lib/validation/handle';
 import { parseProfileLinks } from '@/lib/validation/profileLink';
+import { getUidForHandle } from '@/services/usernames';
+
+export { isUsernameAvailable } from '@/services/usernames';
 
 function usersRef() {
   return collection(db, COLLECTIONS.users);
@@ -76,16 +80,19 @@ function mapUser(id: string, data: DocumentData): User {
   };
 }
 
-/**
- * True when no existing profile uses this handle as displayName
- * (handles are stored lowercase).
- */
-export async function isUsernameAvailable(username: string): Promise<boolean> {
-  const nick = username.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
-  if (nick.length < 3) return false;
+/** Resolve a public handle via `usernames/{handle}` → `users/{uid}`. */
+export async function getUserByHandle(handle: string): Promise<User | null> {
+  const nick = sanitizeHandle(handle);
+  if (!isValidHandle(nick)) return null;
+  const uid = await getUidForHandle(nick);
+  if (uid) {
+    return getUserById(uid);
+  }
+  // Legacy fallback: older profiles before usernames collection.
   const q = query(usersRef(), where('displayName', '==', nick), limit(1));
   const snap = await getDocs(q);
-  return snap.empty;
+  if (snap.empty) return null;
+  return mapUser(snap.docs[0].id, snap.docs[0].data());
 }
 
 /** Create or overwrite a user profile (doc id = Clerk user id). */

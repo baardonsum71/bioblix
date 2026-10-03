@@ -8,19 +8,28 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  TextInput,
   useWindowDimensions,
   View,
 } from 'react-native';
 
 import { confirmAndOpenBioBlixLink } from '@/components/bioblix/bioBlixLinks';
 import { BioBlixText } from '@/components/bioblix/BioBlixText';
-import { BioBlixProfileLinks } from '@/components/bioblix/BioBlixProfileLinks';
 import { BioBlixScreenShell } from '@/components/bioblix/BioBlixLogo';
-import { BioBlixGlow, BioBlixRadii } from '@/constants/bioblixTheme';
+import {
+  BioBlixGlow,
+  BioBlixPalette,
+  BioBlixRadii,
+} from '@/constants/bioblixTheme';
 import { Colors } from '@/constants/Colors';
 import { signInHref } from '@/lib/auth/signInGate';
 import { useI18n } from '@/lib/i18n';
 import { notify } from '@/lib/platform';
+import { isValidHandle, sanitizeHandle } from '@/lib/validation/handle';
+import {
+  newProfileLinkId,
+  validateProfileLinkInput,
+} from '@/lib/validation/profileLink';
 import { shareProfile } from '@/lib/shareProfile';
 import {
   countFollowers,
@@ -30,17 +39,15 @@ import {
   unfollowUser,
 } from '@/services/follows';
 import { listPostsByUser } from '@/services/posts';
-import { getUserById } from '@/services/users';
-import type { Post, User } from '@/types';
+import { getUserById, updateUser } from '@/services/users';
+import type { Post, ProfileLink, User } from '@/types';
 
-type ProfileTab = 'links' | 'blix';
-
-const PINNED_MAX = 5;
-const GRID_GAP = 2;
-const GRID_COLS = 3;
+const GRID_GAP = 12;
+const GRID_COLS = 2;
 
 /**
- * Mobile-first public profile: pinned top links + Instagram-style shoppable grid.
+ * Public BioBlix profile — links + shoppable blix grid.
+ * Owner sees an admin panel (add link / publish blix). Visitors only see content.
  */
 export default function PublicProfileScreen() {
   const { userId: rawId } = useLocalSearchParams<{ userId: string }>();
@@ -57,10 +64,12 @@ export default function PublicProfileScreen() {
   const [followingThem, setFollowingThem] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [tab, setTab] = useState<ProfileTab>('blix');
+  const [linkTitle, setLinkTitle] = useState('');
+  const [linkUrl, setLinkUrl] = useState('');
+  const [linkBusy, setLinkBusy] = useState(false);
 
   const cellSize = useMemo(() => {
-    const contentWidth = Math.min(width, 560) - 40;
+    const contentWidth = Math.min(width, 600) - 40;
     return Math.floor((contentWidth - GRID_GAP * (GRID_COLS - 1)) / GRID_COLS);
   }, [width]);
 
@@ -158,6 +167,50 @@ export default function PublicProfileScreen() {
     }
   };
 
+  const isSelf = Boolean(viewerId && viewerId === userId);
+
+  const onPublishLink = async () => {
+    if (!isSelf || !userId) return;
+    const result = validateProfileLinkInput(linkTitle, linkUrl);
+    if (!result.ok) {
+      notify(
+        t('common.error'),
+        result.message === 'Enter a short label for the link.'
+          ? t('profile.linksTitleRequired')
+          : result.message
+      );
+      return;
+    }
+    const links = profile?.profileLinks ?? [];
+    if (links.length >= 10) {
+      notify(t('common.error'), t('profile.linksMax', { max: 10 }));
+      return;
+    }
+    setLinkBusy(true);
+    try {
+      const next: ProfileLink[] = [
+        ...links,
+        {
+          id: newProfileLinkId(),
+          title: result.link.title,
+          url: result.link.url,
+        },
+      ];
+      await updateUser(userId, { profileLinks: next });
+      setProfile((prev) => (prev ? { ...prev, profileLinks: next } : prev));
+      setLinkTitle('');
+      setLinkUrl('');
+      notify(t('profile.linksTitle'), t('profile.linkPublished'));
+    } catch (err) {
+      notify(
+        t('common.error'),
+        err instanceof Error ? err.message : t('profile.linksSaveFail')
+      );
+    } finally {
+      setLinkBusy(false);
+    }
+  };
+
   if (!userId) {
     return (
       <BioBlixScreenShell style={styles.center}>
@@ -182,9 +235,9 @@ export default function PublicProfileScreen() {
     );
   }
 
-  const isSelf = Boolean(viewerId && viewerId === userId);
+  const handle = sanitizeHandle(profile.displayName);
+  const showHandle = isValidHandle(handle);
   const allLinks = profile.profileLinks ?? [];
-  const pinned = allLinks.slice(0, PINNED_MAX);
 
   return (
     <BioBlixScreenShell style={styles.shell}>
@@ -192,7 +245,7 @@ export default function PublicProfileScreen() {
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.header}>
+        <View style={styles.heroName}>
           {profile.imageUrl ? (
             <Image
               source={{ uri: profile.imageUrl }}
@@ -206,19 +259,37 @@ export default function PublicProfileScreen() {
               </BioBlixText>
             </View>
           )}
-          <View style={styles.headerText}>
-            <BioBlixText variant="title">{profile.displayName}</BioBlixText>
-            <BioBlixText variant="caption" color={Colors.mistDim}>
-              {t('profile.followersFollowing', { followers, following })}
+          {showHandle ? (
+            <View style={styles.handleWrap}>
+              <BioBlixText variant="display" style={styles.handleLine}>
+                ://bioblix.com/
+              </BioBlixText>
+              <BioBlixText
+                variant="display"
+                color={BioBlixPalette.aurora}
+                style={styles.handleLine}
+              >
+                {handle}
+              </BioBlixText>
+            </View>
+          ) : (
+            <BioBlixText variant="display" style={styles.handleLine}>
+              {profile.displayName}
             </BioBlixText>
-          </View>
+          )}
+          <BioBlixText variant="caption" color={BioBlixPalette.muted}>
+            {t('profile.welcomeEveryday')}
+          </BioBlixText>
+          <BioBlixText variant="caption" color={BioBlixPalette.muted}>
+            {t('profile.followersFollowing', { followers, following })}
+          </BioBlixText>
         </View>
 
         <View style={styles.actions}>
           {!isSelf && isSignedIn ? (
             <Pressable
               style={[
-                styles.btn,
+                styles.actionBtn,
                 followingThem ? styles.btnGhost : styles.btnFill,
               ]}
               onPress={() => void onToggleFollow()}
@@ -233,7 +304,7 @@ export default function PublicProfileScreen() {
             </Pressable>
           ) : null}
           <Pressable
-            style={[styles.btn, styles.btnGhost]}
+            style={[styles.actionBtn, styles.btnGhost]}
             onPress={() => void onShare()}
           >
             <BioBlixText variant="label" color={Colors.lime}>
@@ -242,161 +313,182 @@ export default function PublicProfileScreen() {
           </Pressable>
         </View>
 
-        {pinned.length > 0 ? (
-          <View style={styles.pinnedWrap}>
-            <BioBlixText variant="caption" color={Colors.mistDim}>
-              {t('profile.pinnedLinks')}
+        {isSelf ? (
+          <View style={styles.adminPanel}>
+            <BioBlixText variant="label" color={BioBlixPalette.aurora}>
+              {t('profile.adminTitle')}
             </BioBlixText>
-            {pinned.map((link) => (
+
+            <View style={styles.inputGroup}>
+              <BioBlixText variant="label">{t('profile.publishLink')}</BioBlixText>
+              <TextInput
+                value={linkTitle}
+                onChangeText={setLinkTitle}
+                placeholder={t('profile.linksLabelPlaceholder')}
+                placeholderTextColor="#475569"
+                style={styles.input}
+              />
+              <TextInput
+                value={linkUrl}
+                onChangeText={setLinkUrl}
+                placeholder={t('profile.linksUrlPlaceholder')}
+                placeholderTextColor="#475569"
+                autoCapitalize="none"
+                keyboardType="url"
+                style={styles.input}
+              />
               <Pressable
-                key={link.id}
-                style={styles.pinnedLink}
-                onPress={() => confirmAndOpenBioBlixLink(link.url, { locale })}
-                accessibilityRole="link"
-                accessibilityLabel={link.title}
+                style={[styles.ctaBtn, linkBusy && styles.ctaDisabled]}
+                onPress={() => void onPublishLink()}
+                disabled={linkBusy}
               >
-                <BioBlixText variant="label" color={Colors.ink} numberOfLines={1}>
-                  {link.title}
+                <BioBlixText variant="label" color={BioBlixPalette.night}>
+                  {t('profile.publishLinkCta')}
                 </BioBlixText>
               </Pressable>
-            ))}
+            </View>
+
+            <View style={styles.inputGroup}>
+              <BioBlixText variant="label">{t('profile.publishBlix')}</BioBlixText>
+              <BioBlixText variant="caption" color={BioBlixPalette.muted}>
+                {t('profile.publishBlixHint')}
+              </BioBlixText>
+              <Pressable
+                style={[styles.ctaBtn, styles.ctaBlix]}
+                onPress={() => router.push('/(tabs)/create' as Href)}
+              >
+                <BioBlixText variant="label" color={BioBlixPalette.ice}>
+                  {t('profile.publishBlixCta')}
+                </BioBlixText>
+              </Pressable>
+            </View>
           </View>
         ) : null}
 
-        <View style={styles.tabRow}>
-          <Pressable
-            style={[styles.tab, tab === 'blix' && styles.tabActive]}
-            onPress={() => setTab('blix')}
-          >
-            <BioBlixText
-              variant="label"
-              color={tab === 'blix' ? Colors.ink : Colors.mistDim}
-            >
-              {t('profile.tabBlix', { count: posts.length })}
+        <BioBlixText variant="label" style={styles.sectionTitle}>
+          {t('profile.linksTitle')}
+        </BioBlixText>
+        <View style={styles.linksDisplay}>
+          {allLinks.length === 0 ? (
+            <BioBlixText variant="caption" color={BioBlixPalette.muted}>
+              {isSelf ? t('profile.linksEmpty') : t('profile.noLinksPublic')}
             </BioBlixText>
-          </Pressable>
-          <Pressable
-            style={[styles.tab, tab === 'links' && styles.tabActive]}
-            onPress={() => setTab('links')}
-          >
-            <BioBlixText
-              variant="label"
-              color={tab === 'links' ? Colors.ink : Colors.mistDim}
-            >
-              {t('profile.tabLinks')}
-            </BioBlixText>
-          </Pressable>
+          ) : (
+            allLinks.map((link) => (
+              <Pressable
+                key={link.id}
+                style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
+                  styles.linkCard,
+                  (hovered || pressed) && styles.linkCardLive,
+                ]}
+                onPress={() => confirmAndOpenBioBlixLink(link.url, { locale })}
+              >
+                <BioBlixText variant="label" numberOfLines={1}>
+                  {link.title}
+                </BioBlixText>
+              </Pressable>
+            ))
+          )}
         </View>
 
-        {tab === 'links' ? (
-          <View style={styles.linksWrap}>
-            <BioBlixProfileLinks
-              links={allLinks}
-              editableUserId={isSelf ? userId : undefined}
-              onSaved={(next) =>
-                setProfile((prev) =>
-                  prev ? { ...prev, profileLinks: next } : prev
-                )
-              }
-            />
-          </View>
+        <BioBlixText variant="label" style={styles.sectionTitle}>
+          {t('profile.everydayHeading')}
+        </BioBlixText>
+        {posts.length === 0 ? (
+          <BioBlixText variant="caption" color={BioBlixPalette.muted}>
+            {t('profile.noBlix')}
+          </BioBlixText>
         ) : (
-          <View style={styles.gridWrap}>
-            {posts.length === 0 ? (
-              <BioBlixText variant="caption" color={Colors.mistDim}>
-                {t('profile.noBlix')}
-              </BioBlixText>
-            ) : (
-              <View style={styles.grid}>
-                {posts.map((post) => {
-                  const hasLink = Boolean(post.linkUrl?.trim());
-                  return (
-                    <Pressable
-                      key={post.id}
-                      style={[
-                        styles.gridCell,
-                        { width: cellSize, height: cellSize },
-                      ]}
-                      onPress={() =>
-                        router.push(
-                          `/b/${encodeURIComponent(post.id)}` as Href
-                        )
-                      }
-                      accessibilityRole="button"
-                      accessibilityLabel={post.title}
-                    >
-                      <Image
-                        source={{ uri: post.mediaUrl }}
-                        style={styles.gridImage}
-                        contentFit="cover"
-                      />
-                      {hasLink ? (
-                        <View style={styles.linkBadge}>
-                          <BioBlixText variant="caption" color={Colors.ink}>
-                            ↗
-                          </BioBlixText>
-                        </View>
-                      ) : null}
-                    </Pressable>
-                  );
-                })}
-              </View>
-            )}
+          <View style={styles.blixGrid}>
+            {posts.map((post) => {
+              const hasLink = Boolean(post.linkUrl?.trim());
+              return (
+                <Pressable
+                  key={post.id}
+                  style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
+                    styles.blixCard,
+                    hasLink && styles.blixCardShoppable,
+                    { width: cellSize, height: cellSize },
+                    (hovered || pressed) &&
+                      (hasLink ? styles.blixCardLive : styles.blixCardPressed),
+                  ]}
+                  onPress={() => {
+                    if (hasLink) {
+                      confirmAndOpenBioBlixLink(post.linkUrl!.trim(), {
+                        locale,
+                      });
+                    } else {
+                      router.push(
+                        `/b/${encodeURIComponent(post.id)}` as Href
+                      );
+                    }
+                  }}
+                >
+                  <Image
+                    source={{ uri: post.mediaUrl }}
+                    style={styles.blixImage}
+                    contentFit="cover"
+                  />
+                  {hasLink ? (
+                    <View style={[styles.linkTag, BioBlixGlow.linkBadge]}>
+                      <BioBlixText variant="caption" color={BioBlixPalette.night}>
+                        {t('profile.linkTag')}
+                      </BioBlixText>
+                    </View>
+                  ) : null}
+                </Pressable>
+              );
+            })}
           </View>
         )}
 
-        <Link href="/(auth)/sign-in?reason=publish" asChild>
-          <Pressable style={styles.watermark}>
-            <BioBlixText variant="label" color={Colors.lime} style={styles.watermarkTitle}>
-              {t('profile.madeWithShoppable')}
-            </BioBlixText>
-            <BioBlixText variant="caption" color={Colors.mistDim}>
-              {t('profile.madeWithCta')}
-            </BioBlixText>
-          </Pressable>
-        </Link>
+        {!isSelf ? (
+          <Link href="/(auth)/sign-in?reason=publish" asChild>
+            <Pressable style={styles.watermark}>
+              <BioBlixText
+                variant="label"
+                color={Colors.lime}
+                style={styles.watermarkTitle}
+              >
+                {t('profile.madeWithShoppable')}
+              </BioBlixText>
+              <BioBlixText variant="caption" color={Colors.mistDim}>
+                {t('profile.madeWithCta')}
+              </BioBlixText>
+            </Pressable>
+          </Link>
+        ) : null}
       </ScrollView>
     </BioBlixScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
-  shell: {
-    flex: 1,
-    paddingTop: 16,
-  },
+  shell: { flex: 1, paddingTop: 16 },
   scroll: {
+    paddingHorizontal: 20,
     paddingBottom: 48,
-    maxWidth: 560,
+    maxWidth: 600,
     width: '100%',
     alignSelf: 'center',
+    gap: 12,
   },
   center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  header: {
-    flexDirection: 'row',
-    gap: 14,
+  heroName: {
     alignItems: 'center',
-    marginBottom: 16,
-    marginHorizontal: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    borderRadius: BioBlixRadii.md,
-    backgroundColor: 'rgba(22,27,38,0.72)',
-    borderWidth: 1,
-    borderColor: 'rgba(42,51,68,0.8)',
-    ...(Platform.OS === 'web'
-      ? ({ backdropFilter: 'blur(10px)' } as object)
-      : {}),
+    gap: 8,
+    marginBottom: 8,
   },
   avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 88,
+    height: 88,
+    borderRadius: 44,
     backgroundColor: Colors.surface,
+    marginBottom: 4,
   },
   avatarPlaceholder: {
     alignItems: 'center',
@@ -404,103 +496,179 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.surfaceMuted,
   },
-  headerText: {
-    flex: 1,
-    gap: 4,
+  handleWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+  },
+  handleLine: {
+    textAlign: 'center',
+    fontSize: 26,
+    lineHeight: 32,
   },
   actions: {
     flexDirection: 'row',
     gap: 10,
-    marginBottom: 14,
-    paddingHorizontal: 20,
-  },
-  pinnedWrap: {
-    paddingHorizontal: 20,
-    gap: 8,
-    marginBottom: 16,
-  },
-  pinnedLink: {
-    backgroundColor: Colors.lime,
-    borderRadius: BioBlixRadii.md,
-    minHeight: 48,
-    alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 8,
+  },
+  actionBtn: {
     paddingHorizontal: 16,
-  },
-  tabRow: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 20,
-    marginBottom: 14,
-  },
-  tab: {
-    flex: 1,
-    alignItems: 'center',
     paddingVertical: 10,
-    borderRadius: BioBlixRadii.md,
-    borderWidth: 1,
-    borderColor: Colors.surfaceMuted,
-    backgroundColor: Colors.surface,
+    borderRadius: 12,
   },
-  tabActive: {
-    backgroundColor: Colors.lime,
+  btnFill: { backgroundColor: Colors.lime },
+  btnGhost: {
+    borderWidth: 1,
     borderColor: Colors.lime,
   },
-  linksWrap: {
-    paddingHorizontal: 20,
-    marginBottom: 4,
+  adminPanel: {
+    gap: 14,
+    padding: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(22, 27, 38, 0.7)',
+    marginVertical: 8,
+    ...(Platform.OS === 'web'
+      ? ({
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+        } as object)
+      : {}),
   },
-  gridWrap: {
-    paddingHorizontal: 20,
+  inputGroup: {
+    gap: 8,
+    backgroundColor: 'rgba(22, 27, 38, 0.7)',
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    ...(Platform.OS === 'web'
+      ? ({
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+        } as object)
+      : {}),
   },
-  grid: {
+  input: {
+    width: '100%',
+    paddingHorizontal: 12,
+    paddingVertical: Platform.OS === 'web' ? 12 : 10,
+    backgroundColor: '#0B0F19',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 8,
+    color: '#FFFFFF',
+    fontSize: 15,
+    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : {}),
+  },
+  ctaBtn: {
+    backgroundColor: BioBlixPalette.aurora,
+    borderRadius: 12,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+    ...BioBlixGlow.cta,
+  },
+  ctaBlix: {
+    backgroundColor: BioBlixPalette.violet,
+  },
+  ctaDisabled: { opacity: 0.5 },
+  sectionTitle: {
+    marginTop: 16,
+    paddingBottom: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
+  },
+  linksDisplay: { gap: 12 },
+  linkCard: {
+    backgroundColor: 'rgba(22, 27, 38, 0.7)',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    ...(Platform.OS === 'web'
+      ? ({
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          transition:
+            'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s ease',
+          cursor: 'pointer',
+        } as object)
+      : {}),
+  },
+  linkCardLive: {
+    borderColor: BioBlixPalette.aurora,
+    transform: [{ translateY: -4 }, { scale: 1.01 }],
+    shadowColor: BioBlixPalette.aurora,
+    shadowOpacity: 0.35,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 8,
+  },
+  blixGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: GRID_GAP,
   },
-  gridCell: {
-    backgroundColor: Colors.surface,
-    overflow: 'hidden',
+  blixCard: {
     position: 'relative',
+    backgroundColor: '#161B26',
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+    ...(Platform.OS === 'web'
+      ? ({
+          transition: 'transform 0.4s ease, box-shadow 0.4s ease, border-color 0.4s ease',
+          cursor: 'pointer',
+        } as object)
+      : {}),
   },
-  gridImage: {
-    width: '100%',
-    height: '100%',
+  /** Subtle always-on hint that the media is shoppable. */
+  blixCardShoppable: {
+    borderColor: 'rgba(123, 44, 191, 0.55)',
+    shadowColor: BioBlixPalette.violet,
+    shadowOpacity: 0.25,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 4,
   },
-  linkBadge: {
+  blixCardLive: {
+    borderColor: BioBlixPalette.violet,
+    shadowColor: BioBlixPalette.violet,
+    shadowOpacity: 0.55,
+    shadowRadius: 25,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 10,
+    transform: [{ scale: 1.02 }],
+  },
+  blixCardPressed: {
+    opacity: 0.92,
+    transform: [{ scale: 0.98 }],
+  },
+  blixImage: { width: '100%', height: '100%' },
+  linkTag: {
     position: 'absolute',
-    top: 6,
-    right: 6,
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: Colors.lime,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...BioBlixGlow.linkBadge,
+    bottom: 8,
+    right: 8,
+    backgroundColor: BioBlixPalette.aurora,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
   },
   watermark: {
     alignItems: 'center',
     gap: 4,
     paddingVertical: 28,
-    marginTop: 20,
-    marginHorizontal: 20,
+    marginTop: 16,
     borderTopWidth: 1,
     borderTopColor: Colors.surfaceMuted,
   },
-  watermarkTitle: {
-    textAlign: 'center',
-  },
-  btn: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-  },
-  btnFill: {
-    backgroundColor: Colors.lime,
-  },
-  btnGhost: {
-    borderWidth: 1,
-    borderColor: Colors.lime,
-  },
+  watermarkTitle: { textAlign: 'center' },
 });
